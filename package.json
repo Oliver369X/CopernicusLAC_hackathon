@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "docker:infra": "docker compose up postgres minio minio-init -d",
+    "setup": "node scripts/setup.mjs",
+    "docker:infra": "docker compose up postgres minio minio-init -d && node scripts/demo-credentials.mjs",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "build": "next build",

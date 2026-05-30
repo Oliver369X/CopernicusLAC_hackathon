@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthLayout } from '@/components/layout/auth-layout';
+import { DEMO_PASSWORD, DEMO_USERS, SHOW_DEMO_CREDENTIALS } from '@/lib/constants/demo-credentials';
 import { toast } from 'sonner';
 
 export default function LoginPage() {
@@ -91,6 +92,29 @@ export default function LoginPage() {
           )}
         </Button>
       </form>
+
+      {SHOW_DEMO_CREDENTIALS && (
+        <div className="mt-4 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-4 text-sm">
+          <p className="font-medium text-foreground mb-2">Cuentas demo (contraseña: {DEMO_PASSWORD})</p>
+          <ul className="space-y-1.5 text-muted-foreground">
+            {DEMO_USERS.map((u) => (
+              <li key={u.email}>
+                <button
+                  type="button"
+                  className="text-left hover:text-primary transition-colors"
+                  onClick={() => {
+                    setEmail(u.email);
+                    setPassword(DEMO_PASSWORD);
+                  }}
+                >
+                  <span className="font-mono text-xs text-foreground">{u.email}</span>
+                  <span className="ml-2 text-xs">({u.label})</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <p className="text-sm text-muted-foreground mt-6 text-center">
         ¿No tienes cuenta?{' '}

@@ -5,24 +5,68 @@ Plataforma de monitoreo agrícola con datos satelitales **Copernicus** (Sentinel
 ## Stack
 
 - **Frontend:** Next.js 16, React 19, Tailwind v4, shadcn/ui, Recharts, Leaflet
-- **Backend:** Supabase (Postgres, Auth, Storage, Realtime)
+- **Backend:** Postgres + MinIO (Docker) — auth JWT propia, sin Supabase obligatorio
 - **Satélite:** Copernicus Data Space Ecosystem (CDSE) — S2 NDVI/NDMI, S1 radar, S3 LST
 - **Clima:** Open-Meteo (humedad suelo, ET₀)
 - **Incendios:** NASA FIRMS (hotspots VIIRS)
 - **IA:** OpenAI Vision o Mistral Pixtral
-- **Media:** Supabase Storage y/o Cloudinary CDN
+- **Media:** MinIO (local) y/o Cloudinary CDN
 - **Offline:** IndexedDB + Service Worker
 
-## Setup
+## Inicio rápido (local)
 
 ```bash
 pnpm install
-cp .env.local.example .env.local
-# Completa credenciales (ver tabla abajo)
+pnpm setup      # crea .env, levanta Postgres + MinIO, muestra credenciales demo
+pnpm dev        # http://localhost:3000/login
+```
+
+Si ya tienes `.env`, solo infra:
+
+```bash
+pnpm docker:infra   # Postgres (5433) + MinIO (9000) + bucket observations
 pnpm dev
 ```
 
-## Proveedores y credenciales
+Copia manual de variables: `cp .env.local.example .env`
+
+## Usuarios demo
+
+Al ejecutar `pnpm setup` o `pnpm docker:infra` por primera vez, Postgres carga el seed en `docker/postgres/init/02-seed.sql` con **3 usuarios** y datos de ejemplo (organización, campos, zonas, alertas).
+
+| Email | Rol | Uso |
+|-------|-----|-----|
+| `admin@doctorsoya.app` | owner | Acceso completo |
+| `analista@doctorsoya.app` | admin | Gestión y análisis |
+| `campo@doctorsoya.app` | viewer | Solo lectura |
+
+**Contraseña (todos):** `demo123456`
+
+En desarrollo, la pantalla de login muestra estas cuentas si `NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS=true` (viene activado en `.env.local.example`).
+
+## Infraestructura Docker
+
+| Servicio | URL / puerto | Credenciales |
+|----------|--------------|--------------|
+| Postgres | `localhost:5433` | `doctorsoya` / `doctorsoya` — DB: `doctorsoya` |
+| MinIO API | `http://localhost:9000` | `minioadmin` / `minioadmin` |
+| MinIO consola | `http://localhost:9001` | mismo usuario |
+| Bucket fotos | `observations` | creado automáticamente |
+
+> Postgres usa el puerto **5433** en el host para no chocar con una instalación local en el 5432.
+
+Variables clave en `.env`:
+
+```env
+DATABASE_URL=postgresql://doctorsoya:doctorsoya@localhost:5433/doctorsoya
+AUTH_SECRET=change-me-in-production
+NEXT_PUBLIC_AUTH_ENABLED=true
+NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS=true
+STORAGE_PROVIDER=minio
+MINIO_ENDPOINT=http://localhost:9000
+```
+
+## Proveedores y credenciales (opcionales)
 
 | Servicio | Variables | Registro | Uso |
 |----------|-----------|----------|-----|
@@ -34,7 +78,7 @@ pnpm dev
 | OpenAI | `OPENAI_API_KEY` | platform.openai.com | Diagnóstico visión |
 | Mistral | `MISTRAL_API_KEY`, `VISION_PROVIDER=mistral` | console.mistral.ai | Diagnóstico alternativo |
 | Cloudinary | `CLOUDINARY_*`, `STORAGE_PROVIDER` | cloudinary.com | CDN fotos campo |
-| Supabase | `NEXT_PUBLIC_SUPABASE_*` | supabase.com | DB, auth, storage |
+| Supabase | `NEXT_PUBLIC_SUPABASE_*` | supabase.com | Legacy opcional (modo cloud) |
 
 ### Misiones Copernicus en Doctor Soya
 
@@ -42,7 +86,9 @@ pnpm dev
 - **Sentinel-1 GRD:** VH/VV, índice humedad radar (proxy suelo)
 - **Sentinel-3 SLSTR:** temperatura superficie (LST)
 
-## Supabase
+## Supabase (opcional / legacy)
+
+Si prefieres Supabase Cloud en lugar de Postgres Docker, deja vacío `DATABASE_URL` y configura:
 
 1. Crea un proyecto en [supabase.com](https://supabase.com)
 2. Ejecuta migraciones en orden:
@@ -53,12 +99,16 @@ pnpm dev
    - `supabase/migrations/005_climate_readings.sql`
    - `supabase/migrations/006_science_readings.sql`
 3. Crea bucket `observations` (privado) en Storage
-4. Copia URL y keys a `.env.local`
+4. Copia URL y keys a `.env`
 
 ## Scripts
 
 | Comando | Descripción |
 |---------|-------------|
+| `pnpm setup` | Primer arranque: `.env` + Docker + credenciales demo |
+| `pnpm docker:infra` | Postgres + MinIO + imprime usuarios demo |
+| `pnpm docker:up` | Stack completo (web, worker, redis, caddy) |
+| `pnpm docker:down` | Detiene contenedores |
 | `pnpm dev` | Servidor de desarrollo |
 | `pnpm build` | Build de producción |
 | `pnpm test` | Tests Vitest |
@@ -70,7 +120,7 @@ pnpm dev
 
 Ver [docs/DEPLOY-VPS.md](docs/DEPLOY-VPS.md) y script demo [docs/DEMO-HACKATHON.md](docs/DEMO-HACKATHON.md).
 
-Stack producción: Docker (`web` + `worker` + `caddy` + `redis`) + Supabase Cloud.
+Stack producción: Docker (`web` + `worker` + `postgres` + `minio` + `caddy` + `redis`).
 
 ## Fase 2 (producto)
 
@@ -105,6 +155,6 @@ Stack producción: Docker (`web` + `worker` + `caddy` + `redis`) + Supabase Clou
 - `/monitor` — mapa Leaflet Copernicus + NDVI/NDRE + heatmap real
 - `/field/*` — app móvil de campo
 - `/alerts` — alertas dinámicas (incl. incendios FIRMS)
-- `/login`, `/register` — auth Supabase
+- `/login`, `/register` — auth (Postgres + JWT, o Supabase legacy)
 
-Sin Supabase configurado, la app funciona en modo mock local.
+Sin `DATABASE_URL` ni Supabase, la app funciona en modo mock local.
