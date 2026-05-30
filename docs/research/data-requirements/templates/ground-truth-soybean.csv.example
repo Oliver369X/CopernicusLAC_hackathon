@@ -1,0 +1,4 @@
+crop,field_id,zone_id,captured_at,disease_label,severity,health_label,lat,lng,source,notes
+soybean,field-1,zone-1,2026-03-15,Asian Soybean Rust,medium,warning,-34.610,-58.380,manual_csv,Síntomas en hoja media
+soybean,field-1,zone-1,2026-03-22,,none,good,-34.610,-58.380,manual_csv,Parcela sana control
+soybean,field-2,zone-3,2026-04-01,Sudden Death Syndrome,high,critical,-34.620,-58.390,manual_csv,Humedad alta

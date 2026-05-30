@@ -1,0 +1,2 @@
+export const SCIENCE_ALGORITHM_VERSION =
+  process.env.SCIENCE_ALGORITHM_VERSION ?? '1.0.0';

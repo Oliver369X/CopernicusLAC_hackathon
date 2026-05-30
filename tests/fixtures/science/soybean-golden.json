@@ -1,0 +1,7 @@
+{
+  "crop": "soybean",
+  "healthLabel": "good",
+  "anomalyFlagsContains": [],
+  "opticalMin": { "ndvi": 0.3, "ndre": 0.2 },
+  "fusionScoreMin": 0.25
+}

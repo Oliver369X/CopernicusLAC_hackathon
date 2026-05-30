@@ -1,0 +1,4 @@
+crop,field_id,lat,lng,captured_at,production_class,source,notes
+coffee,,-4.210,-76.380,2026-06-01,shaded,manual_csv,Cultivo bajo sombra nativa
+coffee,,-4.215,-76.385,2026-06-01,full_sun,manual_csv,Monocultivo sol pleno
+cacao,,-3.850,-76.990,2026-07-15,shaded,manual_csv,Agroforestería cacao-banano

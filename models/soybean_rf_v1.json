@@ -1,0 +1,44 @@
+{
+  "crop": "soybean",
+  "version": "1.1.0",
+  "inferenceFormat": "ruleSurrogate",
+  "featureOrder": ["ndvi", "ndre", "evi", "lswi", "msi", "dpRvi", "rvi", "ndviSlope7d", "ndreSlope7d", "daysFromPlanting", "lst"],
+  "baseScores": {
+    "excellent": 0.25,
+    "good": 0.25,
+    "warning": 0.25,
+    "critical": 0.25
+  },
+  "rules": [
+    {
+      "feature": "ndre",
+      "op": "lt",
+      "threshold": 0.28,
+      "classDelta": { "excellent": -0.2, "good": -0.1, "warning": 0.15, "critical": 0.15 }
+    },
+    {
+      "feature": "ndreSlope7d",
+      "op": "lt",
+      "threshold": -0.03,
+      "classDelta": { "excellent": -0.15, "good": -0.05, "warning": 0.1, "critical": 0.1 }
+    },
+    {
+      "feature": "dpRvi",
+      "op": "lt",
+      "threshold": 0.12,
+      "classDelta": { "excellent": -0.1, "good": 0, "warning": 0.05, "critical": 0.05 }
+    },
+    {
+      "feature": "msi",
+      "op": "gt",
+      "threshold": 1.8,
+      "classDelta": { "excellent": -0.1, "good": 0, "warning": 0.1, "critical": 0 }
+    },
+    {
+      "feature": "lst",
+      "op": "gt",
+      "threshold": 34,
+      "classDelta": { "excellent": -0.1, "good": -0.05, "warning": 0.1, "critical": 0.05 }
+    }
+  ]
+}

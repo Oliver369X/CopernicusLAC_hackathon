@@ -1,0 +1,37 @@
+{
+  "name": "Doctor Soya - Agricultural Monitoring",
+  "short_name": "Doctor Soya",
+  "description": "Real-time satellite data and crop health analysis for smart farming",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#2d5016",
+  "categories": ["agriculture", "productivity"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Monitor Field",
+      "short_name": "Monitor",
+      "url": "/field"
+    },
+    {
+      "name": "Capture Photo",
+      "short_name": "Capture",
+      "url": "/field/capture"
+    },
+    {
+      "name": "View Diagnostics",
+      "short_name": "Diagnose",
+      "url": "/field/diagnostics"
+    }
+  ]
+}

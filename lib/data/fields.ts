@@ -1,0 +1,134 @@
+import type { Field, FieldZone } from '@/lib/types/field';
+import { MOCK_FIELDS } from '@/lib/mock-data/fields';
+import { isDatabaseConfigured } from '@/lib/db/config';
+import { createClient } from '@/lib/supabase/server';
+
+function rowToField(row: Record<string, unknown>, zones: FieldZone[]): Field {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    locationLabel: (row.location_label as string) ?? '',
+    center: {
+      lat: Number(row.center_lat),
+      lng: Number(row.center_lng),
+    },
+    bounds: row.bounds as Field['bounds'],
+    area: Number(row.area_ha),
+    crop: row.crop_type as Field['crop'],
+    plantedDate: new Date(row.planting_date as string),
+    daysFromPlanting: Number(row.days_from_planting ?? 0),
+    zones,
+    overallHealth: row.overall_health as Field['overallHealth'],
+    lastUpdate: new Date(row.created_at as string),
+    notifications: Number(row.notifications ?? 0),
+    riskScore: Number(row.risk_score ?? 0),
+  };
+}
+
+function rowToZone(row: Record<string, unknown>, crop: Field['crop']): FieldZone {
+  return {
+    id: row.id as string,
+    name: row.name as string,
+    fieldId: row.field_id as string,
+    area: Number(row.area_ha),
+    bounds: row.bounds as FieldZone['bounds'],
+    crop,
+    health: row.health as FieldZone['health'],
+    ndviAverage: Number(row.ndvi_average),
+    ndmiAverage: Number(row.ndmi_average),
+    temperatureAverage: Number(row.temperature_average),
+    soilMoistureAverage: Number(row.soil_moisture_average),
+    observationCount: Number(row.observation_count ?? 0),
+    diseaseRisks: (row.disease_risks as string[]) ?? [],
+    lastObservation: new Date(),
+    lastUpdate: new Date(),
+  };
+}
+
+export async function getFields(orgId?: string): Promise<Field[]> {
+  if (!isDatabaseConfigured()) {
+    return MOCK_FIELDS;
+  }
+
+  try {
+    const db = await createClient();
+    let query = db.from('fields').select('*');
+
+    if (orgId) {
+      query = query.eq('org_id', orgId);
+    }
+
+    const { data: fields, error } = await query;
+    if (error || !fields?.length) return MOCK_FIELDS;
+
+    const fieldIds = (fields as Record<string, unknown>[]).map((f) => f.id);
+    const { data: zones } = await db
+      .from('zones')
+      .select('*')
+      .in('field_id', fieldIds);
+
+    return (fields as Record<string, unknown>[]).map((field) => {
+      const crop = field.crop_type as Field['crop'];
+      const fieldZones = ((zones as Record<string, unknown>[]) ?? [])
+        .filter((z) => z.field_id === field.id)
+        .map((z) => rowToZone(z, crop));
+      return rowToField(field, fieldZones);
+    });
+  } catch {
+    return MOCK_FIELDS;
+  }
+}
+
+export async function getFieldByIdFromDb(fieldId: string): Promise<Field | undefined> {
+  const fields = await getFields();
+  return fields.find((f) => f.id === fieldId);
+}
+
+export async function seedFieldsForOrg(orgId: string): Promise<void> {
+  if (!isDatabaseConfigured()) return;
+
+  const { createServiceClient } = await import('@/lib/supabase/server');
+  const db = await createServiceClient();
+
+  for (const field of MOCK_FIELDS) {
+    await db.from('fields').upsert(
+      {
+        id: field.id,
+        org_id: orgId,
+        name: field.name,
+        crop_type: field.crop,
+        area_ha: field.area,
+        center_lat: field.center.lat,
+        center_lng: field.center.lng,
+        bounds: field.bounds,
+        location_label: field.locationLabel,
+        planting_date: field.plantedDate.toISOString().split('T')[0],
+        days_from_planting: field.daysFromPlanting,
+        overall_health: field.overallHealth,
+        risk_score: field.riskScore,
+        notifications: field.notifications,
+      },
+      { onConflict: 'id' }
+    );
+
+    for (const zone of field.zones) {
+      await db.from('zones').upsert(
+        {
+          id: zone.id,
+          field_id: field.id,
+          name: zone.name,
+          area_ha: zone.area,
+          bounds: zone.bounds,
+          health: zone.health,
+          ndvi_average: zone.ndviAverage,
+          ndmi_average: zone.ndmiAverage,
+          temperature_average: zone.temperatureAverage,
+          soil_moisture_average: zone.soilMoistureAverage,
+          observation_count: zone.observationCount,
+          disease_risks: zone.diseaseRisks,
+        },
+        { onConflict: 'id' }
+      );
+    }
+  }
+}

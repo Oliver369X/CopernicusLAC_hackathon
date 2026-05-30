@@ -1,0 +1,10 @@
+# DEPRECATED — ML training runs offline (python worker/ml/train_soybean.py).
+# Production uses models/*.json mounted on the web service for Node inference only.
+# Kept for reference; do not use in docker-compose.
+
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir scikit-learn numpy joblib
+COPY worker/ml/ /app/worker/ml/
+COPY models/ /app/models/
+CMD ["python", "worker/ml/train_soybean.py"]
