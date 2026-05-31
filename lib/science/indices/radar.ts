@@ -1,4 +1,5 @@
 import type { RadarIndices } from '../types';
+import { coerceNumber } from '@/lib/i18n/format-number';
 
 /** Radar Vegetation Index — dual-pol common form. */
 export function computeRvi(vv: number, vh: number): number {
@@ -38,14 +39,18 @@ export function radarFromStats(stats: {
   dpRvi?: number | null;
 }): Partial<RadarIndices> {
   const out: Partial<RadarIndices> = {};
-  if (stats.vv != null) out.vv = stats.vv;
-  if (stats.vh != null) out.vh = stats.vh;
-  if (stats.vv != null && stats.vh != null) {
-    out.vhVvRatio = computeVhVvRatio(stats.vv, stats.vh);
+  const vv = coerceNumber(stats.vv);
+  const vh = coerceNumber(stats.vh);
+  if (vv != null) out.vv = vv;
+  if (vh != null) out.vh = vh;
+  if (vv != null && vh != null) {
+    out.vhVvRatio = computeVhVvRatio(vv, vh);
   }
-  if (stats.rvi != null) out.rvi = stats.rvi;
-  else if (stats.vv != null && stats.vh != null) out.rvi = computeRvi(stats.vv, stats.vh);
-  if (stats.dpRvi != null) out.dpRvi = stats.dpRvi;
-  else if (stats.vv != null && stats.vh != null) out.dpRvi = computeDpRvi(stats.vv, stats.vh);
+  const rvi = coerceNumber(stats.rvi);
+  if (rvi != null) out.rvi = rvi;
+  else if (vv != null && vh != null) out.rvi = computeRvi(vv, vh);
+  const dpRvi = coerceNumber(stats.dpRvi);
+  if (dpRvi != null) out.dpRvi = dpRvi;
+  else if (vv != null && vh != null) out.dpRvi = computeDpRvi(vv, vh);
   return out;
 }

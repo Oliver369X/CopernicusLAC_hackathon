@@ -227,10 +227,15 @@ export async function runSatelliteJob(
 
   for (const field of fields) {
     for (const zone of field.zones) {
-      const reading = await fetchZoneSatelliteReading(zone);
+      await new Promise((r) => setTimeout(r, 250));
+      const reading = await fetchZoneSatelliteReading(zone, field.center);
 
-      if (hasCredentials && reading.source === 'mock') {
-        results.push({ zoneId: zone.id, skipped: true });
+      if (hasCredentials && reading.source === 'mock' && reading.missions.length === 0) {
+        results.push({
+          zoneId: zone.id,
+          skipped: true,
+          reason: 'cdse_no_data',
+        });
         continue;
       }
 

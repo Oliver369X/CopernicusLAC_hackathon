@@ -75,9 +75,18 @@ export async function analyzeCropMultisensor(
 
   if (process.env.COPERNICUS_CLIENT_ID) {
     try {
+      const copernicusTimeoutMs = 12_000;
+      const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
+        Promise.race([
+          promise,
+          new Promise<T>((_, reject) =>
+            setTimeout(() => reject(new Error('Copernicus timeout')), copernicusTimeoutMs)
+          ),
+        ]);
+
       const [s2, s1] = await Promise.all([
-        fetchS2ExtendedStatistics(zone.bounds),
-        fetchS1ExtendedStatistics(zone.bounds),
+        withTimeout(fetchS2ExtendedStatistics(zone.bounds)),
+        withTimeout(fetchS1ExtendedStatistics(zone.bounds)),
       ]);
       if (s2.ndvi != null) {
         optical = opticalFromStats({

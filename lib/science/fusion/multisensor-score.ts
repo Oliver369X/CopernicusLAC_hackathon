@@ -2,6 +2,7 @@ import type { CropScienceProfile, MultisensorAnalysis, OpticalIndices, RadarIndi
 import { getScienceProfile } from '../crops/registry';
 import { normalizeIndexValue } from '../calibration';
 import { SCIENCE_ALGORITHM_VERSION } from '../version';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 const CROP_NAMES: Record<ScienceCropId, string> = {
   soybean: 'Soja',
@@ -58,19 +59,19 @@ export function buildFusionNarrative(
   const name = CROP_NAMES[crop];
 
   if (optical.ndre != null) {
-    parts.push(`S2 NDRE ${optical.ndre.toFixed(2)}`);
+    parts.push(`S2 NDRE ${formatDecimal(optical.ndre, 2)}`);
   }
   if (optical.evi != null && (crop === 'corn' || crop === 'soybean')) {
-    parts.push(`EVI ${optical.evi.toFixed(2)}`);
+    parts.push(`EVI ${formatDecimal(optical.evi, 2)}`);
   }
   if (optical.redsi != null && crop === 'wheat') {
-    parts.push(`REDSI ${optical.redsi.toFixed(2)}`);
+    parts.push(`REDSI ${formatDecimal(optical.redsi, 2)}`);
   }
   if (radar.dpRvi != null) {
-    parts.push(`S1 DpRVI ${radar.dpRvi.toFixed(2)}`);
+    parts.push(`S1 DpRVI ${formatDecimal(radar.dpRvi, 2)}`);
   }
   if (radar.sarContrast != null && (crop === 'coffee' || crop === 'cacao')) {
-    parts.push(`SAR textura contraste ${radar.sarContrast.toFixed(2)}`);
+    parts.push(`SAR textura contraste ${formatDecimal(radar.sarContrast, 2)}`);
   }
   if (temporal.phenologyPhase) {
     parts.push(`Fase: ${temporal.phenologyPhase} (${temporal.phenologyMatch})`);

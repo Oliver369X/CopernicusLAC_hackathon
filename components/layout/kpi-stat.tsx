@@ -11,24 +11,25 @@ interface KpiStatProps {
 }
 
 const variantStyles = {
-  default: 'from-card to-card/70',
-  success: 'from-emerald-950/40 to-card/70 border-emerald-500/20',
-  warning: 'from-amber-950/30 to-card/70 border-amber-500/20',
-  danger: 'from-red-950/40 to-card/70 border-red-500/25',
+  default: 'from-card to-card/70 border-border/60',
+  success: 'from-health-excellent/10 to-card/70 border-health-excellent/25',
+  warning: 'from-health-warning/10 to-card/70 border-health-warning/25',
+  danger: 'from-health-critical/10 to-card/70 border-health-critical/30',
 };
 
 const iconStyles = {
-  default: 'text-primary bg-primary/10',
-  success: 'text-emerald-400 bg-emerald-500/10',
-  warning: 'text-amber-400 bg-amber-500/10',
-  danger: 'text-red-400 bg-red-500/10',
+  default:
+    'text-primary-foreground bg-gradient-to-br from-primary to-secondary shadow-md shadow-primary/25 ring-1 ring-primary/30',
+  success: 'text-health-excellent bg-health-excellent/15 ring-1 ring-health-excellent/25',
+  warning: 'text-health-warning bg-health-warning/15 ring-1 ring-health-warning/25',
+  danger: 'text-health-critical bg-health-critical/15 ring-1 ring-health-critical/25',
 };
 
 const valueStyles = {
   default: 'text-foreground',
-  success: 'text-emerald-400',
-  warning: 'text-amber-400',
-  danger: 'text-red-400',
+  success: 'text-health-excellent',
+  warning: 'text-health-warning',
+  danger: 'text-health-critical',
 };
 
 export function KpiStat({
@@ -42,18 +43,26 @@ export function KpiStat({
   return (
     <div
       className={cn(
-        'glass-card group relative overflow-hidden rounded-xl border p-5 transition-all duration-200 hover:border-primary/30 hover:shadow-lg hover:shadow-primary/5',
+        'glass-card group relative overflow-hidden rounded-xl border p-4 sm:p-5',
+        'transition-[border-color,box-shadow,transform] duration-200 motion-reduce:transition-none',
+        'hover:border-primary/35 hover:shadow-lg hover:shadow-primary/10',
+        'hover:-translate-y-0.5 motion-reduce:hover:translate-y-0',
         `bg-gradient-to-br ${variantStyles[variant]}`,
         className
       )}
     >
-      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-primary/5 blur-2xl transition-opacity group-hover:opacity-100 opacity-0" />
+      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-primary/8 blur-2xl opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none" />
       <div className="relative flex items-start justify-between gap-3">
-        <div className="space-y-2 min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             {label}
           </p>
-          <p className={cn('text-3xl font-bold tabular-nums', valueStyles[variant])}>
+          <p
+            className={cn(
+              'text-2xl font-bold tabular-nums sm:text-3xl',
+              valueStyles[variant]
+            )}
+          >
             {value}
           </p>
           {hint && (
@@ -62,11 +71,11 @@ export function KpiStat({
         </div>
         <div
           className={cn(
-            'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
             iconStyles[variant]
           )}
         >
-          <Icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" aria-hidden />
         </div>
       </div>
     </div>

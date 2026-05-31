@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { DEMO_PASSWORD, DEMO_USERS, SHOW_DEMO_CREDENTIALS } from '@/lib/constants/demo-credentials';
 import { toast } from 'sonner';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -35,8 +36,8 @@ export default function LoginPage() {
     setLoading(false);
 
     if (!res.ok) {
-      const data = await res.json();
-      toast.error(data.error ?? 'Error al iniciar sesión');
+      const { data, error } = await parseJsonResponse<{ error?: string }>(res);
+      toast.error(data?.error ?? error ?? 'Error al iniciar sesión');
       return;
     }
     router.push(redirect);

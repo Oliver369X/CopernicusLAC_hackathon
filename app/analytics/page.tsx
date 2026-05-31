@@ -1,106 +1,82 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { MOCK_FIELDS, getHighRiskFields, getAverageHealth, getAverageRiskScore, getTotalArea } from '@/lib/mock-data/fields';
+import Link from 'next/link';
+import {
+  getHighRiskFields,
+  getAverageHealth,
+  getAverageRiskScore,
+  getTotalArea,
+} from '@/lib/mock-data/fields';
+import { useFields } from '@/hooks/use-fields';
 import { useAnalyticsSummary } from '@/hooks/use-analytics-summary';
 import { CROP_PROFILES } from '@/lib/mock-data/crops';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageContainer, PageHeader } from '@/components/layout/page-header';
-import { AlertCircle, TrendingDown, TrendingUp, BarChart3, PieChart, Download } from 'lucide-react';
+import { KpiStat } from '@/components/layout/kpi-stat';
+import { DistributionDonutChart } from '@/components/charts/distribution-donut-chart';
+import { FieldComparisonChart } from '@/components/charts/field-comparison-chart';
+import { RiskTimelineChart } from '@/components/charts/risk-timeline-chart';
+import { RoiEconomicChart, type RoiChartDatum } from '@/components/charts/roi-economic-chart';
+import { buildRiskTimeline } from '@/lib/analytics/risk-timeline';
+import { FadeIn } from '@/components/ui/motion';
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart as RechartsPie,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-
-const COLORS = {
-  excellent: '#22c55e',
-  good: '#84cc16',
-  warning: '#f59e0b',
-  critical: '#ef4444',
-  soybean: '#8b5cf6',
-  corn: '#f97316',
-  wheat: '#d97706',
-  cotton: '#06b6d4',
-  sunflower: '#eab308',
-  canola: '#ec4899',
-  barley: '#a16207',
-  rice: '#059669',
-};
+  AlertCircle,
+  TrendingUp,
+  BarChart3,
+  Download,
+  MapPin,
+  Activity,
+  AlertTriangle,
+} from 'lucide-react';
+import {
+  healthDistributionToChartData,
+  getCropColor,
+  getCropLabelEs,
+} from '@/lib/design/tokens';
 
 export default function Analytics() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'season'>('month');
+  const { fields } = useFields();
   const { summary } = useAnalyticsSummary();
 
-  // Field Health Distribution
   const healthDistribution = useMemo(() => {
     const data = summary?.healthDistribution ?? {
-      excellent: MOCK_FIELDS.filter((f) => f.overallHealth === 'excellent').length,
-      good: MOCK_FIELDS.filter((f) => f.overallHealth === 'good').length,
-      warning: MOCK_FIELDS.filter((f) => f.overallHealth === 'warning').length,
-      critical: MOCK_FIELDS.filter((f) => f.overallHealth === 'critical').length,
+      excellent: fields.filter((f) => f.overallHealth === 'excellent').length,
+      good: fields.filter((f) => f.overallHealth === 'good').length,
+      warning: fields.filter((f) => f.overallHealth === 'warning').length,
+      critical: fields.filter((f) => f.overallHealth === 'critical').length,
     };
-    return Object.entries(data).map(([name, value]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      value,
-    }));
-  }, [summary]);
+    return healthDistributionToChartData(data);
+  }, [summary, fields]);
 
-  // Crop Distribution
   const cropDistribution = useMemo(() => {
     const cropCount: Record<string, number> = {};
-    MOCK_FIELDS.forEach((field) => {
-      const cropName = CROP_PROFILES[field.crop].name;
-      cropCount[cropName] = (cropCount[cropName] || 0) + 1;
+    fields.forEach((field) => {
+      cropCount[field.crop] = (cropCount[field.crop] || 0) + 1;
     });
-    return Object.entries(cropCount).map(([name, value]) => ({
-      name,
+    return Object.entries(cropCount).map(([crop, value]) => ({
+      name: getCropLabelEs(crop),
       value,
+      fill: getCropColor(crop),
     }));
-  }, []);
+  }, [fields]);
 
-  // Risk Timeline
-  const riskTimeline = useMemo(() => {
-    const days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() - (6 - i));
-      return date;
-    });
+  const riskTimeline = useMemo(
+    () => buildRiskTimeline(selectedTimeRange),
+    [selectedTimeRange]
+  );
 
-    return days.map((date) => ({
-      date: date.toLocaleDateString('es-AR', { month: 'short', day: 'numeric' }),
-      risk: Math.floor(Math.random() * 30 + getAverageRiskScore() - 10),
-      fields: Math.floor(Math.random() * 2 + 4),
-    }));
-  }, []);
-
-  // Field Comparison Data
-  const fieldComparison = useMemo(() => {
-    return MOCK_FIELDS.map((field) => ({
-      name: field.name.substring(0, 12),
-      health: { excellent: 4, good: 3, warning: 2, critical: 1 }[field.overallHealth] * 25,
-      risk: 100 - field.riskScore,
-      ndvi: field.zones.reduce((sum, z) => sum + z.ndviAverage, 0) / field.zones.length,
-      moisture: field.zones.reduce((sum, z) => sum + z.soilMoistureAverage, 0) / field.zones.length,
-    }));
-  }, []);
-
-  // Economic Analysis Data (mock)
-  const economicData = useMemo(() => {
-    return MOCK_FIELDS.map((field) => {
+  const economicData = useMemo((): (RoiChartDatum & { daysToMaturity: number })[] => {
+    return fields.map((field) => {
       const daysToMaturity = CROP_PROFILES[field.crop].cycleLength - field.daysFromPlanting;
-      const estimatedYield = field.overallHealth === 'excellent' ? 5500 : field.overallHealth === 'good' ? 4800 : 3500;
+      const estimatedYield =
+        field.overallHealth === 'excellent'
+          ? 5500
+          : field.overallHealth === 'good'
+            ? 4800
+            : 3500;
       const investmentPerHa = 800;
       const totalInvestment = field.area * investmentPerHa;
       const pricePerUnit = field.crop === 'wheat' ? 250 : field.crop === 'corn' ? 220 : 420;
@@ -108,97 +84,105 @@ export default function Analytics() {
       const roi = ((projectedRevenue - totalInvestment) / totalInvestment) * 100;
 
       return {
-        field: field.name.substring(0, 12),
+        field: field.name,
+        fullName: field.name,
         investment: totalInvestment / 1000,
         projectedRevenue: projectedRevenue / 1000,
-        roi: roi,
+        roi,
         daysToMaturity,
       };
     });
-  }, []);
+  }, [fields]);
 
   const highRiskFields = useMemo(() => getHighRiskFields(), []);
-  const averageHealth = useMemo(() => getAverageHealth(), []);
-  const totalArea = useMemo(() => getTotalArea(), []);
-  const averageRisk = useMemo(() => getAverageRiskScore(), []);
+  const averageHealth = useMemo(
+    () =>
+      fields.length
+        ? fields.reduce((sum, f) => {
+            const score =
+              { excellent: 95, good: 80, warning: 60, critical: 35 }[f.overallHealth] ?? 50;
+            return sum + score;
+          }, 0) / fields.length
+        : getAverageHealth(),
+    [fields]
+  );
+  const totalArea = useMemo(
+    () => (fields.length ? fields.reduce((s, f) => s + f.area, 0) : getTotalArea()),
+    [fields]
+  );
+  const averageRisk = useMemo(
+    () =>
+      fields.length
+        ? fields.reduce((s, f) => s + f.riskScore, 0) / fields.length
+        : getAverageRiskScore(),
+    [fields]
+  );
+
+  const timeRangeLabel =
+    selectedTimeRange === 'week'
+      ? 'semana'
+      : selectedTimeRange === 'month'
+        ? 'mes'
+        : 'temporada';
 
   return (
-    <PageContainer size="wide">
+    <PageContainer size="wide" className="space-y-6">
       <PageHeader
         title="Analítica y reportes"
         description="Distribución de salud, cultivos, tendencias de riesgo y proyecciones económicas por campo."
         actions={
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="h-10 gap-2">
             <Download className="h-4 w-4" />
-            Exportar
+            <span className="hidden sm:inline">Exportar</span>
           </Button>
         }
       />
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
         {(['week', 'month', 'season'] as const).map((range) => (
           <Button
             key={range}
             variant={selectedTimeRange === range ? 'default' : 'outline'}
             size="sm"
+            className="h-10 shrink-0 px-4 text-sm"
             onClick={() => setSelectedTimeRange(range)}
-            className="capitalize"
           >
             {range === 'week' ? 'Semana' : range === 'month' ? 'Mes' : 'Temporada'}
           </Button>
         ))}
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Total Area</p>
-              <p className="text-3xl font-bold text-foreground">{totalArea}</p>
-              <p className="text-xs text-muted-foreground">hectares</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Average Health</p>
-              <p className="text-3xl font-bold text-health-good">{averageHealth.toFixed(0)}%</p>
-              <p className="text-xs text-muted-foreground">overall portfolio</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">Average Risk</p>
-              <p className="text-3xl font-bold text-health-warning">{averageRisk.toFixed(0)}</p>
-              <p className="text-xs text-muted-foreground">/100</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-muted-foreground">At Risk</p>
-              <p className="text-3xl font-bold text-health-critical">{highRiskFields.length}</p>
-              <p className="text-xs text-muted-foreground">fields need attention</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+        <KpiStat label="Área total" value={totalArea} hint="hectáreas" icon={MapPin} className="min-w-0" />
+        <KpiStat
+          label="Salud promedio"
+          value={`${averageHealth.toFixed(0)}%`}
+          hint="cartera completa"
+          icon={Activity}
+          variant="success"
+        />
+        <KpiStat
+          label="Riesgo promedio"
+          value={averageRisk.toFixed(0)}
+          hint="puntuación /100"
+          icon={TrendingUp}
+          variant="warning"
+        />
+        <KpiStat
+          label="En riesgo"
+          value={highRiskFields.length}
+          hint="campos requieren atención"
+          icon={AlertTriangle}
+          variant={highRiskFields.length > 0 ? 'danger' : 'default'}
+        />
       </div>
 
-      {/* High Risk Fields Alert */}
       {highRiskFields.length > 0 && (
-        <Card className="border-health-critical/30 bg-health-critical/5">
+        <Card className="glass-card border-health-critical/30 bg-health-critical/5">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-health-critical" />
-              High Risk Fields
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <AlertCircle className="h-5 w-5 shrink-0 text-health-critical" />
+              Campos de alto riesgo
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -206,16 +190,16 @@ export default function Analytics() {
               {highRiskFields.map((field) => (
                 <div
                   key={field.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
+                  className="flex flex-col gap-3 rounded-lg bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"
                 >
-                  <div>
-                    <p className="font-medium text-foreground">{field.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Risk Score: {field.riskScore} • Crop: {CROP_PROFILES[field.crop].name}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground sm:text-base">{field.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Riesgo: {field.riskScore} · Cultivo: {CROP_PROFILES[field.crop].name}
                     </p>
                   </div>
-                  <Button variant="outline" size="sm">
-                    Review
+                  <Button variant="outline" size="sm" className="h-10 shrink-0" asChild>
+                    <Link href="/monitor">Revisar</Link>
                   </Button>
                 </div>
               ))}
@@ -224,201 +208,144 @@ export default function Analytics() {
         </Card>
       )}
 
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Field Health Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Field Health Distribution</CardTitle>
+      <FadeIn className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
+        <Card className="glass-card min-w-0 overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base sm:text-lg">Distribución de salud</CardTitle>
+            <p className="text-sm text-muted-foreground">Porcentaje de campos por estado sanitario</p>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPie>
-                <Pie
-                  data={healthDistribution}
-                  cx="50%"
-                  cy="50%"
-                  dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                >
-                  {healthDistribution.map((entry, index) => {
-                    const colorMap = {
-                      Excellent: COLORS.excellent,
-                      Good: COLORS.good,
-                      Warning: COLORS.warning,
-                      Critical: COLORS.critical,
-                    };
-                    return (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={colorMap[entry.name as keyof typeof colorMap] || '#888'}
-                      />
-                    );
-                  })}
-                </Pie>
-              </RechartsPie>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0 pt-0">
+            <DistributionDonutChart
+              data={healthDistribution}
+              aria-label="Distribución de salud de campos"
+              emptyMessage="Sin datos de salud"
+            />
           </CardContent>
         </Card>
 
-        {/* Crop Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Crop Distribution</CardTitle>
+        <Card className="glass-card min-w-0 overflow-hidden">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base sm:text-lg">Distribución de cultivos</CardTitle>
+            <p className="text-sm text-muted-foreground">Participación de cada cultivo en la cartera</p>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPie>
-                <Pie
-                  data={cropDistribution}
-                  cx="50%"
-                  cy="50%"
-                  dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
-                  }
-                >
-                  {cropDistribution.map((entry, index) => {
-                    const colorMap: Record<string, string> = COLORS;
-                    return (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={colorMap[entry.name.toLowerCase()] || '#888'}
-                      />
-                    );
-                  })}
-                </Pie>
-              </RechartsPie>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0 pt-0">
+            <DistributionDonutChart
+              data={cropDistribution}
+              aria-label="Distribución de cultivos"
+              emptyMessage="Sin datos de cultivos"
+            />
           </CardContent>
         </Card>
 
-        {/* Risk Timeline */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">Risk Trend ({selectedTimeRange})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={riskTimeline}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="risk" stroke={COLORS.warning} name="Average Risk Score" />
-                <Line type="monotone" dataKey="fields" stroke={COLORS.critical} name="Fields at Risk" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Field Comparison */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              Field Performance Comparison
+        <Card className="glass-card min-w-0 overflow-hidden lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base sm:text-lg">
+              Tendencia de riesgo ({timeRangeLabel})
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Evolución del riesgo promedio y cantidad de campos en alerta
+            </p>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={fieldComparison}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="health" fill={COLORS.good} name="Health Score" />
-                <Bar dataKey="risk" fill={COLORS.warning} name="Overall Safety" />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0 pt-0">
+            <RiskTimelineChart data={riskTimeline} />
           </CardContent>
         </Card>
 
-        {/* Economic Analysis */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Economic ROI Analysis
+        <Card className="glass-card min-w-0 overflow-hidden lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <BarChart3 className="h-5 w-5 shrink-0" />
+              Comparación de rendimiento por campo
             </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Índice de salud y seguridad operativa — pasa el cursor para ver el nombre completo
+            </p>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={economicData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="field" angle={-45} textAnchor="end" height={80} />
-                <YAxis yAxisId="left" label={{ value: 'USD (1000s)', angle: -90, position: 'insideLeft' }} />
-                <YAxis yAxisId="right" orientation="right" label={{ value: 'ROI %', angle: 90, position: 'insideRight' }} />
-                <Tooltip />
-                <Legend />
-                <Bar yAxisId="left" dataKey="investment" fill="#9333ea" name="Investment" />
-                <Bar yAxisId="left" dataKey="projectedRevenue" fill={COLORS.good} name="Projected Revenue" />
-                <Line yAxisId="right" type="monotone" dataKey="roi" stroke="#f97316" name="ROI %" />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="min-w-0 pt-0">
+            <FieldComparisonChart fields={fields} />
           </CardContent>
         </Card>
 
-        {/* Harvest Forecast */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Days to Maturity</CardTitle>
+        <Card className="glass-card min-w-0 overflow-hidden lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <TrendingUp className="h-5 w-5 shrink-0" />
+              Análisis económico ROI
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Inversión e ingresos proyectados (miles USD) y retorno por campo
+            </p>
+          </CardHeader>
+          <CardContent className="min-w-0 pt-0">
+            <RoiEconomicChart data={economicData} />
+          </CardContent>
+        </Card>
+
+        <Card className="glass-card min-w-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base sm:text-lg">Días hasta madurez</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {economicData.map((field, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                  <span className="font-medium text-sm text-foreground">{field.field}</span>
-                  <span className="text-2xl font-bold text-primary">{field.daysToMaturity}</span>
-                  <span className="text-xs text-muted-foreground">days</span>
+            <div className="max-h-72 space-y-2 overflow-y-auto scrollbar-thin">
+              {economicData.map((row) => (
+                <div
+                  key={row.fullName}
+                  className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5"
+                >
+                  <span className="min-w-0 truncate text-sm font-medium text-foreground sm:text-base">
+                    {row.fullName}
+                  </span>
+                  <span className="shrink-0 text-2xl font-bold tabular-nums text-primary sm:text-3xl">
+                    {row.daysToMaturity}
+                  </span>
+                  <span className="shrink-0 text-sm text-muted-foreground">días</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Summary Stats */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Quick Summary</CardTitle>
+        <Card className="glass-card min-w-0">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base sm:text-lg">Resumen rápido</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Fields</span>
-              <span className="font-semibold text-foreground">{MOCK_FIELDS.length}</span>
+          <CardContent className="space-y-3 text-sm sm:text-base">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Total de campos</span>
+              <span className="font-semibold text-foreground">{fields.length}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Area</span>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Área total</span>
               <span className="font-semibold text-foreground">{totalArea} ha</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Avg. NDVI</span>
-              <span className="font-semibold text-foreground">
-                {(
-                  MOCK_FIELDS.reduce((sum, f) => sum + f.zones.reduce((s, z) => s + z.ndviAverage, 0) / f.zones.length, 0) /
-                  MOCK_FIELDS.length
-                ).toFixed(2)}
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">NDVI promedio</span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {fields.length
+                  ? (
+                      fields.reduce(
+                        (sum, f) =>
+                          sum + f.zones.reduce((s, z) => s + z.ndviAverage, 0) / f.zones.length,
+                        0
+                      ) / fields.length
+                    ).toFixed(2)
+                  : '—'}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Active Alerts</span>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted-foreground">Alertas activas</span>
               <span className="font-semibold text-health-critical">
-                {MOCK_FIELDS.reduce((sum, f) => sum + f.notifications, 0)}
+                {fields.reduce((sum, f) => sum + f.notifications, 0)}
               </span>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </FadeIn>
 
-      {/* Export Button */}
-      <div className="flex justify-end">
-        <Button className="gap-2">
+      <div className="flex justify-end pb-2">
+        <Button className="h-11 gap-2 px-5 text-sm sm:text-base">
           <Download className="h-4 w-4" />
-          Export Report (PDF)
+          Exportar informe (PDF)
         </Button>
       </div>
     </PageContainer>

@@ -70,7 +70,7 @@ MINIO_ENDPOINT=http://localhost:9000
 
 | Servicio | Variables | Registro | Uso |
 |----------|-----------|----------|-----|
-| **Copernicus CDSE** | `COPERNICUS_CLIENT_ID`, `COPERNICUS_CLIENT_SECRET` | [dataspace.copernicus.eu](https://dataspace.copernicus.eu/) | NDVI, NDMI, grilla heatmap, tiles Leaflet (S2) |
+| **Copernicus CDSE** | `COPERNICUS_CLIENT_ID`, `COPERNICUS_CLIENT_SECRET` | [dataspace.copernicus.eu](https://dataspace.copernicus.eu/) (cuenta **aparte** de [copernicuslac-panama.eu](https://www.copernicuslac-panama.eu/)) | NDVI, NDMI, grilla heatmap, tiles Leaflet (S2) |
 | Copernicus OGC | `COPERNICUS_INSTANCE_ID` | Dashboard CDSE | WMS/WMTS opcional |
 | Sentinel Hub | `SENTINEL_HUB_*` | [sentinel-hub.com](https://www.sentinel-hub.com/) | Fallback comercial |
 | NASA FIRMS | `NASA_FIRMS_MAP_KEY` | [firms.modaps.eosdis.nasa.gov/api/area](https://firms.modaps.eosdis.nasa.gov/api/area/) | Alertas incendio |
@@ -112,13 +112,15 @@ Si prefieres Supabase Cloud en lugar de Postgres Docker, deja vacío `DATABASE_U
 | `pnpm dev` | Servidor de desarrollo |
 | `pnpm build` | Build de producción |
 | `pnpm test` | Tests Vitest |
+| `pnpm test:e2e` | Smoke Playwright (requiere `pnpm build` + `pnpm start`) |
+| `pnpm verify` | Integraciones (.env + Docker) |
 | `pnpm lint` | ESLint |
 | `pnpm worker` | Cron worker (VPS) |
 | `pnpm worker:queue` | BullMQ + Redis |
 
 ## Despliegue VPS
 
-Ver [docs/DEPLOY-VPS.md](docs/DEPLOY-VPS.md) y script demo [docs/DEMO-HACKATHON.md](docs/DEMO-HACKATHON.md).
+Ver [docs/PRE-DEPLOY-CHECKLIST.md](docs/PRE-DEPLOY-CHECKLIST.md), [docs/DEPLOY-VPS.md](docs/DEPLOY-VPS.md) y demo [docs/DEMO-HACKATHON.md](docs/DEMO-HACKATHON.md).
 
 Stack producción: Docker (`web` + `worker` + `postgres` + `minio` + `caddy` + `redis`).
 

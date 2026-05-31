@@ -1,0 +1,106 @@
+import type { LucideIcon } from 'lucide-react';
+import { getScienceProfile, isScienceCrop } from '@/lib/science/crops/registry';
+import {
+  LayoutDashboard,
+  Satellite,
+  BarChart3,
+  Lightbulb,
+  Bell,
+  FlaskConical,
+  Sprout,
+} from 'lucide-react';
+
+export interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+export interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+export const navGroups: NavGroup[] = [
+  {
+    label: 'Principal',
+    items: [
+      { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
+      { href: '/monitor', label: 'Monitoreo', icon: Satellite },
+    ],
+  },
+  {
+    label: 'Análisis',
+    items: [
+      { href: '/analytics', label: 'Analítica', icon: BarChart3 },
+      { href: '/insights', label: 'Perspectivas', icon: Lightbulb },
+    ],
+  },
+  {
+    label: 'Investigación',
+    items: [
+      { href: '/science', label: 'Lab. Científico', icon: FlaskConical },
+    ],
+  },
+  {
+    label: 'Operaciones',
+    items: [
+      { href: '/alerts', label: 'Alertas', icon: Bell },
+      { href: '/field', label: 'App de Campo', icon: Sprout },
+    ],
+  },
+];
+
+const pageTitles: Record<string, string> = {
+  '/dashboard': 'Panel de control',
+  '/monitor': 'Monitoreo',
+  '/analytics': 'Analítica',
+  '/insights': 'Perspectivas avanzadas',
+  '/science': 'Laboratorio científico',
+  '/alerts': 'Alertas y notificaciones',
+  '/alerts/settings': 'Configuración de alertas',
+};
+
+export const AUTH_ROUTES = ['/login', '/register'];
+export const FIELD_ROUTE_PREFIX = '/field';
+export const SIDEBAR_COLLAPSED_KEY = 'doctor-soya-sidebar-collapsed';
+
+export function isActivePath(pathname: string, href: string): boolean {
+  return (
+    pathname === href ||
+    (href !== '/dashboard' && pathname.startsWith(href))
+  );
+}
+
+const scienceSubpageTitles: Record<string, string> = {
+  '/science/compare': 'Comparar cultivos',
+  '/science/studies': 'Estudios y validación',
+  '/science/bibliography': 'Bibliografía científica',
+};
+
+export function getPageTitle(pathname: string): string {
+  if (pageTitles[pathname]) return pageTitles[pathname];
+  if (scienceSubpageTitles[pathname]) return scienceSubpageTitles[pathname];
+
+  const cropPage = pathname.match(/^\/science\/([\w-]+)$/);
+  if (cropPage && isScienceCrop(cropPage[1])) {
+    return `${getScienceProfile(cropPage[1]).displayName} — Laboratorio`;
+  }
+
+  for (const [path, title] of Object.entries(pageTitles)) {
+    if (path !== '/dashboard' && pathname.startsWith(path)) {
+      return title;
+    }
+  }
+
+  return 'Doctor Soya';
+}
+
+export function findNavItem(pathname: string): NavItem | undefined {
+  for (const group of navGroups) {
+    for (const item of group.items) {
+      if (isActivePath(pathname, item.href)) return item;
+    }
+  }
+  return undefined;
+}

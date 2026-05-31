@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import { useFields } from '@/hooks/use-fields';
 import {
   Select,
@@ -10,15 +9,34 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { AlertCircle, Droplets, Thermometer, Wind, Download, WifiOff } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  AlertCircle,
+  Droplets,
+  Thermometer,
+  Leaf,
+  Waves,
+  Camera,
+  Download,
+  History,
+  Satellite,
+  Loader2,
+} from 'lucide-react';
 import { prefetchFieldMapTiles } from '@/lib/offline-map-cache';
 import { boundsToBbox } from '@/lib/services/copernicus/bounds';
 import { toast } from 'sonner';
+import { ConnectionStatus, OfflineMapBadge } from '@/components/field/connection-status';
+import { FieldPageIntro } from '@/components/field/field-page-intro';
+import { FieldActionLink } from '@/components/field/field-action-link';
+import { FieldMetricTile } from '@/components/field/field-metric-tile';
+import { healthLabelEs, getCropLabelEs, type HealthLevel } from '@/lib/design/tokens';
+import { formatDateTimeEs } from '@/lib/i18n/format-date';
+import { formatDecimal } from '@/lib/i18n/format-number';
+import { labelDiseaseName } from '@/lib/i18n/observation-labels';
+import { cn } from '@/lib/utils';
 
 export default function FieldMonitoring() {
-  const { fields, loading } = useFields();
+  const { fields, loading, fetchError } = useFields();
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
 
@@ -34,10 +52,10 @@ export default function FieldMonitoring() {
     }
   }, [fields, selectedFieldId]);
 
-  const healthColors = {
+  const healthBadgeClass: Record<HealthLevel, string> = {
     excellent: 'bg-health-excellent text-white',
-    good: 'bg-health-good text-white',
-    warning: 'bg-health-warning text-black',
+    good: 'bg-health-good text-foreground',
+    warning: 'bg-health-warning text-foreground',
     critical: 'bg-health-critical text-white',
   };
 
@@ -51,13 +69,6 @@ export default function FieldMonitoring() {
 
   const [offlineReady, setOfflineReady] = useState(false);
   const [prefetching, setPrefetching] = useState(false);
-  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-
-  useEffect(() => {
-    const onOnline = () => setOfflineReady(false);
-    window.addEventListener('online', onOnline);
-    return () => window.removeEventListener('online', onOnline);
-  }, []);
 
   const handlePrefetchMap = async () => {
     if (!selectedField) return;
@@ -75,168 +86,170 @@ export default function FieldMonitoring() {
   };
 
   if (loading || !selectedField || !selectedZone) {
-    return <div className="p-4 text-center text-sm text-muted-foreground">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+        Cargando campo...
+      </div>
+    );
   }
 
+  const captureHref = `/field/capture?field=${selectedField.id}&zoneId=${selectedZone.id}`;
+
   return (
-    <div className="p-4 space-y-4 pb-4">
-      {/* Field Selection */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Select Field</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedField.id} onValueChange={handleFieldChange}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fields.map((field) => (
-                <SelectItem key={field.id} value={field.id}>
-                  {field.name} • {field.crop}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+    <div className="space-y-4 pb-4">
+      <ConnectionStatus />
 
-      {/* Current Zone Status */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Current Zone</CardTitle>
-            <span
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                healthColors[selectedZone.health]
-              }`}
+      {fetchError && (
+        <p className="mx-4 rounded-lg border border-health-warning/40 bg-health-warning/10 px-4 py-3 text-sm text-muted-foreground">
+          {fetchError}. Usando datos de demostración.
+        </p>
+      )}
+
+      <FieldPageIntro
+        title={selectedField.name}
+        description={`${getCropLabelEs(selectedField.crop)} · ${selectedZone.name} · índices y acciones rápidas`}
+      />
+
+      <div className="space-y-3 px-4">
+        <Card className="glass-card">
+          <CardContent className="space-y-3 p-4 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-muted-foreground">Campo y zona</p>
+              <span
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide sm:text-sm',
+                  healthBadgeClass[selectedZone.health as HealthLevel]
+                )}
+              >
+                {healthLabelEs[selectedZone.health as HealthLevel]}
+              </span>
+            </div>
+            <Select value={selectedField.id} onValueChange={handleFieldChange}>
+              <SelectTrigger className="h-11 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {fields.map((field) => (
+                  <SelectItem key={field.id} value={field.id}>
+                    {field.name} · {getCropLabelEs(field.crop)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={selectedZone.id}
+              onValueChange={(zoneId) => setSelectedZoneId(zoneId)}
             >
-              {selectedZone.health.charAt(0).toUpperCase() +
-                selectedZone.health.slice(1)}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Select
-            value={selectedZone.id}
-            onValueChange={(zoneId) => setSelectedZoneId(zoneId)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {selectedField.zones.map((zone) => (
-                <SelectItem key={zone.id} value={zone.id}>
-                  {zone.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger className="h-11 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {selectedField.zones.map((zone) => (
+                  <SelectItem key={zone.id} value={zone.id}>
+                    {zone.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          {/* Live Data Display */}
-          <div className="grid grid-cols-2 gap-2 pt-2">
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Droplets className="h-4 w-4 text-health-good" />
-                <span className="text-xs text-muted-foreground">Moisture</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">
-                {selectedZone.soilMoistureAverage.toFixed(0)}%
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Thermometer className="h-4 w-4 text-health-warning" />
-                <span className="text-xs text-muted-foreground">Temp</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">
-                {selectedZone.temperatureAverage.toFixed(0)}°C
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Wind className="h-4 w-4 text-health-excellent" />
-                <span className="text-xs text-muted-foreground">NDVI</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">
-                {selectedZone.ndviAverage.toFixed(2)}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="flex items-center gap-2 mb-1">
-                <Wind className="h-4 w-4 text-primary" />
-                <span className="text-xs text-muted-foreground">NDMI</span>
-              </div>
-              <p className="text-xl font-bold text-foreground">
-                {selectedZone.ndmiAverage.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Disease Risks */}
-      {selectedZone.diseaseRisks.length > 0 && (
-        <Card className="border-health-warning/30 bg-health-warning/5">
-          <CardContent className="pt-6">
-            <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-health-warning flex-shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-foreground mb-2">
-                  Disease Risks Detected
-                </h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {selectedZone.diseaseRisks.map((risk) => (
-                    <li key={risk} className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-health-warning" />
-                      {risk}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="grid grid-cols-2 gap-2 pt-1 sm:gap-3">
+              <FieldMetricTile
+                icon={Droplets}
+                label="Humedad del suelo"
+                value={`${formatDecimal(selectedZone.soilMoistureAverage, 0)}%`}
+                iconClassName="text-health-good"
+              />
+              <FieldMetricTile
+                icon={Thermometer}
+                label="Temperatura"
+                value={`${formatDecimal(selectedZone.temperatureAverage, 0)}°C`}
+                iconClassName="text-health-warning"
+              />
+              <FieldMetricTile
+                icon={Leaf}
+                label="NDVI"
+                value={formatDecimal(selectedZone.ndviAverage, 2)}
+                iconClassName="text-health-excellent"
+              />
+              <FieldMetricTile
+                icon={Waves}
+                label="NDMI"
+                value={formatDecimal(selectedZone.ndmiAverage, 2)}
+                iconClassName="text-primary"
+              />
             </div>
           </CardContent>
         </Card>
-      )}
 
-      {/* Action Buttons */}
-      <div className="space-y-2">
-        {!isOnline && (
-          <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center">
-            <WifiOff className="h-4 w-4" />
-            Modo offline — datos locales disponibles
+        {selectedZone.diseaseRisks.length > 0 && (
+          <Card className="glass-card border-health-warning/30 bg-health-warning/5">
+            <CardContent className="p-4">
+              <div className="flex gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-health-warning" />
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground sm:text-base">
+                    Riesgos detectados en la zona
+                  </h3>
+                  <ul className="mt-2 space-y-1.5 text-sm text-muted-foreground">
+                    {selectedZone.diseaseRisks.map((risk) => (
+                      <li key={risk} className="flex items-center gap-2">
+                        <span className="h-1.5 w-1.5 rounded-full bg-health-warning" />
+                        {labelDiseaseName(risk)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <div className="space-y-2">
+          <FieldActionLink
+            href={captureHref}
+            icon={Camera}
+            title="Tomar foto para análisis"
+            description="Captura en esta zona y diagnóstico con IA"
+            variant="primary"
+          />
+          <FieldActionLink
+            href="/field/history"
+            icon={History}
+            title="Historial de observaciones"
+            description={`${selectedZone.observationCount} registro(s) en este lote`}
+          />
+          <FieldActionLink
+            icon={Download}
+            title={
+              prefetching
+                ? 'Descargando mapa...'
+                : offlineReady
+                  ? 'Mapa offline listo'
+                  : 'Descargar mapa del campo'
+            }
+            description="Capas NDVI/NDRE para uso sin conexión"
+            onClick={handlePrefetchMap}
+            disabled={prefetching}
+          />
+          <FieldActionLink
+            href="/monitor"
+            icon={Satellite}
+            title="Monitoreo satelital completo"
+            description="Vista ampliada Copernicus en el panel principal"
+            variant="ghost"
+          />
+        </div>
+
+        {offlineReady && (
+          <div className="flex justify-center">
+            <OfflineMapBadge ready />
           </div>
         )}
-        <Button className="w-full" asChild>
-          <Link href={`/field/capture?field=${selectedField.id}&zoneId=${selectedZone.id}`}>
-            Take Photo for Analysis
-          </Link>
-        </Button>
-        <Button
-          variant="outline"
-          className="w-full gap-2"
-          onClick={handlePrefetchMap}
-          disabled={prefetching}
-        >
-          <Download className="h-4 w-4" />
-          {prefetching
-            ? 'Descargando mapa...'
-            : offlineReady
-              ? 'Mapa offline listo'
-              : 'Descargar mapa del campo'}
-        </Button>
-        <Button variant="outline" className="w-full" asChild>
-          <Link href="/field/history">View Historical Data</Link>
-        </Button>
-      </div>
 
-      {/* Last Update */}
-      <div className="text-center text-xs text-muted-foreground">
-        <p>Last updated: {new Date(selectedZone.lastUpdate).toLocaleTimeString()}</p>
-        <p>Observations: {selectedZone.observationCount}</p>
+        <p className="text-center text-sm text-muted-foreground">
+          Última actualización: {formatDateTimeEs(selectedZone.lastUpdate)}
+        </p>
       </div>
     </div>
   );

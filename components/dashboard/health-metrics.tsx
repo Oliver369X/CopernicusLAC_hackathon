@@ -2,104 +2,107 @@
 
 import { SatelliteData, getAverageValue } from '@/lib/mock-data/satellite-data';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { ChartFrame } from '@/components/charts/chart-frame';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from 'recharts';
+import {
+  chartTooltipStyle,
+  chartAxisStroke,
+  chartGridStroke,
+  healthColors,
+} from '@/lib/design/tokens';
 
 interface HealthMetricsProps {
   satelliteData: SatelliteData;
   trendHistory?: Array<{ date: string; ndvi: string; ndmi: string }>;
 }
 
-export default function HealthMetrics({ satelliteData, trendHistory }: HealthMetricsProps) {
+export default function HealthMetrics({
+  satelliteData,
+  trendHistory,
+}: HealthMetricsProps) {
   const ndviAvg = getAverageValue(satelliteData.ndvi);
   const ndmiAvg = getAverageValue(satelliteData.ndmi);
   const tempAvg = getAverageValue(satelliteData.temperature);
   const moistureAvg = getAverageValue(satelliteData.soilMoisture);
 
   const timeSeries =
-    trendHistory?.map((point, i) => ({
+    trendHistory?.map((point) => ({
       day: point.date,
       ndvi: parseFloat(point.ndvi),
       moisture: parseFloat(point.ndmi) * 100,
-    })) ??
-    [
+    })) ?? [
       { day: '1', ndvi: 0.55, moisture: 58 },
       { day: '7', ndvi: ndviAvg, moisture: moistureAvg },
     ];
 
   return (
-    <Card>
+    <Card className="glass-card">
       <CardHeader>
-        <CardTitle className="text-base">Health Indicators</CardTitle>
+        <CardTitle className="text-base">Indicadores de salud</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div className="rounded-lg border border-border p-3 bg-muted/30">
-            <p className="text-muted-foreground text-xs mb-1">NDVI</p>
-            <p className="text-lg font-bold text-foreground">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <p className="mb-1 text-xs text-muted-foreground">NDVI</p>
+            <p className="text-lg font-bold tabular-nums text-foreground">
               {ndviAvg.toFixed(2)}
             </p>
-            <p className="text-xs text-health-good mt-1">Vegetation</p>
+            <p className="mt-1 text-xs text-health-good">Vegetación</p>
           </div>
-
-          <div className="rounded-lg border border-border p-3 bg-muted/30">
-            <p className="text-muted-foreground text-xs mb-1">NDMI</p>
-            <p className="text-lg font-bold text-foreground">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <p className="mb-1 text-xs text-muted-foreground">NDMI</p>
+            <p className="text-lg font-bold tabular-nums text-foreground">
               {ndmiAvg.toFixed(2)}
             </p>
-            <p className="text-xs text-health-good mt-1">Moisture</p>
+            <p className="mt-1 text-xs text-health-good">Humedad</p>
           </div>
-
-          <div className="rounded-lg border border-border p-3 bg-muted/30">
-            <p className="text-muted-foreground text-xs mb-1">Temperature</p>
-            <p className="text-lg font-bold text-foreground">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <p className="mb-1 text-xs text-muted-foreground">Temperatura</p>
+            <p className="text-lg font-bold tabular-nums text-foreground">
               {tempAvg.toFixed(1)}°C
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Current</p>
+            <p className="mt-1 text-xs text-muted-foreground">Actual</p>
           </div>
-
-          <div className="rounded-lg border border-border p-3 bg-muted/30">
-            <p className="text-muted-foreground text-xs mb-1">Soil Moisture</p>
-            <p className="text-lg font-bold text-foreground">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+            <p className="mb-1 text-xs text-muted-foreground">Humedad suelo</p>
+            <p className="text-lg font-bold tabular-nums text-foreground">
               {moistureAvg.toFixed(0)}%
             </p>
-            <p className="text-xs text-muted-foreground mt-1">Optimal</p>
+            <p className="mt-1 text-xs text-muted-foreground">Óptimo</p>
           </div>
         </div>
 
-        <div className="pt-2 border-t border-border">
-          <p className="text-xs text-muted-foreground mb-3 font-medium">
-            7-Day Trend
+        <div className="border-t border-border/60 pt-2">
+          <p className="mb-3 text-xs font-medium text-muted-foreground">
+            Tendencia 7 días
           </p>
-          <ResponsiveContainer width="100%" height={200}>
+          <ChartFrame
+            heightClassName="h-[200px] w-full"
+            aria-label="Tendencia NDVI"
+          >
             <LineChart data={timeSeries}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 12 }}
-                stroke="#9ca3af"
-              />
-              <YAxis
-                tick={{ fontSize: 12 }}
-                stroke="#9ca3af"
-                domain={[0, 1]}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#fff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '4px',
-                }}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} stroke={chartAxisStroke} />
+              <YAxis tick={{ fontSize: 11 }} stroke={chartAxisStroke} domain={[0, 1]} />
+              <Tooltip contentStyle={chartTooltipStyle} />
               <Line
                 type="monotone"
                 dataKey="ndvi"
-                stroke="#16a34a"
+                name="NDVI"
+                stroke={healthColors.excellent}
                 strokeWidth={2}
-                dot={{ fill: '#16a34a', r: 3 }}
+                dot={{ fill: healthColors.excellent, r: 3 }}
                 isAnimationActive={false}
               />
             </LineChart>
-          </ResponsiveContainer>
+          </ChartFrame>
         </div>
       </CardContent>
     </Card>

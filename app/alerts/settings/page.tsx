@@ -1,144 +1,181 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Bell, Mail, MessageSquare, Smartphone, Phone } from 'lucide-react';
+import { Bell, Mail, MessageSquare, Smartphone, Phone, ChevronLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { PageContainer, PageHeader } from '@/components/layout/page-header';
+import { AlertChannelRow } from '@/components/alerts/alert-channel-row';
 import { toast } from 'sonner';
-import { MOCK_FIELDS } from '@/lib/mock-data/fields';
+import { useFields } from '@/hooks/use-fields';
+import { getCropLabelEs } from '@/lib/design/tokens';
+import { labelAlertType, labelAlertSeverity } from '@/lib/i18n/labels';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 
-interface AlertChannel {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
+type AlertTypeKey = 'disease' | 'threshold' | 'predictive' | 'anomaly';
+
+interface TypeConfig {
   enabled: boolean;
-  description: string;
+  severity: string;
 }
 
-export default function AlertSettings() {
-  const [channels, setChannels] = useState<AlertChannel[]>([
-    {
-      id: 'in-app',
-      name: 'In-App Notifications',
-      icon: <Bell className="h-5 w-5" />,
-      enabled: true,
-      description: 'Get notified within the Doctor Soya app',
-    },
-    {
-      id: 'email',
-      name: 'Email Alerts',
-      icon: <Mail className="h-5 w-5" />,
-      enabled: true,
-      description: 'Receive alerts via email',
-    },
-    {
-      id: 'sms',
-      name: 'SMS Alerts',
-      icon: <Smartphone className="h-5 w-5" />,
-      enabled: false,
-      description: 'Get critical alerts via SMS',
-    },
-    {
-      id: 'whatsapp',
-      name: 'WhatsApp Alerts',
-      icon: <Phone className="h-5 w-5" />,
-      enabled: false,
-      description: 'Critical alerts with hotspot map via Twilio WhatsApp',
-    },
-    {
-      id: 'push',
-      name: 'Push Notifications',
-      icon: <MessageSquare className="h-5 w-5" />,
-      enabled: true,
-      description: 'Desktop and mobile push notifications',
-    },
-  ]);
+interface ChannelState {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  icon: ReactNode;
+}
 
-  const [alertTypes, setAlertTypes] = useState({
-    disease: { enabled: true, severity: 'critical' },
-    threshold: { enabled: true, severity: 'warning' },
-    predictive: { enabled: true, severity: 'warning' },
-    anomaly: { enabled: true, severity: 'info' },
-  });
+const DEFAULT_CHANNELS: Omit<ChannelState, 'icon'>[] = [
+  { id: 'in-app', name: 'Notificaciones en la app', description: 'Alertas dentro de Doctor Soya', enabled: true },
+  { id: 'email', name: 'Correo electrónico', description: 'Recibir alertas por correo', enabled: true },
+  { id: 'sms', name: 'SMS', description: 'Alertas críticas por mensaje de texto', enabled: false },
+  { id: 'whatsapp', name: 'WhatsApp', description: 'Alertas críticas con mapa vía Twilio', enabled: false },
+  { id: 'push', name: 'Notificaciones push', description: 'Escritorio y móvil (PWA)', enabled: true },
+];
 
+const DEFAULT_ALERT_TYPES: Record<AlertTypeKey, TypeConfig> = {
+  disease: { enabled: true, severity: 'critical' },
+  threshold: { enabled: true, severity: 'warning' },
+  predictive: { enabled: true, severity: 'warning' },
+  anomaly: { enabled: true, severity: 'info' },
+};
+
+function channelsWithIcons(list: Omit<ChannelState, 'icon'>[]): ChannelState[] {
+  return list.map((c) => ({ ...c, icon: CHANNEL_ICONS[c.id] ?? <Bell className="h-5 w-5" /> }));
+}
+
+const CHANNEL_ICONS: Record<string, ReactNode> = {
+  'in-app': <Bell className="h-5 w-5" />,
+  email: <Mail className="h-5 w-5" />,
+  sms: <Smartphone className="h-5 w-5" />,
+  whatsapp: <Phone className="h-5 w-5" />,
+  push: <MessageSquare className="h-5 w-5" />,
+};
+
+export default function AlertSettingsPage() {
+  const { fields } = useFields();
+  const [channels, setChannels] = useState<ChannelState[]>(() =>
+    channelsWithIcons(DEFAULT_CHANNELS)
+  );
+  const [alertTypes, setAlertTypes] = useState(DEFAULT_ALERT_TYPES);
   const [phone, setPhone] = useState('');
   const [whatsappOptIn, setWhatsappOptIn] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const toggleChannel = (id: string) => {
-    setChannels(channels.map((ch) => (ch.id === id ? { ...ch, enabled: !ch.enabled } : ch)));
+  const loadSettings = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/alerts/settings');
+      const { data } = await parseJsonResponse<{
+        config?: Record<string, TypeConfig>;
+        profile?: { phone?: string; whatsapp_opt_in?: boolean };
+      }>(res, { config: DEFAULT_ALERT_TYPES, profile: {} });
+
+      if (data?.config) {
+        const types = ['disease', 'threshold', 'predictive', 'anomaly'] as const;
+        setAlertTypes((prev) => {
+          const next = { ...prev };
+          types.forEach((t) => {
+            if (data.config?.[t]) {
+              next[t] = {
+                enabled: data.config[t].enabled ?? true,
+                severity: data.config[t].severity ?? prev[t].severity,
+              };
+            }
+          });
+          return next;
+        });
+      }
+      if (data?.profile) {
+        setPhone(data.profile.phone ?? '');
+        setWhatsappOptIn(Boolean(data.profile.whatsapp_opt_in));
+        if (data.profile.whatsapp_opt_in) {
+          setChannels((prev) =>
+            prev.map((c) => (c.id === 'whatsapp' ? { ...c, enabled: true } : c))
+          );
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  const toggleChannel = (id: string, enabled: boolean) => {
+    setChannels((prev) => prev.map((ch) => (ch.id === id ? { ...ch, enabled } : ch)));
   };
 
-  const toggleAlertType = (type: string) => {
+  const toggleAlertType = (type: AlertTypeKey) => {
     setAlertTypes((prev) => ({
       ...prev,
-      [type]: { ...prev[type as keyof typeof alertTypes], enabled: !prev[type as keyof typeof alertTypes].enabled },
+      [type]: { ...prev[type], enabled: !prev[type].enabled },
     }));
   };
 
-  useEffect(() => {
-    fetch('/api/alerts/settings')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.config) {
-          const types = ['disease', 'threshold', 'predictive', 'anomaly'] as const;
-          setAlertTypes((prev) => {
-            const next = { ...prev };
-            types.forEach((t) => {
-              if (data.config[t]) {
-                next[t] = {
-                  enabled: data.config[t].enabled ?? true,
-                  severity: data.config[t].severity ?? prev[t].severity,
-                };
-              }
-            });
-            return next;
-          });
-        }
-        if (data.profile) {
-          setPhone(data.profile.phone ?? '');
-          setWhatsappOptIn(Boolean(data.profile.whatsapp_opt_in));
-          if (data.profile.whatsapp_opt_in) {
-            setChannels((prev) =>
-              prev.map((c) => (c.id === 'whatsapp' ? { ...c, enabled: true } : c))
-            );
-          }
-        }
-      })
-      .catch(() => undefined);
-  }, []);
+  const setTypeSeverity = (type: AlertTypeKey, severity: string) => {
+    setAlertTypes((prev) => ({
+      ...prev,
+      [type]: { ...prev[type], severity },
+    }));
+  };
+
+  const handleReset = () => {
+    setChannels(channelsWithIcons(DEFAULT_CHANNELS));
+    setAlertTypes(DEFAULT_ALERT_TYPES);
+    setPhone('');
+    setWhatsappOptIn(false);
+    toast.message('Valores restaurados (guardá para aplicar)');
+  };
 
   const handleSave = async () => {
-    const config = Object.fromEntries(
-      Object.entries(alertTypes).map(([key, val]) => [
-        key,
-        {
-          enabled: val.enabled,
-          severity: val.severity,
-          channels: channels.filter((c) => c.enabled).map((c) => c.id),
-          cooldown: 60,
-        },
-      ])
-    );
+    setSaving(true);
+    try {
+      const config = Object.fromEntries(
+        Object.entries(alertTypes).map(([key, val]) => [
+          key,
+          {
+            enabled: val.enabled,
+            severity: val.severity,
+            channels: channels.filter((c) => c.enabled).map((c) => c.id),
+            cooldown: 60,
+          },
+        ])
+      );
 
-    const res = await fetch('/api/alerts/settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ config }),
-    });
+      const res = await fetch('/api/alerts/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config }),
+      });
 
-    if (res.ok) {
+      if (!res.ok) {
+        const { data, error } = await parseJsonResponse<{ error?: string }>(res);
+        toast.error(data?.error ?? error ?? 'Error al guardar');
+        return;
+      }
+
       await fetch('/api/alerts/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: phone.trim() || undefined,
-          whatsappOptIn: channels.find((c) => c.id === 'whatsapp')?.enabled ?? whatsappOptIn,
+          whatsappOptIn:
+            channels.find((c) => c.id === 'whatsapp')?.enabled ?? whatsappOptIn,
         }),
       });
+
       toast.success('Configuración guardada');
+
       if (channels.find((c) => c.id === 'push')?.enabled && 'Notification' in window) {
         const permission = await Notification.requestPermission();
         if (permission === 'granted' && 'serviceWorker' in navigator) {
@@ -154,204 +191,191 @@ export default function AlertSettings() {
           });
         }
       }
-    } else {
-      toast.error('Error al guardar');
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-foreground">Alert Settings</h2>
-        <p className="text-sm text-muted-foreground">
-          Configure how and when you receive notifications
-        </p>
-      </div>
+    <PageContainer size="wide" className="space-y-6">
+      <PageHeader
+        description="Canales, tipos de alerta y preferencias de notificación."
+        actions={
+          <Button variant="outline" size="sm" className="h-10 gap-2" asChild>
+            <Link href="/alerts">
+              <ChevronLeft className="h-4 w-4" />
+              Volver
+            </Link>
+          </Button>
+        }
+      />
 
-      {/* Notification Channels */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Notification Channels</CardTitle>
+      <Card className="glass-card min-w-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">Canales de notificación</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Elegí cómo recibir cada alerta según su severidad
+          </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {channels.map((channel) => (
-            <div
+            <AlertChannelRow
               key={channel.id}
-              className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-            >
-              <div className="flex items-center gap-4">
-                <div className="text-primary">{channel.icon}</div>
-                <div className="space-y-1">
-                  <p className="font-medium text-foreground">{channel.name}</p>
-                  <p className="text-xs text-muted-foreground">{channel.description}</p>
-                </div>
-              </div>
-
-              <Button
-                variant={channel.enabled ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => toggleChannel(channel.id)}
-                className="min-w-[100px]"
-              >
-                {channel.enabled ? 'Enabled' : 'Disabled'}
-              </Button>
-            </div>
+              icon={channel.icon}
+              name={channel.name}
+              description={channel.description}
+              enabled={channel.enabled}
+              disabled={loading}
+              onToggle={(v) => toggleChannel(channel.id, v)}
+            />
           ))}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">WhatsApp (Twilio)</CardTitle>
+      <Card className="glass-card min-w-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">WhatsApp (Twilio)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="phone">Teléfono E.164</Label>
+            <Label htmlFor="phone" className="text-sm">
+              Teléfono E.164
+            </Label>
             <Input
               id="phone"
+              className="h-11 text-base"
               placeholder="+54911..."
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm font-medium">Opt-in WhatsApp</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm font-medium text-foreground sm:text-base">
+                Opt-in WhatsApp
+              </p>
+              <p className="text-sm text-muted-foreground">
                 Alertas críticas con mapa del hotspot
               </p>
             </div>
             <Switch
-              checked={whatsappOptIn || channels.some((c) => c.id === 'whatsapp' && c.enabled)}
+              checked={
+                whatsappOptIn || channels.some((c) => c.id === 'whatsapp' && c.enabled)
+              }
               onCheckedChange={(v) => {
                 setWhatsappOptIn(v);
-                setChannels((prev) =>
-                  prev.map((c) => (c.id === 'whatsapp' ? { ...c, enabled: v } : c))
-                );
+                toggleChannel('whatsapp', v);
               }}
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Alert Types */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Alert Types</CardTitle>
+      <Card className="glass-card min-w-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">Tipos de alerta</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(alertTypes).map(([type, config]) => (
+        <CardContent className="grid gap-4 sm:grid-cols-2">
+          {(Object.keys(alertTypes) as AlertTypeKey[]).map((type) => {
+            const config = alertTypes[type];
+            return (
               <div
                 key={type}
-                className="p-4 rounded-lg border border-border space-y-3"
+                className="space-y-3 rounded-lg border border-border/60 bg-muted/10 p-4"
               >
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-foreground capitalize">{type} Alerts</h3>
-                  <Button
-                    variant={config.enabled ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => toggleAlertType(type)}
-                    className="min-w-[100px]"
-                  >
-                    {config.enabled ? 'On' : 'Off'}
-                  </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-foreground sm:text-base">
+                    {labelAlertType(type)}
+                  </h3>
+                  <Switch
+                    checked={config.enabled}
+                    onCheckedChange={() => toggleAlertType(type)}
+                  />
                 </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Alert Severity</span>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="text-sm text-muted-foreground">Severidad mínima</span>
                   <select
-                    className="px-2 py-1 rounded border border-border bg-background text-sm text-foreground"
-                    defaultValue={config.severity}
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground sm:w-auto"
+                    value={config.severity}
+                    onChange={(e) => setTypeSeverity(type, e.target.value)}
                   >
-                    <option value="critical">Critical</option>
-                    <option value="warning">Warning</option>
-                    <option value="info">Info</option>
+                    <option value="critical">{labelAlertSeverity('critical')}</option>
+                    <option value="warning">{labelAlertSeverity('warning')}</option>
+                    <option value="info">{labelAlertSeverity('info')}</option>
                   </select>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </CardContent>
       </Card>
 
-      {/* Quiet Hours */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Quiet Hours</CardTitle>
+      <Card className="glass-card min-w-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">Horario silencioso</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-muted/30">
-            <div className="space-y-1">
-              <p className="font-medium text-foreground">Enable Quiet Hours</p>
-              <p className="text-xs text-muted-foreground">Suppress non-critical alerts during specified times</p>
-            </div>
-            <Button variant="outline" size="sm">
-              Configure
-            </Button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 rounded-lg border border-border">
-              <label className="block text-xs text-muted-foreground mb-2">Start Time</label>
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Las alertas críticas siguen llegando fuera del horario configurado.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <label className="mb-2 block text-sm text-muted-foreground">Desde</label>
               <input
                 type="time"
                 defaultValue="22:00"
-                className="w-full px-3 py-2 rounded border border-border bg-background text-sm text-foreground"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
               />
             </div>
-            <div className="p-3 rounded-lg border border-border">
-              <label className="block text-xs text-muted-foreground mb-2">End Time</label>
+            <div className="rounded-lg border border-border/60 bg-muted/10 p-3">
+              <label className="mb-2 block text-sm text-muted-foreground">Hasta</label>
               <input
                 type="time"
                 defaultValue="06:00"
-                className="w-full px-3 py-2 rounded border border-border bg-background text-sm text-foreground"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground"
               />
             </div>
           </div>
-
-          <div className="p-3 rounded-lg border border-border bg-primary/5">
-            <p className="text-xs text-primary">
-              Critical alerts will still be delivered during quiet hours
-            </p>
-          </div>
         </CardContent>
       </Card>
 
-      {/* Field Alerts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Per-Field Alerts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-4">
-            Configure specific alerts for each field
+      <Card className="glass-card min-w-0">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base sm:text-lg">Alertas por campo</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Acceso rápido al monitoreo de cada lote
           </p>
-
-          <div className="space-y-2">
-            {MOCK_FIELDS.map((field) => (
-              <div
-                key={field.id}
-                className="flex items-center justify-between p-3 rounded-lg border border-border"
-              >
-                <span className="text-sm text-foreground">{field.name}</span>
-                <Button variant="ghost" size="sm" className="text-primary text-xs">
-                  Configure
-                </Button>
-              </div>
-            ))}
-          </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {fields.map((field) => (
+            <div
+              key={field.id}
+              className="flex flex-col gap-2 rounded-lg border border-border/60 bg-muted/10 p-3 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <span className="text-sm font-medium text-foreground sm:text-base">
+                {field.name} · {getCropLabelEs(field.crop)}
+              </span>
+              <Button variant="outline" size="sm" className="h-9 shrink-0" asChild>
+                <Link href={`/monitor?field=${field.id}`}>Monitorear</Link>
+              </Button>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
-      {/* Action Buttons */}
-      <div className="flex gap-3 pt-4">
-        <Button className="flex-1" onClick={handleSave}>Save Settings</Button>
-        <Button variant="outline" className="flex-1">
-          Reset to Default
+      <div className="flex flex-col gap-3 pb-4 sm:flex-row">
+        <Button className="h-11 flex-1" onClick={handleSave} disabled={saving || loading}>
+          {saving ? 'Guardando…' : 'Guardar configuración'}
+        </Button>
+        <Button
+          variant="outline"
+          className="h-11 flex-1"
+          onClick={handleReset}
+          disabled={saving}
+        >
+          Restablecer
         </Button>
       </div>
-    </div>
+    </PageContainer>
   );
 }

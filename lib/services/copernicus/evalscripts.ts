@@ -44,7 +44,7 @@ export const S1_EXTENDED_STATS_EVALSCRIPT = `
 //VERSION=3
 function setup() {
   return {
-    input: ["VV", "VH"],
+    input: [{ bands: ["VV", "VH", "dataMask"] }],
     output: [
       { id: "vh", bands: 1, sampleType: "FLOAT32" },
       { id: "vv", bands: 1, sampleType: "FLOAT32" },
@@ -55,15 +55,15 @@ function setup() {
     ]
   };
 }
-function evaluatePixel(s) {
-  if (s.VV <= 0 || s.VH <= 0) {
+function evaluatePixel(samples) {
+  if (samples.dataMask === 0 || !samples.VV || !samples.VH) {
     return { vh: [NaN], vv: [NaN], moisture: [NaN], rvi: [NaN], dprvi: [NaN], dataMask: [0] };
   }
-  let ratio = s.VH / s.VV;
-  let rvi = 4.0 * s.VH / (s.VV + s.VH);
+  let ratio = samples.VH / samples.VV;
+  let rvi = 4.0 * samples.VH / (samples.VV + samples.VH);
   let beta = 0.347;
-  let dprvi = (1.0 + beta * beta) * (s.VV + beta * s.VH) / Math.sqrt(Math.pow(beta * beta * s.VV + s.VH, 2) + beta * beta);
-  return { vh: [s.VH], vv: [s.VV], moisture: [ratio], rvi: [rvi], dprvi: [dprvi], dataMask: [1] };
+  let dprvi = (1.0 + beta * beta) * (samples.VV + beta * samples.VH) / Math.sqrt(Math.pow(beta * beta * samples.VV + samples.VH, 2) + beta * beta);
+  return { vh: [samples.VH], vv: [samples.VV], moisture: [ratio], rvi: [rvi], dprvi: [dprvi], dataMask: [1] };
 }
 `;
 
@@ -91,6 +91,7 @@ function evaluatePixel(s) {
 }
 `;
 
+/** Statistical API — múltiples outputs */
 export const S2_GRID_EVALSCRIPT = `
 //VERSION=3
 function setup() {
@@ -110,6 +111,23 @@ function evaluatePixel(s) {
   let ndvi = (s.B08 - s.B04) / (s.B08 + s.B04);
   let ndmi = (s.B08 - s.B11) / (s.B08 + s.B11);
   return { ndvi: [ndvi], ndmi: [ndmi], dataMask: [1] };
+}
+`;
+
+/** Process API — 2 bandas en un TIFF (ndvi, ndmi) */
+export const S2_GRID_PROCESS_EVALSCRIPT = `
+//VERSION=3
+function setup() {
+  return {
+    input: [{ bands: ["B04", "B08", "B11", "SCL"] }],
+    output: { bands: 2, sampleType: "FLOAT32" }
+  };
+}
+function evaluatePixel(s) {
+  if (s.SCL >= 8 && s.SCL <= 10) return [NaN, NaN];
+  let ndvi = (s.B08 - s.B04) / (s.B08 + s.B04);
+  let ndmi = (s.B08 - s.B11) / (s.B08 + s.B11);
+  return [ndvi, ndmi];
 }
 `;
 
@@ -181,7 +199,7 @@ export const S1_STATS_EVALSCRIPT = `
 //VERSION=3
 function setup() {
   return {
-    input: ["VV", "VH"],
+    input: [{ bands: ["VV", "VH", "dataMask"] }],
     output: [
       { id: "vh", bands: 1, sampleType: "FLOAT32" },
       { id: "vv", bands: 1, sampleType: "FLOAT32" },
@@ -190,12 +208,12 @@ function setup() {
     ]
   };
 }
-function evaluatePixel(s) {
-  if (s.VV <= 0 || s.VH <= 0) {
+function evaluatePixel(samples) {
+  if (samples.dataMask === 0 || !samples.VV || !samples.VH) {
     return { vh: [NaN], vv: [NaN], moisture: [NaN], dataMask: [0] };
   }
-  let ratio = s.VH / s.VV;
-  return { vh: [s.VH], vv: [s.VV], moisture: [ratio], dataMask: [1] };
+  let ratio = samples.VH / samples.VV;
+  return { vh: [samples.VH], vv: [samples.VV], moisture: [ratio], dataMask: [1] };
 }
 `;
 
@@ -203,18 +221,20 @@ export const S3_LST_EVALSCRIPT = `
 //VERSION=3
 function setup() {
   return {
-    input: ["LST", "dataMask"],
+    input: [{
+      bands: ["S8", "dataMask"],
+      units: "BRIGHTNESS_TEMPERATURE"
+    }],
     output: [
       { id: "lst", bands: 1, sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1 }
     ]
   };
 }
-function evaluatePixel(s) {
-  if (s.dataMask === 0) {
+function evaluatePixel(samples) {
+  if (samples.dataMask === 0) {
     return { lst: [NaN], dataMask: [0] };
   }
-  let celsius = s.LST - 273.15;
-  return { lst: [celsius], dataMask: [1] };
+  return { lst: [samples.S8 - 273.15], dataMask: [1] };
 }
 `;

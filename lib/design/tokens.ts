@@ -1,0 +1,183 @@
+import type { CSSProperties } from 'react';
+
+/**
+ * Design tokens for JS (Recharts, inline styles).
+ * Keep in sync with app/globals.css — update both when changing the palette.
+ */
+
+export const brandColors = {
+  copernicusTeal: '#2dd4bf',
+  copernicusTealDim: '#14b8a6',
+  earthGreen: '#22c55e',
+  earthGreenDim: '#16a34a',
+  soilAmber: '#d97706',
+  oceanDeep: '#071018',
+  surfaceElevated: '#0f1f2a',
+  mistSlate: '#94a3b8',
+  border: '#1e3a47',
+  foregroundMuted: '#e2e8f0',
+} as const;
+
+/** Ordered palette for pie/bar series */
+export const chartColors = [
+  brandColors.copernicusTeal,
+  brandColors.earthGreen,
+  brandColors.soilAmber,
+  '#a78bfa',
+  '#f472b6',
+] as const;
+
+export const healthColors = {
+  excellent: '#22c55e',
+  good: '#84cc16',
+  warning: '#d97706',
+  critical: '#ef4444',
+} as const;
+
+export type HealthLevel = keyof typeof healthColors;
+
+export const healthLabelEs: Record<HealthLevel, string> = {
+  excellent: 'Excelente',
+  good: 'Bueno',
+  warning: 'Advertencia',
+  critical: 'Crítico',
+};
+
+export const healthLabelEnToLevel: Record<string, HealthLevel> = {
+  Excellent: 'excellent',
+  Good: 'good',
+  Warning: 'warning',
+  Critical: 'critical',
+  Excelente: 'excellent',
+  Bueno: 'good',
+  Advertencia: 'warning',
+  Crítico: 'critical',
+};
+
+export const envStatusLabelEs = {
+  Optimal: 'Óptimo',
+  Suboptimal: 'Subóptimo',
+  Stress: 'Estrés',
+  Critical: 'Crítico',
+} as const;
+
+export type EnvStatusKey = keyof typeof envStatusLabelEs;
+
+export const priorityLabelEs = {
+  high: 'Alta',
+  medium: 'Media',
+  low: 'Baja',
+} as const;
+
+export const cropLabelEs: Record<string, string> = {
+  soybean: 'Soja',
+  corn: 'Maíz',
+  wheat: 'Trigo',
+  cotton: 'Algodón',
+  coffee: 'Café',
+  cacao: 'Cacao',
+  canola: 'Canola',
+  sunflower: 'Girasol',
+  barley: 'Cebada',
+  rice: 'Arroz',
+};
+
+export function getCropLabelEs(crop: string): string {
+  return cropLabelEs[crop.toLowerCase()] ?? crop.charAt(0).toUpperCase() + crop.slice(1);
+}
+
+export const riskLevels = {
+  low: healthColors.excellent,
+  medium: healthColors.warning,
+  high: healthColors.critical,
+  critical: '#991b1b',
+} as const;
+
+export const chartAxisStroke = brandColors.mistSlate;
+export const chartGridStroke = brandColors.border;
+
+/** Recharts axis tick — legible en móvil y escritorio */
+export const chartTick = {
+  fontSize: 12,
+  fill: brandColors.foregroundMuted,
+} as const;
+
+export const chartTickSm = {
+  fontSize: 11,
+  fill: brandColors.mistSlate,
+} as const;
+
+export const chartLegendWrapperStyle = {
+  fontSize: 13,
+  paddingTop: 12,
+  color: brandColors.foregroundMuted,
+} as const;
+
+export const chartSeries = {
+  investment: chartColors[3],
+  revenue: healthColors.good,
+  roi: brandColors.soilAmber,
+  primary: chartColors[0],
+  secondary: chartColors[1],
+  /** Laboratorio científico — series temporales */
+  ndvi: healthColors.excellent,
+  ndre: chartColors[3],
+  dpRvi: brandColors.soilAmber,
+  rules: healthColors.excellent,
+  ml: chartColors[3],
+} as const;
+
+/** Recharts tooltip — matches --card / --border */
+export const chartTooltipStyle: CSSProperties = {
+  backgroundColor: brandColors.surfaceElevated,
+  border: `1px solid ${brandColors.border}`,
+  borderRadius: '8px',
+  color: brandColors.foregroundMuted,
+};
+
+/** Crop name → chart color */
+export const cropColorMap: Record<string, string> = {
+  soybean: chartColors[0],
+  corn: chartColors[1],
+  wheat: chartColors[2],
+  cotton: chartColors[3],
+  coffee: chartColors[4],
+  cacao: chartColors[4],
+  canola: chartColors[3],
+  sunflower: chartColors[2],
+  barley: chartColors[3],
+  rice: chartColors[1],
+};
+
+export function getCropColor(crop: string): string {
+  return cropColorMap[crop.toLowerCase()] ?? brandColors.mistSlate;
+}
+
+export function getHealthColorByLabel(name: string): string {
+  const level = healthLabelEnToLevel[name];
+  if (level) return healthColors[level];
+  const lower = name.toLowerCase() as HealthLevel;
+  if (lower in healthColors) return healthColors[lower];
+  return brandColors.mistSlate;
+}
+
+export function getGrowthStageEs(daysToMaturity: number): string {
+  if (daysToMaturity > 60) return 'Vegetativo temprano';
+  if (daysToMaturity > 40) return 'Vegetativo';
+  if (daysToMaturity > 20) return 'Floración';
+  return 'Llenado de grano';
+}
+
+export function healthDistributionToChartData(dist: {
+  excellent?: number;
+  good?: number;
+  warning?: number;
+  critical?: number;
+}) {
+  return (['excellent', 'good', 'warning', 'critical'] as const).map((level) => ({
+    name: healthLabelEs[level],
+    value: dist[level] ?? 0,
+    fill: healthColors[level],
+    level,
+  }));
+}

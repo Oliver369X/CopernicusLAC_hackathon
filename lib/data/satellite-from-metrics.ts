@@ -4,6 +4,7 @@ import { generateSatelliteData, getAverageValue } from '@/lib/mock-data/satellit
 export interface FieldMetrics {
   ndvi: number;
   ndmi: number;
+  ndre?: number | null;
   temperature: number;
   soilMoisture: number;
   s1MoistureIndex?: number | null;

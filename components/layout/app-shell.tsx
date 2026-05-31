@@ -1,22 +1,18 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard,
-  Satellite,
-  BarChart3,
-  Lightbulb,
-  Bell,
-  FlaskConical,
-  Sprout,
   Menu,
   Leaf,
-  ChevronRight,
+  PanelLeftClose,
+  PanelLeft,
+  Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AuthHeaderActions } from '@/components/auth-header-actions';
+import { SidebarNav } from '@/components/layout/sidebar-nav';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -25,180 +21,284 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import {
+  AUTH_ROUTES,
+  FIELD_ROUTE_PREFIX,
+  SIDEBAR_COLLAPSED_KEY,
+  getPageTitle,
+} from '@/lib/navigation/config';
 
-const navGroups = [
-  {
-    label: 'Principal',
-    items: [
-      { href: '/dashboard', label: 'Panel', icon: LayoutDashboard },
-      { href: '/monitor', label: 'Monitoreo', icon: Satellite },
-    ],
-  },
-  {
-    label: 'Análisis',
-    items: [
-      { href: '/analytics', label: 'Analítica', icon: BarChart3 },
-      { href: '/insights', label: 'Perspectivas', icon: Lightbulb },
-    ],
-  },
-  {
-    label: 'Investigación',
-    items: [
-      { href: '/science', label: 'Lab. Científico', icon: FlaskConical },
-    ],
-  },
-  {
-    label: 'Operaciones',
-    items: [
-      { href: '/alerts', label: 'Alertas', icon: Bell },
-      { href: '/field', label: 'App de Campo', icon: Sprout },
-    ],
-  },
-];
-
-const AUTH_ROUTES = ['/login', '/register'];
-
-function isActive(pathname: string, href: string) {
-  return pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
-}
-
-function NavLink({
-  href,
-  label,
-  icon: Icon,
-  active,
-  onNavigate,
-}: {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  active: boolean;
-  onNavigate?: () => void;
-}) {
+function BrandMark({ className }: { className?: string }) {
   return (
     <Link
-      href={href}
-      onClick={onNavigate}
+      href="/dashboard"
       className={cn(
-        'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
-        active
-          ? 'bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20'
-          : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 motion-reduce:hover:scale-100',
+        className
+      )}
+      aria-label="Doctor Soya — inicio"
+    >
+      <Leaf className="h-5 w-5" aria-hidden />
+    </Link>
+  );
+}
+
+function Brand({ collapsed = false }: { collapsed?: boolean }) {
+  return (
+    <Link
+      href="/dashboard"
+      className={cn(
+        'group flex items-center gap-3 rounded-lg transition-opacity hover:opacity-90',
+        collapsed ? 'justify-center px-0' : 'px-1'
       )}
     >
-      <Icon
-        className={cn(
-          'h-4 w-4 shrink-0 transition-colors',
-          active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
-        )}
-      />
-      <span className="flex-1">{label}</span>
-      {active && <ChevronRight className="h-3.5 w-3.5 text-primary/60" />}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/30 transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100">
+        <Leaf className="h-5 w-5" aria-hidden />
+      </div>
+      {!collapsed && (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-foreground">Doctor Soya</p>
+          <p className="truncate text-[10px] text-muted-foreground">
+            Copernicus LAC
+          </p>
+        </div>
+      )}
+      <span className="sr-only">Doctor Soya — inicio</span>
     </Link>
   );
 }
 
-function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
-
+function DesktopSidebar({
+  collapsed,
+  onToggleCollapse,
+}: {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
   return (
-    <nav className="flex flex-1 flex-col gap-6 px-3 py-4">
-      {navGroups.map((group) => (
-        <div key={group.label} className="space-y-1">
-          <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-            {group.label}
-          </p>
-          <div className="space-y-0.5">
-            {group.items.map((item) => (
-              <NavLink
-                key={item.href}
-                {...item}
-                active={isActive(pathname, item.href)}
-                onNavigate={onNavigate}
-              />
-            ))}
+    <aside
+      className={cn(
+        'hidden lg:fixed lg:inset-y-0 lg:z-30 lg:flex lg:flex-col',
+        'border-r border-sidebar-border bg-sidebar/95 backdrop-blur-xl',
+        'transition-[width] duration-300 ease-out motion-reduce:transition-none',
+        collapsed ? 'lg:w-[4.75rem]' : 'lg:w-64'
+      )}
+    >
+      <div
+        className={cn(
+          'flex h-16 shrink-0 items-center border-b border-sidebar-border',
+          collapsed ? 'justify-center px-2' : 'px-4'
+        )}
+      >
+        <Brand collapsed={collapsed} />
+      </div>
+
+      <SidebarNav collapsed={collapsed} className="flex-1" />
+
+      <div className="shrink-0 space-y-2 border-t border-sidebar-border p-3">
+        <AuthHeaderActions layout={collapsed ? 'collapsed' : 'sidebar'} />
+        <Button
+          type="button"
+          variant="ghost"
+          size={collapsed ? 'icon' : 'sm'}
+          onClick={onToggleCollapse}
+          className={cn(
+            'w-full text-muted-foreground hover:text-foreground',
+            collapsed && 'size-10'
+          )}
+          aria-label={collapsed ? 'Expandir menú' : 'Contraer menú'}
+        >
+          {collapsed ? (
+            <PanelLeft className="h-4 w-4" />
+          ) : (
+            <>
+              <PanelLeftClose className="h-4 w-4" />
+              <span className="ml-2">Contraer</span>
+            </>
+          )}
+        </Button>
+      </div>
+    </aside>
+  );
+}
+
+function MobileNavSheet({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="lg:hidden size-11 shrink-0 border-primary/25 bg-background/60"
+          aria-label="Abrir menú de navegación"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        side="left"
+        className="flex w-[min(18.5rem,88vw)] max-w-none flex-col gap-0 border-sidebar-border bg-sidebar p-0 [&>button]:top-[max(1rem,env(safe-area-inset-top))]"
+      >
+        <SheetHeader className="shrink-0 border-b border-sidebar-border px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
+          <SheetTitle className="text-left">
+            <Brand />
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SidebarNav
+            onNavigate={() => onOpenChange(false)}
+            className="flex-1 px-2"
+          />
+          <div className="shrink-0 border-t border-sidebar-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <AuthHeaderActions layout="sidebar" />
           </div>
         </div>
-      ))}
-    </nav>
+      </SheetContent>
+    </Sheet>
   );
 }
 
-function Brand() {
+function AppHeader({
+  collapsed,
+  onToggleCollapse,
+  mobileOpen,
+  onMobileOpenChange,
+}: {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  mobileOpen: boolean;
+  onMobileOpenChange: (open: boolean) => void;
+}) {
+  const pathname = usePathname();
+  const pageTitle = getPageTitle(pathname);
+
   return (
-    <Link href="/dashboard" className="flex items-center gap-3 px-3 py-1 group">
-      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-emerald-500 text-primary-foreground shadow-lg shadow-primary/25 transition-transform group-hover:scale-105">
-        <Leaf className="h-5 w-5" />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-foreground">Doctor Soya</p>
-        <p className="truncate text-[10px] text-muted-foreground">
-          Monitoreo agrícola
+    <header
+      className={cn(
+        'sticky top-0 z-40 flex min-h-14 items-center gap-3 border-b border-border/60',
+        'bg-background/85 px-4 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70',
+        'pt-[env(safe-area-inset-top)] sm:px-6'
+      )}
+    >
+      <MobileNavSheet open={mobileOpen} onOpenChange={onMobileOpenChange} />
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="hidden size-10 lg:inline-flex"
+        onClick={onToggleCollapse}
+        aria-label={collapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+      >
+        {collapsed ? (
+          <PanelLeft className="h-5 w-5" />
+        ) : (
+          <PanelLeftClose className="h-5 w-5" />
+        )}
+      </Button>
+
+      <div className="flex min-w-0 flex-1 items-center gap-2.5 lg:hidden">
+        <BrandMark />
+        <p className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-tight text-foreground">
+          {pageTitle}
         </p>
       </div>
-    </Link>
+
+      <p className="hidden min-w-0 flex-1 truncate text-base font-semibold text-foreground lg:block">
+        {pageTitle}
+      </p>
+
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          className="size-10 border-border/80 lg:hidden"
+          asChild
+        >
+          <Link href="/alerts" aria-label="Ver alertas">
+            <Bell className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div className="lg:hidden">
+          <AuthHeaderActions layout="header" />
+        </div>
+        <div className="hidden lg:block">
+          <AuthHeaderActions layout="header" />
+        </div>
+      </div>
+    </header>
   );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (stored === 'true') setCollapsed(true);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  const toggleCollapse = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
 
   if (AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
     return <>{children}</>;
   }
 
-  if (pathname.startsWith('/field')) {
+  if (pathname.startsWith(FIELD_ROUTE_PREFIX)) {
     return <>{children}</>;
   }
 
+  const sidebarCollapsed = hydrated && collapsed;
+  const mainOffset = sidebarCollapsed ? 'lg:pl-[4.75rem]' : 'lg:pl-64';
+
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r border-border/60 bg-sidebar/80 backdrop-blur-xl">
-        <div className="flex h-16 items-center border-b border-border/60 px-4">
-          <Brand />
+    <TooltipProvider delayDuration={200}>
+      <div className="flex min-h-screen min-h-[100dvh] bg-background">
+        <DesktopSidebar
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleCollapse}
+        />
+
+        <div
+          className={cn(
+            'flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-out motion-reduce:transition-none',
+            mainOffset
+          )}
+        >
+          <AppHeader
+            collapsed={sidebarCollapsed}
+            onToggleCollapse={toggleCollapse}
+            mobileOpen={mobileOpen}
+            onMobileOpenChange={setMobileOpen}
+          />
+
+          <main className="min-w-0 flex-1 overflow-x-hidden page-gradient pb-[env(safe-area-inset-bottom)]">
+            {children}
+          </main>
         </div>
-        <SidebarNav />
-        <div className="border-t border-border/60 p-4">
-          <AuthHeaderActions />
-        </div>
-      </aside>
-
-      <div className="flex flex-1 flex-col lg:pl-64">
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur-xl sm:px-6">
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Abrir menú</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-72 p-0 bg-sidebar">
-              <SheetHeader className="border-b border-border/60 px-4 py-4">
-                <SheetTitle className="text-left">
-                  <Brand />
-                </SheetTitle>
-              </SheetHeader>
-              <SidebarNav onNavigate={() => setMobileOpen(false)} />
-              <div className="absolute bottom-0 left-0 right-0 border-t border-border/60 p-4">
-                <AuthHeaderActions />
-              </div>
-            </SheetContent>
-          </Sheet>
-
-          <div className="flex flex-1 items-center justify-between gap-4">
-            <div className="lg:hidden">
-              <Brand />
-            </div>
-            <div className="hidden lg:block" />
-            <div className="lg:hidden">
-              <AuthHeaderActions />
-            </div>
-          </div>
-        </header>
-
-        <main className="flex-1 page-gradient">{children}</main>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

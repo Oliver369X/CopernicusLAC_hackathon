@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthLayout } from '@/components/layout/auth-layout';
 import { toast } from 'sonner';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -33,8 +34,8 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (!res.ok) {
-      const data = await res.json();
-      toast.error(data.error ?? 'Error al registrarse');
+      const { data, error } = await parseJsonResponse<{ error?: string }>(res);
+      toast.error(data?.error ?? error ?? 'Error al registrarse');
       return;
     }
 

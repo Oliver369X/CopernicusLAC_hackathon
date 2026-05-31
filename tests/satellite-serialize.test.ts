@@ -7,7 +7,11 @@ import { getAverageValue } from '@/lib/mock-data/satellite-data';
 import { serializeField, deserializeField } from '@/lib/utils/serialize-field';
 import { MOCK_FIELDS } from '@/lib/mock-data/fields';
 import { hasSatelliteCredentials } from '@/lib/services/satellite';
-import { boundsToBbox, boundsToPolygon } from '@/lib/services/copernicus/bounds';
+import {
+  boundsToBbox,
+  boundsToPolygon,
+  normalizeGeoBounds,
+} from '@/lib/services/copernicus/bounds';
 
 describe('satellite-from-metrics', () => {
   it('anchors grid average to provided NDVI', () => {
@@ -50,6 +54,25 @@ describe('copernicus bounds', () => {
     const polygon = boundsToPolygon(bounds);
     expect(polygon.length).toBe(5);
     expect(polygon[0]).toEqual(polygon[polygon.length - 1]);
+  });
+
+  it('normalizes GeoJSON polygon from Postgres seed', () => {
+    const center = { lat: -34.9, lng: -62.3 };
+    const geoJson = {
+      type: 'Polygon' as const,
+      coordinates: [
+        [
+          [-62.32, -34.92],
+          [-62.28, -34.92],
+          [-62.28, -34.88],
+          [-62.32, -34.88],
+          [-62.32, -34.92],
+        ],
+      ],
+    };
+    const bounds = normalizeGeoBounds(geoJson, center);
+    expect(bounds).toHaveLength(4);
+    expect(bounds[0].lat).toBeCloseTo(-34.88, 1);
   });
 });
 

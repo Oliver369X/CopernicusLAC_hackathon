@@ -1,4 +1,5 @@
 import type { MultisensorAnalysis } from './types';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 /** Narrativa corta para alertas WhatsApp / push. */
 export function formatScienceAlertNarrative(analysis: MultisensorAnalysis): string {
@@ -15,10 +16,10 @@ export function formatScienceAlertNarrative(analysis: MultisensorAnalysis): stri
     );
   }
   if (analysis.optical.ndre != null) {
-    parts.push(`NDRE ${analysis.optical.ndre.toFixed(2)}`);
+    parts.push(`NDRE ${formatDecimal(analysis.optical.ndre, 2)}`);
   }
   if (analysis.radar.dpRvi != null) {
-    parts.push(`DpRVI ${analysis.radar.dpRvi.toFixed(2)}`);
+    parts.push(`DpRVI ${formatDecimal(analysis.radar.dpRvi, 2)}`);
   }
   return parts.filter(Boolean).join(' · ');
 }

@@ -2,7 +2,8 @@ import { fromArrayBuffer } from 'geotiff';
 import type { GeoBounds } from '@/lib/types/field';
 import { boundsToBbox } from './bounds';
 import { cdseFetch } from './client';
-import { S2_GRID_EVALSCRIPT } from './evalscripts';
+import { S2_GRID_PROCESS_EVALSCRIPT } from './evalscripts';
+import { timeRangeLastDays } from './bounds';
 
 export interface NdviGridPayload {
   size: number;
@@ -98,6 +99,7 @@ async function parseTiffBands(
 
 export async function fetchS2NdviGrid(bounds: GeoBounds): Promise<NdviGridPayload | null> {
   const bbox = boundsToBbox(bounds);
+  const timeRange = timeRangeLastDays(30);
   const body = {
     input: {
       bounds: {
@@ -107,7 +109,11 @@ export async function fetchS2NdviGrid(bounds: GeoBounds): Promise<NdviGridPayloa
       data: [
         {
           type: 'sentinel-2-l2a',
-          dataFilter: { maxCloudCoverage: 20 },
+          dataFilter: {
+            timeRange,
+            maxCloudCoverage: 40,
+            mosaickingOrder: 'leastCC',
+          },
         },
       ],
     },
@@ -116,7 +122,7 @@ export async function fetchS2NdviGrid(bounds: GeoBounds): Promise<NdviGridPayloa
       height: GRID_SIZE,
       responses: [{ identifier: 'default', format: { type: 'image/tiff' } }],
     },
-    evalscript: S2_GRID_EVALSCRIPT,
+    evalscript: S2_GRID_PROCESS_EVALSCRIPT,
   };
 
   try {
@@ -125,10 +131,28 @@ export async function fetchS2NdviGrid(bounds: GeoBounds): Promise<NdviGridPayloa
       body: JSON.stringify(body),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (process.env.NODE_ENV === 'development') {
+        const detail = await res.text().catch(() => '');
+        console.warn(`[CDSE process grid] HTTP ${res.status}:`, detail.slice(0, 400));
+      }
+      return null;
+    }
+
+    const contentType = res.headers.get('content-type') ?? '';
+    if (!contentType.includes('tiff') && !contentType.includes('octet-stream')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[CDSE process grid] unexpected content-type:', contentType);
+      }
+      return null;
+    }
+
     const buffer = await res.arrayBuffer();
     return parseTiffBands(buffer, GRID_SIZE);
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[CDSE process grid] error:', err);
+    }
     return null;
   }
 }

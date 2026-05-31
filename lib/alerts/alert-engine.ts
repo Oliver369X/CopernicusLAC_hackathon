@@ -53,6 +53,17 @@ export interface AlertSettings {
   pest: AlertConfig;
 }
 
+/** ID estable por tipo + campo + zona (evita colisiones con Date.now()). */
+export function createAlertId(
+  prefix: string,
+  fieldId: string,
+  zoneId: string,
+  suffix?: string
+): string {
+  const base = `${prefix}-${fieldId}-${zoneId}`;
+  return suffix ? `${base}-${suffix}` : base;
+}
+
 export class AlertEngine {
   private fieldAlerts: Map<string, Alert[]> = new Map();
   private alertHistory: Alert[] = [];
@@ -75,15 +86,15 @@ export class AlertEngine {
     // NDVI check
     if (ndvi < cropProfile.ndviRange[0]) {
       alerts.push({
-        id: `ndvi-${Date.now()}`,
+        id: createAlertId('ndvi', fieldId, zoneId),
         fieldId,
         cropType,
         zoneId,
         type: 'threshold',
         severity: 'critical',
-        title: 'Low NDVI Detected',
-        description: `Zone NDVI is ${ndvi.toFixed(2)}, below healthy range [${cropProfile.ndviRange[0]}, ${cropProfile.ndviRange[1]}]`,
-        recommendation: 'Check for nutrient deficiency, water stress, or disease. Consider fertilizer application.',
+        title: 'NDVI bajo detectado',
+        description: `NDVI de la zona es ${ndvi.toFixed(2)}, por debajo del rango saludable [${cropProfile.ndviRange[0]}, ${cropProfile.ndviRange[1]}]`,
+        recommendation: 'Revisar deficiencia nutricional, estrés hídrico o enfermedad. Valorar fertilización.',
         timestamp: new Date(),
         metrics: { ndvi, ndmi, temperature, soilMoisture },
         actionsTaken: [],
@@ -95,15 +106,15 @@ export class AlertEngine {
     // NDMI check (moisture)
     if (ndmi < 0.3) {
       alerts.push({
-        id: `ndmi-${Date.now()}`,
+        id: createAlertId('ndmi', fieldId, zoneId),
         fieldId,
         cropType,
         zoneId,
         type: 'threshold',
         severity: 'warning',
-        title: 'Water Stress Detected',
-        description: `NDMI (moisture index) is ${ndmi.toFixed(2)} - crop shows signs of water stress`,
-        recommendation: 'Increase irrigation or monitor rainfall. Consider anti-transpirant spray.',
+        title: 'Estrés hídrico detectado',
+        description: `NDMI (índice de humedad) es ${ndmi.toFixed(2)} — el cultivo muestra signos de estrés hídrico`,
+        recommendation: 'Aumentar riego o monitorear lluvias. Valorar antitranspirante.',
         timestamp: new Date(),
         metrics: { ndvi, ndmi, temperature, soilMoisture },
         actionsTaken: [],
@@ -116,15 +127,15 @@ export class AlertEngine {
     const optimalMoisture = currentStage?.waterNeeds === 'high' ? [60, 80] : [50, 70];
     if (soilMoisture < optimalMoisture[0]) {
       alerts.push({
-        id: `moisture-${Date.now()}`,
+        id: createAlertId('moisture', fieldId, zoneId),
         fieldId,
         cropType,
         zoneId,
         type: 'threshold',
         severity: currentStage?.waterNeeds === 'high' ? 'critical' : 'warning',
-        title: 'Low Soil Moisture',
-        description: `Soil moisture ${soilMoisture.toFixed(0)}% is below optimal range for ${currentStage?.stage || 'growth'}`,
-        recommendation: 'Initiate irrigation immediately',
+        title: 'Humedad de suelo baja',
+        description: `Humedad del suelo ${soilMoisture.toFixed(0)}% está por debajo del óptimo para ${currentStage?.stage || 'crecimiento'}`,
+        recommendation: 'Iniciar riego de inmediato',
         timestamp: new Date(),
         metrics: { ndvi, ndmi, temperature, soilMoisture },
         actionsTaken: [],
@@ -138,15 +149,15 @@ export class AlertEngine {
       const [minTemp, maxTemp] = currentStage.waterNeeds === 'high' ? [18, 30] : [10, 35];
       if (temperature < minTemp || temperature > maxTemp) {
         alerts.push({
-          id: `temp-${Date.now()}`,
+          id: createAlertId('temp', fieldId, zoneId),
           fieldId,
           cropType,
           zoneId,
           type: 'threshold',
           severity: temperature > 35 || temperature < 5 ? 'critical' : 'warning',
-          title: 'Temperature Outside Optimal Range',
-          description: `Current temperature ${temperature.toFixed(1)}°C is outside optimal range for ${currentStage.stage}`,
-          recommendation: 'Monitor crop for heat/cold stress. Consider protective measures if extreme.',
+          title: 'Temperatura fuera de rango óptimo',
+          description: `Temperatura actual ${temperature.toFixed(1)}°C fuera del rango óptimo para ${currentStage.stage}`,
+          recommendation: 'Monitorear estrés por calor/frío. Valorar medidas de protección si es extremo.',
           timestamp: new Date(),
           metrics: { ndvi, ndmi, temperature, soilMoisture },
           actionsTaken: [],
@@ -178,15 +189,15 @@ export class AlertEngine {
 
       if (trend < -0.1) {
         alerts.push({
-          id: `trend-${Date.now()}`,
+          id: createAlertId('trend', fieldId, zoneId),
           fieldId,
           cropType,
           zoneId,
           type: 'predictive',
           severity: 'warning',
-          title: 'Declining Plant Health Trend',
-          description: `NDVI trend shows decline of ${Math.abs(trend).toFixed(3)} over last 3 observations`,
-          recommendation: 'Investigate root cause: disease, pest, water stress, or nutrient deficiency',
+          title: 'Tendencia de salud en descenso',
+          description: `NDVI bajó ${Math.abs(trend).toFixed(3)} en las últimas 3 observaciones`,
+          recommendation: 'Investigar causa: enfermedad, plaga, estrés hídrico o deficiencia nutricional',
           timestamp: new Date(),
           metrics: { ndvi: recent[2] },
           actionsTaken: [],
@@ -199,15 +210,15 @@ export class AlertEngine {
     // Fungal disease risk (high humidity + warm temp)
     if (soilMoisture > 80 && temperature > 20 && temperature < 28) {
       alerts.push({
-        id: `fungal-${Date.now()}`,
+        id: createAlertId('fungal', fieldId, zoneId),
         fieldId,
         cropType,
         zoneId,
         type: 'predictive',
         severity: 'warning',
-        title: 'High Fungal Disease Risk',
-        description: `Conditions favor fungal development: High moisture (${soilMoisture}%), optimal temp (${temperature}°C)`,
-        recommendation: 'Apply preventive fungicide. Improve air circulation. Monitor leaves closely.',
+        title: 'Alto riesgo de enfermedad fúngica',
+        description: `Condiciones favorables: humedad alta (${soilMoisture}%), temperatura óptima (${temperature}°C)`,
+        recommendation: 'Aplicar fungicida preventivo. Mejorar circulación de aire. Monitorear hojas.',
         timestamp: new Date(),
         metrics: { temperature, soilMoisture },
         actionsTaken: [],
@@ -219,15 +230,15 @@ export class AlertEngine {
     // Pest activity risk
     if (temperature > 25 && temperature < 32 && soilMoisture > 60) {
       alerts.push({
-        id: `pest-${Date.now()}`,
+        id: createAlertId('pest', fieldId, zoneId),
         fieldId,
         cropType,
         zoneId,
         type: 'pest',
         severity: 'info',
-        title: 'Pest Activity Predicted',
-        description: 'Weather conditions favor pest multiplication (warm + humid)',
-        recommendation: 'Scout field for insects. Consider preventive spray if pest pressure detected.',
+        title: 'Actividad de plagas prevista',
+        description: 'Clima favorable a multiplicación de plagas (cálido y húmedo)',
+        recommendation: 'Relevar el campo. Valorar aplicación preventiva si hay presión de plagas.',
         timestamp: new Date(),
         metrics: { temperature, soilMoisture },
         actionsTaken: [],
@@ -255,15 +266,15 @@ export class AlertEngine {
 
     if (zScore > 2) {
       alerts.push({
-        id: `anomaly-${Date.now()}`,
+        id: createAlertId('anomaly', fieldId, zoneId),
         fieldId,
         cropType,
         zoneId,
         type: 'anomaly',
         severity: ndvi < historicalAverage ? 'warning' : 'info',
-        title: 'Anomalous NDVI Value Detected',
-        description: `Current NDVI (${ndvi.toFixed(2)}) deviates significantly from zone average (${historicalAverage.toFixed(2)})`,
-        recommendation: 'Verify sensor calibration or visual inspect zone for localized issues',
+        title: 'Valor anómalo de NDVI',
+        description: `NDVI actual (${ndvi.toFixed(2)}) se desvía del promedio de zona (${historicalAverage.toFixed(2)})`,
+        recommendation: 'Verificar calibración o inspección visual de la zona',
         timestamp: new Date(),
         metrics: { ndvi },
         actionsTaken: [],
@@ -291,15 +302,15 @@ export class AlertEngine {
 
       if (disease) {
         alerts.push({
-          id: `disease-${Date.now()}`,
+          id: createAlertId('disease', fieldId, zoneId, detectedDisease),
           fieldId,
           cropType,
           zoneId,
           type: 'disease',
           severity: disease.transmissionRisk === 'high' ? 'critical' : 'warning',
-          title: `${disease.disease} Detected`,
+          title: `${disease.disease} detectada`,
           description: disease.description,
-          recommendation: `Apply recommended control measures: ${disease.controlMeasures.join(', ')}`,
+          recommendation: `Medidas de control: ${disease.controlMeasures.join(', ')}`,
           timestamp: new Date(),
           metrics: {},
           actionsTaken: [],

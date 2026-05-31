@@ -4,28 +4,34 @@ import { createClient } from '@/lib/supabase/server';
 import { isScienceCrop } from '@/lib/science/crops/registry';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const crop = searchParams.get('crop');
+  try {
+    const { searchParams } = new URL(request.url);
+    const crop = searchParams.get('crop');
 
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ labels: [] });
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json({ labels: [] });
+    }
+
+    const supabase = await createClient();
+    let query = supabase
+      .from('science_validation_labels')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (crop && isScienceCrop(crop)) query = query.eq('crop', crop);
+
+    const { data, error } = await query;
+    if (error) {
+      return NextResponse.json({ labels: [], warning: error.message });
+    }
+
+    return NextResponse.json({ labels: data ?? [] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Validation query failed';
+    console.error('[science/validation GET]', message);
+    return NextResponse.json({ labels: [], warning: message });
   }
-
-  const supabase = await createClient();
-  let query = supabase
-    .from('science_validation_labels')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(50);
-
-  if (crop && isScienceCrop(crop)) query = query.eq('crop', crop);
-
-  const { data, error } = await query;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ labels: data ?? [] });
 }
 
 export async function POST(request: Request) {

@@ -3,7 +3,13 @@ import ScienceCompareClient from '@/components/science/science-compare-client';
 
 export default function ScienceComparePage() {
   return (
-    <Suspense fallback={<div className="p-6">Cargando…</div>}>
+    <Suspense
+      fallback={
+        <div className="flex min-h-[40vh] items-center justify-center p-6 text-sm text-muted-foreground">
+          Cargando comparador…
+        </div>
+      }
+    >
       <ScienceCompareClient />
     </Suspense>
   );

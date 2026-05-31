@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, branch_adrian7]
   pull_request:
-    branches: [main, master]
+    branches: [main, master, branch_adrian7]
 
 jobs:
   build:
@@ -25,7 +25,30 @@ jobs:
 
       - run: pnpm test
 
+      - run: pnpm exec next lint
+        continue-on-error: true
+
       - run: pnpm build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Start server and run E2E smoke
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
+          CI: true
+        run: |
+          pnpm start &
+          for i in $(seq 1 40); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then
+              echo "Server ready"
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://localhost:3000/api/health
+          pnpm test:e2e

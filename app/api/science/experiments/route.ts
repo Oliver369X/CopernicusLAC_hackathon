@@ -9,31 +9,37 @@ import { isScienceCrop } from '@/lib/science/crops/registry';
 import type { ScienceCropId, ScienceExperimentRecord } from '@/lib/science/types';
 
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const crop = searchParams.get('crop');
-  const fieldId = searchParams.get('fieldId');
-  const limit = parseInt(searchParams.get('limit') ?? '20', 10);
+  try {
+    const { searchParams } = new URL(request.url);
+    const crop = searchParams.get('crop');
+    const fieldId = searchParams.get('fieldId');
+    const limit = parseInt(searchParams.get('limit') ?? '20', 10);
 
-  if (!isDatabaseConfigured()) {
-    return NextResponse.json({ experiments: [] });
+    if (!isDatabaseConfigured()) {
+      return NextResponse.json({ experiments: [] });
+    }
+
+    const supabase = await createClient();
+    let query = supabase
+      .from('science_experiments')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (crop && isScienceCrop(crop)) query = query.eq('crop', crop);
+    if (fieldId) query = query.eq('field_id', fieldId);
+
+    const { data, error } = await query;
+    if (error) {
+      return NextResponse.json({ experiments: [], warning: error.message });
+    }
+
+    return NextResponse.json({ experiments: data ?? [] });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Experiments query failed';
+    console.error('[science/experiments GET]', message);
+    return NextResponse.json({ experiments: [], warning: message });
   }
-
-  const supabase = await createClient();
-  let query = supabase
-    .from('science_experiments')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (crop && isScienceCrop(crop)) query = query.eq('crop', crop);
-  if (fieldId) query = query.eq('field_id', fieldId);
-
-  const { data, error } = await query;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({ experiments: data ?? [] });
 }
 
 export async function POST(request: Request) {

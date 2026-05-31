@@ -21,9 +21,10 @@ export default function SatelliteMapPanel({ field }: SatelliteMapPanelProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
         <Button
           size="sm"
+          className="shrink-0"
           variant={layer === 'ndre' ? 'default' : 'outline'}
           onClick={() => setLayer('ndre')}
         >
@@ -31,6 +32,7 @@ export default function SatelliteMapPanel({ field }: SatelliteMapPanelProps) {
         </Button>
         <Button
           size="sm"
+          className="shrink-0"
           variant={layer === 'ndvi' ? 'default' : 'outline'}
           onClick={() => setLayer('ndvi')}
         >
@@ -38,10 +40,11 @@ export default function SatelliteMapPanel({ field }: SatelliteMapPanelProps) {
         </Button>
         <Button
           size="sm"
+          className="shrink-0"
           variant={layer === 'truecolor' ? 'default' : 'outline'}
           onClick={() => setLayer('truecolor')}
         >
-          True Color (S2)
+          Color real (S2)
         </Button>
       </div>
       <SatelliteMap field={field} layer={layer} />

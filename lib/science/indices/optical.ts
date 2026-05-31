@@ -1,4 +1,5 @@
 import type { OpticalBands, OpticalIndices } from '../types';
+import { coerceNumber } from '@/lib/i18n/format-number';
 
 const SAVI_L = 0.5;
 
@@ -72,14 +73,18 @@ export function opticalFromStats(stats: {
   redsi?: number | null;
 }): Partial<OpticalIndices> {
   const out: Partial<OpticalIndices> = {};
-  if (stats.ndvi != null) out.ndvi = stats.ndvi;
-  if (stats.ndre != null) out.ndre = stats.ndre;
-  if (stats.evi != null) out.evi = stats.evi;
-  if (stats.savi != null) out.savi = stats.savi;
-  if (stats.ndwi != null) out.ndwi = stats.ndwi;
-  if (stats.msi != null) out.msi = stats.msi;
-  if (stats.ciRedEdge != null) out.ciRedEdge = stats.ciRedEdge;
-  if (stats.redsi != null) out.redsi = stats.redsi;
-  if (stats.ndmi != null) out.lswi = stats.ndmi;
+  const set = (key: keyof OpticalIndices, raw: unknown) => {
+    const n = coerceNumber(raw);
+    if (n != null) out[key] = n;
+  };
+  set('ndvi', stats.ndvi);
+  set('ndre', stats.ndre);
+  set('evi', stats.evi);
+  set('savi', stats.savi);
+  set('ndwi', stats.ndwi);
+  set('msi', stats.msi);
+  set('ciRedEdge', stats.ciRedEdge);
+  set('redsi', stats.redsi);
+  if (stats.ndmi != null) set('lswi', stats.ndmi);
   return out;
 }

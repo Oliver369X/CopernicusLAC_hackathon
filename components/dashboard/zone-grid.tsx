@@ -1,8 +1,8 @@
 'use client';
 
 import type { FieldZone } from '@/lib/types/field';
-import { Card } from '@/components/ui/card';
 import { AlertCircle, TrendingUp } from 'lucide-react';
+import { healthLabelEs, type HealthLevel } from '@/lib/design/tokens';
 
 interface ZoneGridProps {
   zones: FieldZone[];
@@ -30,14 +30,15 @@ export default function ZoneGrid({
   onZoneSelect,
 }: ZoneGridProps) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {zones.map((zone) => (
         <button
+          type="button"
           key={zone.id}
           onClick={() => onZoneSelect(zone)}
-          className={`text-left transition-all rounded-lg border-2 p-4 cursor-pointer ${
+          className={`min-h-[44px] cursor-pointer rounded-lg border-2 p-4 text-left transition-all duration-200 motion-reduce:transition-none ${
             healthColors[zone.health]
-          } ${selectedZone?.id === zone.id ? 'ring-2 ring-primary' : ''}`}
+          } ${selectedZone?.id === zone.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
         >
           <div className="flex items-start justify-between mb-3">
             <h3 className="font-semibold text-foreground">{zone.name}</h3>
@@ -48,9 +49,9 @@ export default function ZoneGrid({
 
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Health:</span>
-              <span className={`font-medium capitalize ${healthText[zone.health]}`}>
-                {zone.health}
+              <span className="text-muted-foreground">Salud:</span>
+              <span className={`font-medium ${healthText[zone.health]}`}>
+                {healthLabelEs[zone.health as HealthLevel]}
               </span>
             </div>
 

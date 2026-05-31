@@ -3,6 +3,17 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import type { Alert } from '@/lib/alerts/alert-engine';
 import { generateAllAlerts } from '@/lib/alerts/generate-alerts';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
+
+function dedupeAlerts(alerts: Alert[]): Alert[] {
+  const seen = new Map<string, Alert>();
+  for (const alert of alerts) {
+    if (!seen.has(alert.id)) {
+      seen.set(alert.id, alert);
+    }
+  }
+  return Array.from(seen.values());
+}
 
 function mapApiAlert(raw: Record<string, unknown>): Alert {
   return {
@@ -25,16 +36,20 @@ function mapApiAlert(raw: Record<string, unknown>): Alert {
 }
 
 export function useAlerts() {
-  const [baseAlerts, setBaseAlerts] = useState<Alert[]>(() => generateAllAlerts());
+  const [baseAlerts, setBaseAlerts] = useState<Alert[]>(() =>
+    dedupeAlerts(generateAllAlerts())
+  );
   const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set());
   const [source, setSource] = useState<'engine' | 'database'>('engine');
 
   useEffect(() => {
     fetch('/api/alerts')
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.alerts?.length) {
-          setBaseAlerts(data.alerts.map(mapApiAlert));
+      .then((r) =>
+        parseJsonResponse<{ alerts?: Record<string, unknown>[]; source?: string }>(r)
+      )
+      .then(({ data }) => {
+        if (data?.alerts?.length) {
+          setBaseAlerts(dedupeAlerts(data.alerts.map(mapApiAlert)));
           setSource(data.source === 'database' ? 'database' : 'engine');
         }
       })

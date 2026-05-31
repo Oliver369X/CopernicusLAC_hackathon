@@ -5,6 +5,8 @@ import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { Field } from '@/lib/types/field';
 import { boundsToBbox } from '@/lib/services/copernicus/bounds';
+import { chartColors } from '@/lib/design/tokens';
+import { cn } from '@/lib/utils';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -13,6 +15,7 @@ type MapLayer = 'ndvi' | 'ndre' | 'truecolor';
 interface SatelliteMapProps {
   field: Field;
   layer?: MapLayer;
+  className?: string;
 }
 
 function FitBounds({ field }: { field: Field }) {
@@ -59,7 +62,11 @@ function SatelliteImageOverlay({
   return null;
 }
 
-export default function SatelliteMap({ field, layer = 'ndvi' }: SatelliteMapProps) {
+export default function SatelliteMap({
+  field,
+  layer = 'ndvi',
+  className,
+}: SatelliteMapProps) {
   const zonePolygons = useMemo(
     () =>
       field.zones.map((zone) => ({
@@ -71,7 +78,12 @@ export default function SatelliteMap({ field, layer = 'ndvi' }: SatelliteMapProp
   );
 
   return (
-    <div className="h-[360px] w-full rounded-lg overflow-hidden border border-border">
+    <div
+      className={cn(
+        'h-[min(360px,55vh)] w-full overflow-hidden rounded-lg border border-border/60 sm:h-[360px] landscape:min-h-[240px] landscape:h-[50vh] landscape:max-h-[420px]',
+        className
+      )}
+    >
       <MapContainer
         center={[field.center.lat, field.center.lng]}
         zoom={14}
@@ -87,7 +99,11 @@ export default function SatelliteMap({ field, layer = 'ndvi' }: SatelliteMapProp
           <Polygon
             key={zone.id}
             positions={zone.positions}
-            pathOptions={{ color: '#ffffff', weight: 2, fillOpacity: 0.05 }}
+            pathOptions={{
+              color: chartColors[0],
+              weight: 2,
+              fillOpacity: 0.08,
+            }}
           />
         ))}
         <FitBounds field={field} />

@@ -1,6 +1,10 @@
-import type { GeoBounds } from '@/lib/types/field';
-import { boundsToPolygon, timeRangeLastDays } from './bounds';
+import type { GeoBounds, GeoPoint } from '@/lib/types/field';
+import { boundsToBbox, normalizeGeoBounds, timeRangeLastDays } from './bounds';
 import { cdseFetch } from './client';
+
+const WGS84_CRS = 'http://www.opengis.net/def/crs/EPSG/0/4326';
+/** ~10 m sampling in degrees (Statistical API requires resx/resy in CRS units). */
+const STATS_RES_DEG = 0.0001;
 import {
   S1_EXTENDED_STATS_EVALSCRIPT,
   S1_STATS_EVALSCRIPT,
@@ -26,6 +30,28 @@ interface StatsResponse {
   status?: string;
 }
 
+type BandEntry = StatsOutput | { stats?: StatsOutput };
+
+function bandStats(
+  bands: BandEntry[] | Record<string, BandEntry> | undefined,
+  bandIndex = 0
+): StatsOutput | undefined {
+  if (!bands) return undefined;
+  if (Array.isArray(bands)) {
+    const entry = bands[bandIndex];
+    if (!entry) return undefined;
+    if (entry && typeof entry === 'object' && 'stats' in entry && entry.stats) {
+      return entry.stats;
+    }
+    return entry as StatsOutput;
+  }
+  const keys = Object.keys(bands);
+  const key = keys[bandIndex] ?? keys[0];
+  if (!key) return undefined;
+  const entry = bands[key];
+  return entry && 'stats' in entry ? entry.stats : (entry as StatsOutput);
+}
+
 function extractMean(
   response: StatsResponse,
   outputId: string,
@@ -33,7 +59,13 @@ function extractMean(
 ): number | null {
   const intervals = response.data ?? [];
   for (let i = intervals.length - 1; i >= 0; i--) {
-    const band = intervals[i]?.outputs?.[outputId]?.bands?.[bandIndex]?.stats;
+    const band = bandStats(
+      intervals[i]?.outputs?.[outputId]?.bands as
+        | StatsOutput[]
+        | Record<string, { stats?: StatsOutput }>
+        | undefined,
+      bandIndex
+    );
     if (band?.mean != null && !Number.isNaN(band.mean) && band.sampleCount) {
       return band.mean;
     }
@@ -42,14 +74,22 @@ function extractMean(
 }
 
 async function fetchStatistics(
-  bounds: GeoBounds,
+  bounds: GeoBounds | unknown,
   dataType: string,
   evalscript: string,
-  outputIds: string[],
-  maxCloudCoverage?: number
+  maxCloudCoverage?: number,
+  fallbackCenter?: GeoPoint,
+  extraFilter?: Record<string, unknown>,
+  aggregationDays: 'P1D' | 'P5D' = 'P1D'
 ): Promise<StatsResponse | null> {
+  const normalized = normalizeGeoBounds(bounds, fallbackCenter);
+  const bbox = boundsToBbox(normalized);
   const timeRange = timeRangeLastDays(30);
-  const dataFilter: Record<string, unknown> = { timeRange };
+  const dataFilter: Record<string, unknown> = {
+    timeRange,
+    mosaickingOrder: 'leastCC',
+    ...extraFilter,
+  };
   if (maxCloudCoverage != null) {
     dataFilter.maxCloudCoverage = maxCloudCoverage;
   }
@@ -57,17 +97,17 @@ async function fetchStatistics(
   const body = {
     input: {
       bounds: {
-        geometry: {
-          type: 'Polygon',
-          coordinates: [boundsToPolygon(bounds)],
-        },
+        bbox,
+        properties: { crs: WGS84_CRS },
       },
       data: [{ type: dataType, dataFilter }],
     },
     aggregation: {
       timeRange,
-      aggregationInterval: { of: 'P1D' },
+      aggregationInterval: { of: aggregationDays },
       evalscript,
+      resx: STATS_RES_DEG,
+      resy: STATS_RES_DEG,
     },
   };
 
@@ -77,9 +117,21 @@ async function fetchStatistics(
       body: JSON.stringify(body),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      if (process.env.NODE_ENV === 'development') {
+        const detail = await res.text().catch(() => '');
+        console.warn(
+          `[CDSE statistics] ${dataType} HTTP ${res.status}:`,
+          detail.slice(0, 400)
+        );
+      }
+      return null;
+    }
     return (await res.json()) as StatsResponse;
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[CDSE statistics] ${dataType} error:`, err);
+    }
     return null;
   }
 }
@@ -102,14 +154,15 @@ export interface S2ExtendedStatistics extends S2Statistics {
 }
 
 export async function fetchS2ExtendedStatistics(
-  bounds: GeoBounds
+  bounds: GeoBounds | unknown,
+  fallbackCenter?: GeoPoint
 ): Promise<S2ExtendedStatistics> {
   const response = await fetchStatistics(
     bounds,
     'sentinel-2-l2a',
     S2_EXTENDED_STATS_EVALSCRIPT,
-    ['ndvi', 'ndmi', 'ndre', 'evi', 'savi', 'ndwi', 'msi', 'cired', 'redsi'],
-    20
+    40,
+    fallbackCenter
   );
 
   if (!response) {
@@ -129,8 +182,14 @@ export async function fetchS2ExtendedStatistics(
   }
 
   const lastInterval = response.data?.[response.data.length - 1];
-  const ndviNoData = lastInterval?.outputs?.ndvi?.bands?.[0]?.stats?.noDataCount ?? 0;
-  const ndviSamples = lastInterval?.outputs?.ndvi?.bands?.[0]?.stats?.sampleCount ?? 0;
+  const ndviBand = bandStats(
+    lastInterval?.outputs?.ndvi?.bands as
+      | StatsOutput[]
+      | Record<string, { stats?: StatsOutput }>
+      | undefined
+  );
+  const ndviNoData = ndviBand?.noDataCount ?? 0;
+  const ndviSamples = ndviBand?.sampleCount ?? 0;
   const cloudCover =
     ndviSamples + ndviNoData > 0
       ? Math.round((ndviNoData / (ndviSamples + ndviNoData)) * 100)
@@ -157,13 +216,17 @@ export interface S1ExtendedStatistics extends S1Statistics {
 }
 
 export async function fetchS1ExtendedStatistics(
-  bounds: GeoBounds
+  bounds: GeoBounds | unknown,
+  fallbackCenter?: GeoPoint
 ): Promise<S1ExtendedStatistics> {
   const response = await fetchStatistics(
     bounds,
     'sentinel-1-grd',
     S1_EXTENDED_STATS_EVALSCRIPT,
-    ['vh', 'vv', 'moisture', 'rvi', 'dprvi']
+    undefined,
+    fallbackCenter,
+    { polarization: 'DV', acquisitionMode: 'IW', mosaickingOrder: 'leastRecent' },
+    'P5D'
   );
 
   if (!response) {
@@ -179,13 +242,16 @@ export async function fetchS1ExtendedStatistics(
   };
 }
 
-export async function fetchS2Statistics(bounds: GeoBounds): Promise<S2Statistics> {
+export async function fetchS2Statistics(
+  bounds: GeoBounds | unknown,
+  fallbackCenter?: GeoPoint
+): Promise<S2Statistics> {
   const response = await fetchStatistics(
     bounds,
     'sentinel-2-l2a',
     S2_STATS_EVALSCRIPT,
-    ['ndvi', 'ndmi', 'ndre'],
-    20
+    40,
+    fallbackCenter
   );
 
   if (!response) {
@@ -193,8 +259,14 @@ export async function fetchS2Statistics(bounds: GeoBounds): Promise<S2Statistics
   }
 
   const lastInterval = response.data?.[response.data.length - 1];
-  const ndviNoData = lastInterval?.outputs?.ndvi?.bands?.[0]?.stats?.noDataCount ?? 0;
-  const ndviSamples = lastInterval?.outputs?.ndvi?.bands?.[0]?.stats?.sampleCount ?? 0;
+  const ndviBand = bandStats(
+    lastInterval?.outputs?.ndvi?.bands as
+      | StatsOutput[]
+      | Record<string, { stats?: StatsOutput }>
+      | undefined
+  );
+  const ndviNoData = ndviBand?.noDataCount ?? 0;
+  const ndviSamples = ndviBand?.sampleCount ?? 0;
   const cloudCover =
     ndviSamples + ndviNoData > 0
       ? Math.round((ndviNoData / (ndviSamples + ndviNoData)) * 100)
@@ -215,23 +287,30 @@ export interface S1Statistics {
   moistureIndex: number | null;
 }
 
-export async function fetchS1Statistics(bounds: GeoBounds): Promise<S1Statistics> {
+export async function fetchS1Statistics(
+  bounds: GeoBounds | unknown,
+  fallbackCenter?: GeoPoint
+): Promise<S1Statistics> {
   const response = await fetchStatistics(
     bounds,
     'sentinel-1-grd',
     S1_STATS_EVALSCRIPT,
-    ['vh', 'vv', 'moisture']
+    undefined,
+    fallbackCenter,
+    { polarization: 'DV', acquisitionMode: 'IW', mosaickingOrder: 'leastRecent' },
+    'P5D'
   );
 
   if (!response) {
     return { vh: null, vv: null, moistureIndex: null };
   }
 
-  return {
-    vh: extractMean(response, 'vh'),
-    vv: extractMean(response, 'vv'),
-    moistureIndex: extractMean(response, 'moisture'),
-  };
+  const vh = extractMean(response, 'vh');
+  const vv = extractMean(response, 'vv');
+  const moistureIndex =
+    extractMean(response, 'moisture') ?? (vh != null && vv ? vh / vv : null);
+
+  return { vh, vv, moistureIndex };
 }
 
 export interface S3Statistics {
@@ -239,12 +318,17 @@ export interface S3Statistics {
   sceneDate: string | null;
 }
 
-export async function fetchS3Statistics(bounds: GeoBounds): Promise<S3Statistics> {
+export async function fetchS3Statistics(
+  bounds: GeoBounds | unknown,
+  fallbackCenter?: GeoPoint
+): Promise<S3Statistics> {
   const response = await fetchStatistics(
     bounds,
     'sentinel-3-slstr',
     S3_LST_EVALSCRIPT,
-    ['lst']
+    undefined,
+    fallbackCenter,
+    { orbitDirection: 'DESCENDING' }
   );
 
   if (!response) {

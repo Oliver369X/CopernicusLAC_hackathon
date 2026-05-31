@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { getDaysToMaturityForField } from '@/lib/mock-data/fields';
 import { useFields } from '@/hooks/use-fields';
-import { CROP_PROFILES } from '@/lib/mock-data/crops';
 import type { SatelliteData } from '@/lib/mock-data/satellite-data';
+import { getAverageValue } from '@/lib/mock-data/satellite-data';
 import {
   buildSatelliteDataFromMetrics,
   buildTrendFromHistory,
   metricsFromZone,
   type MetricsHistoryPoint,
+  type NdviGridPayload,
 } from '@/lib/data/satellite-from-metrics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageContainer, PageHeader } from '@/components/layout/page-header';
@@ -38,13 +39,27 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer,
 } from 'recharts';
+import { ChartFrame } from '@/components/charts/chart-frame';
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip';
+import { formatDataSourcesUnique } from '@/lib/i18n/data-source';
+import { formatDateEs } from '@/lib/i18n/format-date';
+import {
+  chartAxisStroke,
+  chartGridStroke,
+  healthColors,
+  chartColors,
+  healthLabelEs,
+  getCropLabelEs,
+  getGrowthStageEs,
+  type HealthLevel,
+} from '@/lib/design/tokens';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 
 function MonitorContent() {
   const searchParams = useSearchParams();
   const initialFieldId = searchParams.get('field') || 'field-1';
-  const { fields, loading, source, getFieldById } = useFields();
+  const { fields, loading, source, fetchError, getFieldById } = useFields();
 
   const [selectedFieldId, setSelectedFieldId] = useState(initialFieldId);
   const selectedField = getFieldById(selectedFieldId) ?? fields[0];
@@ -58,6 +73,20 @@ function MonitorContent() {
   const [metricsSource, setMetricsSource] = useState<'mock' | 'database'>('mock');
   const [scienceScore, setScienceScore] = useState<number | null>(null);
   const [scienceHealth, setScienceHealth] = useState<string | null>(null);
+  const [liveMetrics, setLiveMetrics] = useState<{
+    ndvi?: number | null;
+    ndmi?: number | null;
+    ndre?: number | null;
+    s1MoistureIndex?: number | null;
+    s3Lst?: number | null;
+    cloudCover?: number | null;
+    sceneDate?: string | null;
+  } | null>(null);
+
+  function formatMetric(value: unknown, digits = 2): string {
+    const n = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(n) ? n.toFixed(digits) : '—';
+  }
 
   useEffect(() => {
     if (selectedField && !selectedField.zones.find((z) => z.id === selectedZone?.id)) {
@@ -75,23 +104,42 @@ function MonitorContent() {
 
     const zoneParam = zone.id ? `?zoneId=${encodeURIComponent(zone.id)}` : '';
     fetch(`/api/fields/${selectedField.id}/metrics${zoneParam}`)
-      .then((r) => r.json())
-      .then((data) => {
-        const metrics = data.metrics ?? fallback;
+      .then((r) =>
+        parseJsonResponse<{
+          metrics?: ReturnType<typeof metricsFromZone>;
+          ndviGrid?: NdviGridPayload | null;
+          source?: string;
+          satelliteSource?: string;
+          missions?: string[];
+          satelliteHistory?: MetricsHistoryPoint[];
+        }>(r)
+      )
+      .then(({ data }) => {
+        const metrics = data?.metrics ?? fallback;
         setSatelliteData(
           buildSatelliteDataFromMetrics(
             selectedField.id,
             metrics,
             30,
-            data.ndviGrid ?? null
+            data?.ndviGrid ?? null
           )
         );
-        setMetricsSource(data.source === 'database' ? 'database' : 'mock');
-        setSatelliteSource(data.satelliteSource ?? 'mock');
-        setMissions(data.missions ?? []);
+        setMetricsSource(data?.source === 'database' ? 'database' : 'mock');
+        setSatelliteSource(data?.satelliteSource ?? 'mock');
+        setMissions(data?.missions ?? []);
+        setLiveMetrics({
+          ndvi: metrics.ndvi != null ? Number(metrics.ndvi) : null,
+          ndmi: metrics.ndmi != null ? Number(metrics.ndmi) : null,
+          ndre: metrics.ndre != null ? Number(metrics.ndre) : null,
+          s1MoistureIndex:
+            metrics.s1MoistureIndex != null ? Number(metrics.s1MoistureIndex) : null,
+          s3Lst: metrics.s3Lst != null ? Number(metrics.s3Lst) : null,
+          cloudCover: metrics.cloudCover != null ? Number(metrics.cloudCover) : null,
+          sceneDate: metrics.sceneDate ?? null,
+        });
         setTrendData(
           buildTrendFromHistory(
-            (data.satelliteHistory ?? []) as MetricsHistoryPoint[],
+            (data?.satelliteHistory ?? []) as MetricsHistoryPoint[],
             metrics.ndvi,
             metrics.ndmi
           )
@@ -114,9 +162,11 @@ function MonitorContent() {
     fetch(
       `/api/science/${selectedField.crop}/analysis?fieldId=${selectedField.id}&zoneId=${zone.id}`
     )
-      .then((r) => r.json())
-      .then((data) => {
-        if (typeof data.fusionScore === 'number') {
+      .then((r) =>
+        parseJsonResponse<{ fusionScore?: number; healthLabel?: string }>(r)
+      )
+      .then(({ data }) => {
+        if (typeof data?.fusionScore === 'number') {
           setScienceScore(data.fusionScore);
           setScienceHealth(data.healthLabel ?? null);
         }
@@ -127,18 +177,9 @@ function MonitorContent() {
       });
   }, [selectedField, selectedZone]);
 
-  const cropProfile = useMemo(
-    () => (selectedField ? CROP_PROFILES[selectedField.crop] : null),
-    [selectedField]
-  );
-
   const growthStage = useMemo(() => {
-    if (!selectedField) return 'Unknown';
-    const daysToMaturity = getDaysToMaturityForField(selectedField);
-    if (daysToMaturity > 60) return 'Early Vegetative';
-    if (daysToMaturity > 40) return 'Vegetative';
-    if (daysToMaturity > 20) return 'Flowering';
-    return 'Grain Fill';
+    if (!selectedField) return '—';
+    return getGrowthStageEs(getDaysToMaturityForField(selectedField));
   }, [selectedField]);
 
   const handleFieldChange = (fieldId: string) => {
@@ -166,29 +207,43 @@ function MonitorContent() {
     );
   }
 
+  const ndviScalar =
+    liveMetrics?.ndvi ?? getAverageValue(satelliteData.ndvi);
+  const ndmiScalar =
+    liveMetrics?.ndmi ?? getAverageValue(satelliteData.ndmi);
+
   const activeAlerts = selectedField.notifications;
+  const scienceHealthEs =
+    scienceHealth && scienceHealth in healthLabelEs
+      ? healthLabelEs[scienceHealth as HealthLevel]
+      : scienceHealth;
 
   return (
     <PageContainer size="wide">
+      {fetchError && (
+        <p className="mb-4 rounded-lg border border-health-warning/40 bg-health-warning/10 px-4 py-3 text-sm text-muted-foreground">
+          {fetchError}. Mostrando datos de demostración.
+        </p>
+      )}
       <PageHeader
         title="Monitoreo satelital"
-        description="Copernicus Sentinel-1/2/3 + heatmap NDVI real por zona"
+        description="Sentinel-1/2/3 · mapa NDVI y métricas por zona"
         badge={
-          <div className="flex flex-wrap gap-1.5">
-            <Badge variant="outline" className="text-xs capitalize">
-              {source} / {metricsSource} / {satelliteSource}
+          <div className="flex max-w-full flex-wrap gap-1.5">
+            <Badge variant="outline" className="text-xs">
+              {formatDataSourcesUnique(source, metricsSource, satelliteSource)}
             </Badge>
             {missions.length > 0 && (
-              <Badge variant="secondary" className="text-xs">
-                {missions.join(' · ')}
+              <Badge variant="secondary" className="text-xs max-w-full truncate">
+                {missions.map((m) => m.replace(/sentinel/gi, 'Sentinel')).join(' · ')}
               </Badge>
             )}
             {isScienceCrop(selectedField.crop) && scienceScore != null && (
               <Badge variant="outline" className="text-xs gap-1" asChild>
                 <Link href={`/science/${selectedField.crop}?field=${selectedField.id}`}>
                   <FlaskConical className="h-3 w-3" />
-                  Science {(scienceScore * 100).toFixed(0)}%
-                  {scienceHealth ? ` · ${scienceHealth}` : ''}
+                  Lab {(scienceScore * 100).toFixed(0)}%
+                  {scienceHealthEs ? ` · ${scienceHealthEs}` : ''}
                 </Link>
               </Badge>
             )}
@@ -196,13 +251,13 @@ function MonitorContent() {
         }
         actions={
           <Select value={selectedField.id} onValueChange={handleFieldChange}>
-            <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectTrigger className="h-10 w-full min-w-0 sm:w-[min(100%,280px)]">
               <SelectValue placeholder="Seleccionar campo" />
             </SelectTrigger>
             <SelectContent>
               {fields.map((field) => (
                 <SelectItem key={field.id} value={field.id}>
-                  {field.name} · {field.crop}
+                  {field.name} · {getCropLabelEs(field.crop)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -211,34 +266,36 @@ function MonitorContent() {
       />
 
       {activeAlerts > 0 && (
-        <Card className="border-health-critical/30 bg-health-critical/5">
-          <CardContent className="pt-6 flex items-center justify-between">
-            <div className="flex gap-3">
-              <AlertCircle className="h-5 w-5 text-health-critical" />
-              <p className="font-semibold">{activeAlerts} active alert(s)</p>
+        <Card className="glass-card border-health-critical/30 bg-health-critical/5">
+          <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 gap-3">
+              <AlertCircle className="h-5 w-5 shrink-0 text-health-critical" />
+              <p className="font-semibold text-foreground">
+                {activeAlerts} {activeAlerts === 1 ? 'alerta activa' : 'alertas activas'}
+              </p>
             </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/alerts">View Alerts</Link>
+            <Button variant="ghost" size="sm" className="h-10 w-full shrink-0 sm:w-auto" asChild>
+              <Link href="/alerts">Ver alertas</Link>
             </Button>
           </CardContent>
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="glass-card">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+        <div className="min-w-0 space-y-4 sm:space-y-6 lg:col-span-2">
+          <Card className="glass-card min-w-0 overflow-hidden">
             <CardHeader>
-              <CardTitle className="text-lg">Mapa Satelital (Copernicus S2)</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Mapa satelital (Copernicus S2)</CardTitle>
             </CardHeader>
             <CardContent>
               <SatelliteMapPanel field={selectedField} />
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card min-w-0 overflow-hidden">
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                NDVI Heat Map
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base sm:text-lg">
+                Mapa de calor NDVI
                 {satelliteData.isRealGrid && (
                   <Badge variant="secondary" className="text-xs font-normal">
                     Grilla Copernicus S2
@@ -251,28 +308,56 @@ function MonitorContent() {
             </CardContent>
           </Card>
 
-          <Card className="glass-card">
+          <Card className="glass-card min-w-0">
             <CardHeader>
-              <CardTitle className="text-lg">NDVI & NDMI Trend</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Tendencia NDVI y NDMI</CardTitle>
             </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={trendData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis domain={[0, 1]} tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="ndvi" stroke="#16a34a" strokeWidth={2} />
-                  <Line type="monotone" dataKey="ndmi" stroke="#3b82f6" strokeWidth={2} />
+            <CardContent className="min-w-0">
+              <ChartFrame
+                heightClassName="min-h-[200px] h-[45vw] max-h-[250px] sm:h-[250px] w-full min-w-0"
+                aria-label="Tendencia NDVI y NDMI"
+              >
+                <LineChart data={trendData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 10, fill: chartAxisStroke }}
+                    stroke={chartAxisStroke}
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis
+                    domain={[0, 1]}
+                    tick={{ fontSize: 10, fill: chartAxisStroke }}
+                    stroke={chartAxisStroke}
+                    width={28}
+                  />
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend
+                    wrapperStyle={{ fontSize: 12, paddingTop: 8 }}
+                    formatter={(v) => <span style={{ color: '#e2e8f0' }}>{v}</span>}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="ndvi"
+                    name="NDVI"
+                    stroke={healthColors.excellent}
+                    strokeWidth={2}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="ndmi"
+                    name="NDMI"
+                    stroke={chartColors[0]}
+                    strokeWidth={2}
+                  />
                 </LineChart>
-              </ResponsiveContainer>
+              </ChartFrame>
             </CardContent>
           </Card>
 
           <Card className="glass-card">
             <CardHeader>
-              <CardTitle className="text-lg">Field Zones</CardTitle>
+              <CardTitle className="text-lg">Zonas del campo</CardTitle>
             </CardHeader>
             <CardContent>
               <ZoneGrid
@@ -284,30 +369,32 @@ function MonitorContent() {
           </Card>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card className="glass-card">
             <CardHeader>
               <CardTitle className="text-base">{selectedField.name}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Crop</span>
-                <span>{cropProfile?.name ?? selectedField.crop}</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground">Cultivo</span>
+                <span className="text-right font-medium">
+                  {getCropLabelEs(selectedField.crop)}
+                </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Area</span>
+                <span className="text-muted-foreground">Área</span>
                 <span>{selectedField.area} ha</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Days to Harvest</span>
+                <span className="text-muted-foreground">Días a cosecha</span>
                 <span>{getDaysToMaturityForField(selectedField)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Growth Stage</span>
+                <span className="text-muted-foreground">Estado fenológico</span>
                 <span className="text-primary">{growthStage}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Risk Score</span>
+                <span className="text-muted-foreground">Riesgo</span>
                 <span>{selectedField.riskScore}/100</span>
               </div>
             </CardContent>
@@ -319,17 +406,48 @@ function MonitorContent() {
                 <CardTitle className="text-base">{selectedZone.name}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>NDVI</span>
-                  <span>{selectedZone.ndviAverage.toFixed(2)}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">NDVI (S2)</span>
+                  <span className="font-mono tabular-nums">{formatMetric(ndviScalar)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Moisture</span>
+                  <span>NDMI (S2)</span>
+                  <span>{formatMetric(ndmiScalar)}</span>
+                </div>
+                {liveMetrics?.ndre != null && Number.isFinite(liveMetrics.ndre) && (
+                  <div className="flex justify-between">
+                    <span>NDRE (S2)</span>
+                    <span>{formatMetric(liveMetrics.ndre)}</span>
+                  </div>
+                )}
+                {liveMetrics?.s1MoistureIndex != null &&
+                  Number.isFinite(liveMetrics.s1MoistureIndex) && (
+                  <div className="flex justify-between">
+                    <span>Radar S1 (VH/VV)</span>
+                    <span>{formatMetric(liveMetrics.s1MoistureIndex, 3)}</span>
+                  </div>
+                )}
+                {liveMetrics?.s3Lst != null && Number.isFinite(liveMetrics.s3Lst) && (
+                  <div className="flex justify-between">
+                    <span>LST S3</span>
+                    <span>{formatMetric(liveMetrics.s3Lst, 1)} °C</span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span>Humedad suelo</span>
                   <span>{selectedZone.soilMoistureAverage.toFixed(0)}%</span>
                 </div>
-                <Button className="w-full mt-2 gap-2" size="sm" variant="outline">
-                  <Eye className="h-4 w-4" />
-                  Zone Details
+                {liveMetrics?.sceneDate && (
+                  <p className="pt-1 text-xs text-muted-foreground">
+                    Escena: {formatDateEs(liveMetrics.sceneDate)}
+                    {liveMetrics.cloudCover != null ? ` · nubes ${liveMetrics.cloudCover}%` : ''}
+                  </p>
+                )}
+                <Button className="mt-2 h-10 w-full gap-2" size="sm" variant="outline" asChild>
+                  <Link href={`/monitor?field=${selectedField.id}`}>
+                    <Eye className="h-4 w-4" />
+                    Ver en mapa
+                  </Link>
                 </Button>
               </CardContent>
             </Card>
@@ -339,16 +457,16 @@ function MonitorContent() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Status
+                Estado
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-sm space-y-2">
+            <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Location</span>
+                <span className="text-muted-foreground">Ubicación</span>
                 <span className="font-mono text-xs">{selectedField.center.lat.toFixed(4)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Alerts</span>
+                <span className="text-muted-foreground">Alertas</span>
                 <span className="font-bold text-health-critical">{activeAlerts}</span>
               </div>
             </CardContent>
@@ -363,7 +481,7 @@ function MonitorContent() {
 
 export default function MonitorClient() {
   return (
-    <Suspense fallback={<div className="p-6 text-center">Loading...</div>}>
+    <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Cargando monitoreo...</div>}>
       <MonitorContent />
     </Suspense>
   );

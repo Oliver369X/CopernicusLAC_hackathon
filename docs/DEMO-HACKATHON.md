@@ -11,10 +11,12 @@
 
 ## Pre-demo checklist
 
-- [ ] Migraciones Supabase aplicadas
-- [ ] `.env` con CDSE + `CRON_SECRET`
-- [ ] Ejecutar cron: `?job=all` al menos una vez
+- [ ] Postgres + MinIO: `pnpm docker:infra` o `pnpm setup`
+- [ ] `pnpm verify` — CDSE token y Postgres OK
+- [ ] `.env` con CDSE + `CRON_SECRET` + `AUTH_SECRET`
+- [ ] Ejecutar cron: `pnpm cron:once` o `?job=all` al menos una vez
 - [ ] Campo demo con lecturas en `satellite_readings`
+- [ ] Rutas smoke: login, monitor, field, alerts, science/soybean, insights, `/api/health`
 - [ ] Twilio sandbox: número verificado del jurado (opcional)
 
 ## Comandos rápidos

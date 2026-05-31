@@ -3,85 +3,112 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Doctor Soya — Copernicus LAC design tokens (dark-first) */
 :root {
-  /* Premium Agricultural Analytics - Dark First */
-  --background: #0a0e27;
-  --foreground: #f1f5f9;
-  --card: #1a1f3a;
+  /* Brand primitives */
+  --copernicus-teal: #2dd4bf;
+  --copernicus-teal-dim: #14b8a6;
+  --glow-teal: rgba(45, 212, 191, 0.45);
+  --glow-green: rgba(34, 197, 94, 0.35);
+  --mesh-line: rgba(45, 212, 191, 0.06);
+  --earth-green: #22c55e;
+  --earth-green-dim: #16a34a;
+  --soil-amber: #d97706;
+  --ocean-deep: #071018;
+  --surface-elevated: #0f1f2a;
+  --surface-muted: #1a2f3d;
+  --mist-slate: #94a3b8;
+
+  /* Semantic (shadcn) */
+  --background: var(--ocean-deep);
+  --foreground: #f0fdfa;
+  --card: var(--surface-elevated);
   --card-foreground: #e2e8f0;
-  --popover: #1a1f3a;
+  --popover: var(--surface-elevated);
   --popover-foreground: #e2e8f0;
-  --primary: #3b82f6;
-  --primary-foreground: #0a0e27;
-  --secondary: #10b981;
-  --secondary-foreground: #0a0e27;
-  --muted: #334155;
-  --muted-foreground: #94a3b8;
-  --accent: #f59e0b;
-  --accent-foreground: #0a0e27;
+  --primary: var(--copernicus-teal);
+  --primary-foreground: #042f2e;
+  --secondary: var(--earth-green);
+  --secondary-foreground: #052e16;
+  --muted: #1e3a47;
+  --muted-foreground: var(--mist-slate);
+  --accent: var(--soil-amber);
+  --accent-foreground: #451a03;
   --destructive: #ef4444;
-  --destructive-foreground: #fca5a5;
-  --border: #334155;
-  --input: #1e293b;
-  --ring: #3b82f6;
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ec4899;
-  --radius: 0.75rem;
-  --health-excellent: #10b981;
+  --destructive-foreground: #fecaca;
+  --border: #1e3a47;
+  --input: var(--surface-muted);
+  --ring: var(--copernicus-teal);
+
+  /* Charts — derived from brand */
+  --chart-1: var(--copernicus-teal);
+  --chart-2: var(--earth-green);
+  --chart-3: var(--soil-amber);
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+
+  /* Crop health */
+  --health-excellent: #22c55e;
   --health-good: #84cc16;
-  --health-warning: #f59e0b;
+  --health-warning: #d97706;
   --health-critical: #ef4444;
-  --sidebar: #0f1729;
-  --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #0a0e27;
-  --sidebar-accent: #f59e0b;
-  --sidebar-accent-foreground: #0a0e27;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
+
+  /* Sidebar */
+  --sidebar: #0a151c;
+  --sidebar-foreground: #f0fdfa;
+  --sidebar-primary: var(--copernicus-teal);
+  --sidebar-primary-foreground: #042f2e;
+  --sidebar-accent: var(--soil-amber);
+  --sidebar-accent-foreground: #451a03;
+  --sidebar-border: #1e3a47;
+  --sidebar-ring: var(--copernicus-teal);
+
+  --radius: 0.75rem;
+
+  /* Motion */
+  --motion-fast: 150ms;
+  --motion-base: 250ms;
+  --motion-slow: 400ms;
 }
 
 .dark {
-  /* Already dark by default */
-  --background: #0a0e27;
-  --foreground: #f1f5f9;
-  --card: #1a1f3a;
+  /* Dark-first: same semantic mapping */
+  --background: var(--ocean-deep);
+  --foreground: #f0fdfa;
+  --card: var(--surface-elevated);
   --card-foreground: #e2e8f0;
-  --popover: #1a1f3a;
+  --popover: var(--surface-elevated);
   --popover-foreground: #e2e8f0;
-  --primary: #3b82f6;
-  --primary-foreground: #0a0e27;
-  --secondary: #10b981;
-  --secondary-foreground: #0a0e27;
-  --muted: #334155;
-  --muted-foreground: #94a3b8;
-  --accent: #f59e0b;
-  --accent-foreground: #0a0e27;
+  --primary: var(--copernicus-teal);
+  --primary-foreground: #042f2e;
+  --secondary: var(--earth-green);
+  --secondary-foreground: #052e16;
+  --muted: #1e3a47;
+  --muted-foreground: var(--mist-slate);
+  --accent: var(--soil-amber);
+  --accent-foreground: #451a03;
   --destructive: #ef4444;
-  --destructive-foreground: #fca5a5;
-  --border: #334155;
-  --input: #1e293b;
-  --ring: #3b82f6;
-  --chart-1: #3b82f6;
-  --chart-2: #10b981;
-  --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ec4899;
-  --health-excellent: #10b981;
+  --destructive-foreground: #fecaca;
+  --border: #1e3a47;
+  --input: var(--surface-muted);
+  --ring: var(--copernicus-teal);
+  --chart-1: var(--copernicus-teal);
+  --chart-2: var(--earth-green);
+  --chart-3: var(--soil-amber);
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+  --health-excellent: #22c55e;
   --health-good: #84cc16;
-  --health-warning: #f59e0b;
+  --health-warning: #d97706;
   --health-critical: #ef4444;
-  --sidebar: #0f1729;
-  --sidebar-foreground: #f1f5f9;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #0a0e27;
-  --sidebar-accent: #f59e0b;
-  --sidebar-accent-foreground: #0a0e27;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
+  --sidebar: #0a151c;
+  --sidebar-foreground: #f0fdfa;
+  --sidebar-primary: var(--copernicus-teal);
+  --sidebar-primary-foreground: #042f2e;
+  --sidebar-accent: var(--soil-amber);
+  --sidebar-accent-foreground: #451a03;
+  --sidebar-border: #1e3a47;
+  --sidebar-ring: var(--copernicus-teal);
 }
 
 @theme inline {
@@ -111,6 +138,13 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-health-excellent: var(--health-excellent);
+  --color-health-good: var(--health-good);
+  --color-health-warning: var(--health-warning);
+  --color-health-critical: var(--health-critical);
+  --color-copernicus-teal: var(--copernicus-teal);
+  --color-earth-green: var(--earth-green);
+  --color-soil-amber: var(--soil-amber);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -140,25 +174,139 @@
 @layer utilities {
   .page-gradient {
     background:
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
-      radial-gradient(ellipse 60% 40% at 100% 100%, rgba(16, 185, 129, 0.06), transparent),
+      linear-gradient(var(--mesh-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--mesh-line) 1px, transparent 1px),
+      radial-gradient(ellipse 90% 55% at 50% -15%, rgba(45, 212, 191, 0.28), transparent),
+      radial-gradient(ellipse 65% 45% at 100% 100%, rgba(34, 197, 94, 0.18), transparent),
+      radial-gradient(ellipse 40% 35% at 0% 60%, rgba(217, 119, 6, 0.08), transparent),
       var(--background);
+    background-size:
+      48px 48px,
+      48px 48px,
+      auto,
+      auto,
+      auto,
+      auto;
   }
 
   .auth-panel {
     background:
-      radial-gradient(ellipse 70% 60% at 20% 40%, rgba(59, 130, 246, 0.18), transparent),
-      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(16, 185, 129, 0.12), transparent),
-      linear-gradient(160deg, #0a0e27 0%, #0f1729 50%, #0a1628 100%);
-    border-right: 1px solid rgba(51, 65, 85, 0.5);
+      linear-gradient(var(--mesh-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--mesh-line) 1px, transparent 1px),
+      radial-gradient(ellipse 75% 65% at 15% 35%, rgba(45, 212, 191, 0.35), transparent),
+      radial-gradient(ellipse 55% 55% at 85% 75%, rgba(34, 197, 94, 0.22), transparent),
+      linear-gradient(160deg, #071018 0%, #0a151c 45%, #062820 100%);
+    background-size: 40px 40px, 40px 40px, auto, auto, auto;
+    border-right: 1px solid rgba(45, 212, 191, 0.2);
   }
 
   .glass-card {
-    @apply border-border/50 bg-card/80 backdrop-blur-md;
+    @apply border-primary/20 bg-card/90 backdrop-blur-md shadow-md shadow-black/20;
+    transition:
+      border-color var(--motion-base) ease,
+      box-shadow var(--motion-base) ease,
+      transform var(--motion-base) ease;
+  }
+
+  .glass-card:hover {
+    @apply border-primary/35 shadow-lg shadow-primary/10;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .glass-card:hover {
+      transform: translateY(-2px);
+    }
+  }
+
+  .card-glow-hover {
+    @apply transition-all duration-300 motion-reduce:transition-none;
+  }
+
+  .card-glow-hover:hover {
+    box-shadow:
+      0 0 0 1px rgba(45, 212, 191, 0.25),
+      0 8px 32px rgba(45, 212, 191, 0.12);
+  }
+
+  .btn-copernicus {
+    background: linear-gradient(
+      135deg,
+      var(--copernicus-teal) 0%,
+      var(--earth-green-dim) 100%
+    );
+    color: #042f2e;
+    box-shadow:
+      0 2px 12px var(--glow-teal),
+      0 1px 0 rgba(255, 255, 255, 0.1) inset;
+    border: 1px solid rgba(45, 212, 191, 0.4);
+    transition:
+      filter var(--motion-fast) ease,
+      transform var(--motion-fast) ease,
+      box-shadow var(--motion-fast) ease;
+  }
+
+  .btn-copernicus:hover {
+    filter: brightness(1.08);
+    box-shadow:
+      0 4px 20px var(--glow-teal),
+      0 0 24px var(--glow-green);
+  }
+
+  .btn-copernicus:active {
+    transform: scale(0.98);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-copernicus:active {
+      transform: none;
+    }
+    .glass-card:hover {
+      transform: none;
+    }
+  }
+
+  .text-gradient-brand {
+    background: linear-gradient(
+      135deg,
+      var(--copernicus-teal) 0%,
+      var(--earth-green) 55%,
+      var(--soil-amber) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 
   .animate-fade-in {
-    animation: fade-in 0.35s ease-out;
+    animation: fade-in var(--motion-base) ease-out both;
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up var(--motion-base) ease-out both;
+  }
+
+  .animate-scale-in {
+    animation: scale-in var(--motion-fast) ease-out both;
+  }
+
+  .stagger-children > * {
+    animation: fade-in-up var(--motion-base) ease-out both;
+  }
+
+  .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+  .stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+  .stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+  .stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+  .stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in,
+    .animate-fade-in-up,
+    .animate-scale-in,
+    .stagger-children > * {
+      animation: none !important;
+    }
   }
 
   .scrollbar-thin {
@@ -175,5 +323,27 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }

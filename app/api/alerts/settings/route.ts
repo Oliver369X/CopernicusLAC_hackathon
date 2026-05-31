@@ -12,12 +12,20 @@ const DEFAULT_SETTINGS = {
 };
 
 export async function GET() {
+  if (!isDatabaseConfigured()) {
+    return NextResponse.json({
+      config: DEFAULT_SETTINGS,
+      profile: { phone: null, whatsapp_opt_in: false },
+    });
+  }
+
+  try {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user || !isDatabaseConfigured()) {
+  if (!user) {
     return NextResponse.json({
       config: DEFAULT_SETTINGS,
       profile: { phone: null, whatsapp_opt_in: false },
@@ -54,6 +62,14 @@ export async function GET() {
     config: data?.config ?? DEFAULT_SETTINGS,
     profile: profile ?? { phone: null, whatsapp_opt_in: false },
   });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Settings load failed';
+    console.error('[alerts/settings GET]', message);
+    return NextResponse.json({
+      config: DEFAULT_SETTINGS,
+      profile: { phone: null, whatsapp_opt_in: false },
+    });
+  }
 }
 
 export async function PATCH(request: Request) {

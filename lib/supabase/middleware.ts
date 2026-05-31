@@ -14,7 +14,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/alerts') ||
     request.nextUrl.pathname.startsWith('/monitor') ||
     request.nextUrl.pathname.startsWith('/analytics') ||
-    request.nextUrl.pathname.startsWith('/insights');
+    request.nextUrl.pathname.startsWith('/insights') ||
+    request.nextUrl.pathname.startsWith('/science');
 
   if (!isDatabaseConfigured()) {
     return NextResponse.next({ request });

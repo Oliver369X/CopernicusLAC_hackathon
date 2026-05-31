@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { PageContainer, PageHeader } from '@/components/layout/page-header';
+import { BookOpen, ExternalLink } from 'lucide-react';
+import { getCropLabelEs } from '@/lib/design/tokens';
 
 const PAPERS = [
   {
@@ -26,48 +29,52 @@ const PAPERS = [
   {
     title: 'Maskell et al. 2021 — Café Vietnam',
     url: 'https://www.sciencedirect.com/science/article/abs/pii/S0034425721004296',
-    crop: 'Café (futuro)',
+    crop: getCropLabelEs('coffee'),
   },
   {
     title: 'Abu et al. 2021 — Cacao CI/Ghana',
     url: 'https://pubmed.ncbi.nlm.nih.gov/34602863/',
-    crop: 'Cacao (futuro)',
+    crop: getCropLabelEs('cacao'),
   },
 ];
 
 export default function ScienceBibliographyPage() {
   return (
-    <div className="p-6 space-y-6 max-w-3xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold">Bibliografía científica</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Copia local en <code>docs/research/multisensor-agriculture/</code>
-        </p>
-      </div>
-      <Card>
+    <PageContainer size="narrow">
+      <PageHeader description="Referencias clave para índices multisensor (S1/S2) y protocolos del laboratorio. Copia local en docs/research/multisensor-agriculture/." />
+
+      <Card className="glass-card">
         <CardHeader>
-          <CardTitle className="text-base">Artículos clave</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <BookOpen className="h-5 w-5 shrink-0 text-primary" />
+            Artículos clave
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {PAPERS.map((p) => (
-            <div key={p.url} className="border rounded-lg p-3 text-sm">
-              <p className="font-medium">{p.title}</p>
-              <p className="text-xs text-muted-foreground">{p.crop}</p>
+            <div
+              key={p.url}
+              className="rounded-lg border border-border/60 bg-muted/20 p-4 text-sm"
+            >
+              <p className="font-medium text-foreground">{p.title}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{p.crop}</p>
               <a
                 href={p.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary text-xs underline break-all"
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80"
               >
-                {p.url}
+                Abrir enlace
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
               </a>
             </div>
           ))}
         </CardContent>
       </Card>
-      <Button variant="outline" asChild>
+
+      <Button variant="outline" className="h-10" asChild>
         <Link href="/science">← Volver al laboratorio</Link>
       </Button>
-    </div>
+    </PageContainer>
   );
 }

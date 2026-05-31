@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageContainer, PageHeader } from '@/components/layout/page-header';
+import { StaggerList } from '@/components/ui/motion';
 import { listScienceCrops } from '@/lib/science/crops/registry';
 import {
   FlaskConical,
@@ -26,12 +27,13 @@ const icons: Record<ScienceCropId, LucideIcon> = {
   cacao: TreeDeciduous,
 };
 
+/** Acento sutil por cultivo — paleta Copernicus (primary / secondary / accent) */
 const cropColors: Record<ScienceCropId, string> = {
-  soybean: 'from-emerald-500/10 to-transparent border-emerald-500/20 hover:border-emerald-500/40',
-  wheat: 'from-amber-500/10 to-transparent border-amber-500/20 hover:border-amber-500/40',
-  corn: 'from-yellow-500/10 to-transparent border-yellow-500/20 hover:border-yellow-500/40',
-  coffee: 'from-orange-500/10 to-transparent border-orange-500/20 hover:border-orange-500/40',
-  cacao: 'from-lime-500/10 to-transparent border-lime-500/20 hover:border-lime-500/40',
+  soybean: 'from-primary/12 to-transparent border-primary/25 hover:border-primary/45',
+  wheat: 'from-secondary/12 to-transparent border-secondary/25 hover:border-secondary/45',
+  corn: 'from-accent/12 to-transparent border-accent/25 hover:border-accent/45',
+  coffee: 'from-primary/8 via-secondary/8 to-transparent border-primary/20 hover:border-primary/40',
+  cacao: 'from-secondary/10 to-transparent border-secondary/25 hover:border-secondary/45',
 };
 
 export default function ScienceHubPage() {
@@ -40,7 +42,6 @@ export default function ScienceHubPage() {
   return (
     <PageContainer size="wide">
       <PageHeader
-        title="Laboratorio científico"
         description="Firma temporal multisensor (Sentinel-2 + Sentinel-1 + LST). Soja, trigo, maíz, café y cacao con fusión por reglas y ML baseline en paralelo."
         badge={
           <Badge variant="secondary" className="gap-1">
@@ -50,11 +51,12 @@ export default function ScienceHubPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <StaggerList className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {crops.map((c) => {
           const Icon = icons[c.crop];
           return (
-            <Link key={c.crop} href={`/science/${c.crop}`} className="group">
+            <li key={c.crop}>
+            <Link href={`/science/${c.crop}`} className="group block h-full">
               <Card
                 className={`h-full glass-card bg-gradient-to-br transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:-translate-y-0.5 ${cropColors[c.crop]}`}
               >
@@ -69,22 +71,23 @@ export default function ScienceHubPage() {
                     <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-0.5" />
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground space-y-2">
-                  <p className="italic text-xs">{c.scientificName}</p>
-                  <p>
-                    <span className="text-foreground/70 font-medium">Óptico:</span>{' '}
+                <CardContent className="space-y-2 text-sm text-muted-foreground">
+                  <p className="text-sm italic text-foreground/80">{c.scientificName}</p>
+                  <p className="leading-relaxed">
+                    <span className="font-medium text-foreground/90">Óptico:</span>{' '}
                     {c.primaryOptical.slice(0, 3).map((i) => i.label).join(', ')}…
                   </p>
-                  <p>
-                    <span className="text-foreground/70 font-medium">Radar:</span> DpRVI, RVI, VH/VV
+                  <p className="leading-relaxed">
+                    <span className="font-medium text-foreground/90">Radar:</span> DpRVI, RVI, VH/VV
                     {c.crop === 'coffee' || c.crop === 'cacao' ? ', texturas SAR' : ''}
                   </p>
                 </CardContent>
               </Card>
             </Link>
+            </li>
           );
         })}
-      </div>
+      </StaggerList>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="glass-card group hover:border-primary/30 transition-colors">

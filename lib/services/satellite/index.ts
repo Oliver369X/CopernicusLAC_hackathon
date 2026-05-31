@@ -1,4 +1,5 @@
-import type { FieldZone } from '@/lib/types/field';
+import type { FieldZone, GeoPoint } from '@/lib/types/field';
+import { boundsCentroid, normalizeGeoBounds } from '../copernicus/bounds';
 import {
   hasCopernicusCredentials,
   hasSentinelHubCredentials,
@@ -47,11 +48,15 @@ export function hasSatelliteCredentials(): boolean {
 }
 
 export async function fetchZoneSatelliteReading(
-  zone: FieldZone
+  zone: FieldZone,
+  fieldCenter?: GeoPoint
 ): Promise<ZoneSatelliteReading> {
   const fallbackNdvi = zone.ndviAverage;
   const fallbackNdmi = zone.ndmiAverage;
   const capturedAt = new Date().toISOString();
+  const center =
+    fieldCenter ??
+    boundsCentroid(normalizeGeoBounds(zone.bounds, fieldCenter));
 
   const { token, backend } = await getProviderConfig();
 
@@ -80,9 +85,9 @@ export async function fetchZoneSatelliteReading(
   }
 
   const [s2Result, s1Result, s3Result, gridResult] = await Promise.allSettled([
-    fetchS2Statistics(zone.bounds),
-    fetchS1Statistics(zone.bounds),
-    fetchS3Statistics(zone.bounds),
+    fetchS2Statistics(zone.bounds, center),
+    fetchS1Statistics(zone.bounds, center),
+    fetchS3Statistics(zone.bounds, center),
     fetchS2NdviGrid(zone.bounds),
   ]);
 

@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Field, FieldZone } from '@/lib/types/field';
 import { SatelliteData } from '@/lib/mock-data/satellite-data';
+import { healthColors, brandColors, healthLabelEs } from '@/lib/design/tokens';
 
 interface FieldMapProps {
   field: Field;
@@ -59,11 +60,11 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
     const cellWidth = (width - 2 * padding) / gridSize;
     const cellHeight = (height - 2 * padding) / gridSize;
 
-    const colors: any = {
-      excellent: '#16a34a',
-      good: '#84cc16',
-      warning: '#eab308',
-      critical: '#ef4444',
+    const colors = {
+      excellent: healthColors.excellent,
+      good: healthColors.good,
+      warning: healthColors.warning,
+      critical: healthColors.critical,
     };
 
     return {
@@ -102,7 +103,7 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
         <rect
           width={svgContent.width}
           height={svgContent.height}
-          fill="#f5f5f4"
+          fill={brandColors.surfaceElevated}
         />
 
         {/* NDVI Heat Map Grid */}
@@ -145,7 +146,7 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
               <polygon
                 points={points.join(' ')}
                 fill="none"
-                stroke="#666"
+                stroke={brandColors.mistSlate}
                 strokeWidth="2"
                 opacity={0.6}
               />
@@ -164,7 +165,7 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
                 dominantBaseline="middle"
                 fontSize="14"
                 fontWeight="bold"
-                fill="#333"
+                fill={brandColors.foregroundMuted}
                 className="pointer-events-none"
               >
                 {zone.name}
@@ -180,8 +181,8 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
             y={svgContent.height - 60}
             width={150}
             height={45}
-            fill="white"
-            stroke="#ddd"
+            fill={brandColors.oceanDeep}
+            stroke={brandColors.border}
             rx="4"
           />
           <text
@@ -189,15 +190,15 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
             y={svgContent.height - 42}
             fontSize="12"
             fontWeight="bold"
-            fill="#333"
+            fill={brandColors.foregroundMuted}
           >
-            NDVI Health:
+            Salud NDVI:
           </text>
           {[
-            { label: 'Excellent', color: svgContent.colors.excellent },
-            { label: 'Good', color: svgContent.colors.good },
-            { label: 'Warning', color: svgContent.colors.warning },
-            { label: 'Critical', color: svgContent.colors.critical },
+            { label: healthLabelEs.excellent, color: svgContent.colors.excellent },
+            { label: healthLabelEs.good, color: svgContent.colors.good },
+            { label: healthLabelEs.warning, color: svgContent.colors.warning },
+            { label: healthLabelEs.critical, color: svgContent.colors.critical },
           ].map((item, i) => (
             <g key={item.label}>
               <rect
@@ -212,7 +213,7 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
                 x={svgContent.padding + 20 + (i % 2) * 75}
                 y={svgContent.height - 25 + (i > 1 ? 14 : 0)}
                 fontSize="11"
-                fill="#666"
+                fill={brandColors.mistSlate}
               >
                 {item.label}
               </text>
@@ -226,7 +227,7 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
           y={svgContent.padding + 16}
           textAnchor="end"
           fontSize="12"
-          fill="#999"
+          fill={brandColors.mistSlate}
         >
           {new Date(satelliteData.timestamp).toLocaleDateString()}
         </text>
@@ -235,18 +236,18 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
           y={svgContent.padding + 32}
           textAnchor="end"
           fontSize="12"
-          fill="#999"
+          fill={brandColors.mistSlate}
         >
-          Cloud: {satelliteData.cloudCover.toFixed(0)}%
+          Nubes: {satelliteData.cloudCover.toFixed(0)}%
         </text>
         <text
           x={svgContent.width - svgContent.padding}
           y={svgContent.padding + 48}
           textAnchor="end"
           fontSize="12"
-          fill="#999"
+          fill={brandColors.mistSlate}
         >
-          {satelliteData.isRealGrid ? 'Copernicus S2 grid' : 'Synthetic grid'}
+          {satelliteData.isRealGrid ? 'Grilla Copernicus S2' : 'Grilla sintética'}
         </text>
       </svg>
     </div>

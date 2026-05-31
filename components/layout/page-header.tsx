@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { FadeIn } from '@/components/ui/motion';
 
 interface PageHeaderProps {
-  title: string;
+  /** Si se omite, el título principal va en la barra del shell (app-shell). */
+  title?: string;
   description?: string;
   badge?: ReactNode;
   actions?: ReactNode;
@@ -17,29 +19,35 @@ export function PageHeader({
   className,
 }: PageHeaderProps) {
   return (
-    <div
+    <FadeIn
       className={cn(
         'flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between',
         className
       )}
     >
-      <div className="space-y-1.5 min-w-0">
-        <div className="flex flex-wrap items-center gap-2.5">
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            {title}
-          </h1>
-          {badge}
-        </div>
+      <div className="min-w-0 space-y-1.5">
+        {(title || badge) && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            {title && (
+              <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+                {title}
+              </h1>
+            )}
+            {badge}
+          </div>
+        )}
         {description && (
-          <p className="text-sm text-muted-foreground max-w-2xl leading-relaxed">
+          <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
             {description}
           </p>
         )}
       </div>
       {actions && (
-        <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+        <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+          {actions}
+        </div>
       )}
-    </div>
+    </FadeIn>
   );
 }
 
@@ -64,7 +72,7 @@ export function PageContainer({
   return (
     <div
       className={cn(
-        'mx-auto w-full space-y-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 animate-fade-in',
+        'mx-auto w-full min-w-0 max-w-full space-y-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 animate-fade-in motion-reduce:animate-none',
         maxWidth,
         className
       )}

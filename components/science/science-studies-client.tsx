@@ -26,9 +26,23 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { ChartFrame } from '@/components/charts/chart-frame';
+import { ChartTooltipContent } from '@/components/charts/chart-tooltip';
+import { chartLegendLabel } from '@/components/charts/chart-legend';
+import {
+  chartAxisStroke,
+  chartGridStroke,
+  chartSeries,
+  chartTick,
+  chartLegendWrapperStyle,
+} from '@/lib/design/tokens';
+import { PageContainer, PageHeader } from '@/components/layout/page-header';
+import { formatDateTimeEs, formatDateEs } from '@/lib/i18n/format-date';
+import { formatDecimal } from '@/lib/i18n/format-number';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
+import { ResponsiveToolbar } from '@/components/layout/responsive-layout';
 
 interface ExperimentRow {
   id: string;
@@ -93,15 +107,19 @@ export default function ScienceStudiesClient() {
         fetch(`/api/science/validation/metrics?crop=${crop}`),
         fetch(`/api/observations?fieldId=${fieldId || ''}&limit=20`),
       ]);
-      const e = await eRes.json();
-      const v = await vRes.json();
-      const m = await mRes.json();
-      const o = await oRes.json();
-      setExperiments(e.experiments ?? []);
-      setLabels(v.labels ?? []);
-      setMetricsSummary(m.summary ?? null);
-      setMetricsRunAt(m.runAt ?? null);
-      setObservations(o.observations ?? []);
+      const e = await parseJsonResponse<{ experiments?: ExperimentRow[] }>(eRes, {
+        experiments: [],
+      });
+      const v = await parseJsonResponse<{ labels?: ValidationRow[] }>(vRes, { labels: [] });
+      const m = await parseJsonResponse<{ summary?: MetricsSummary; runAt?: string }>(mRes, {});
+      const o = await parseJsonResponse<{ observations?: ObservationRow[] }>(oRes, {
+        observations: [],
+      });
+      setExperiments(e.data?.experiments ?? []);
+      setLabels(v.data?.labels ?? []);
+      setMetricsSummary(m.data?.summary ?? null);
+      setMetricsRunAt(m.data?.runAt ?? null);
+      setObservations(o.data?.observations ?? []);
     } finally {
       setLoading(false);
     }
@@ -139,8 +157,8 @@ export default function ScienceStudiesClient() {
       setObservationId('');
       load();
     } else {
-      const data = await res.json();
-      toast.error(data.error ?? 'Error');
+      const { data, error } = await parseJsonResponse<{ error?: string }>(res);
+      toast.error(data?.error ?? error ?? 'Error');
     }
   };
 
@@ -148,14 +166,21 @@ export default function ScienceStudiesClient() {
     const form = new FormData();
     form.append('file', file);
     const res = await fetch('/api/science/import', { method: 'POST', body: form });
-    const data = await res.json();
-    if (res.ok) {
-      toast.success(`Importadas ${data.imported} filas (${data.joinedTimeseries} con serie satélite)`);
+    const { data } = await parseJsonResponse<{
+      imported?: number;
+      joinedTimeseries?: number;
+      errors?: typeof importErrors;
+      error?: string;
+    }>(res);
+    if (res.ok && data) {
+      toast.success(
+        `Importadas ${data.imported ?? 0} filas (${data.joinedTimeseries ?? 0} con serie satélite)`
+      );
       setImportErrors(data.errors ?? []);
       load();
     } else {
-      toast.error(data.error ?? 'Error importando');
-      setImportErrors(data.errors ?? []);
+      toast.error(data?.error ?? 'Error importando');
+      setImportErrors(data?.errors ?? []);
     }
   };
 
@@ -167,13 +192,16 @@ export default function ScienceStudiesClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ crop }),
       });
-      const data = await res.json();
-      if (res.ok) {
+      const { data, error } = await parseJsonResponse<{
+        summary?: MetricsSummary;
+        error?: string;
+      }>(res);
+      if (res.ok && data?.summary) {
         setMetricsSummary(data.summary);
         setMetricsRunAt(new Date().toISOString());
         toast.success('Validación ejecutada');
       } else {
-        toast.error(data.error ?? 'Error');
+        toast.error(data?.error ?? error ?? 'Error');
       }
     } finally {
       setRunningMetrics(false);
@@ -182,13 +210,25 @@ export default function ScienceStudiesClient() {
 
   const syncApi = async () => {
     const res = await fetch('/api/science/data/sync', { method: 'POST', body: '{}' });
-    const data = await res.json();
+    const { data, error } = await parseJsonResponse<{
+      fetched?: number;
+      imported?: number;
+      error?: string;
+    }>(res);
     if (res.ok) {
-      toast.success(`API: ${data.fetched ?? 0} filas, importadas ${data.imported ?? 0}`);
+      toast.success(`API: ${data?.fetched ?? 0} filas, importadas ${data?.imported ?? 0}`);
       load();
     } else {
-      toast.error(data.error ?? 'Sync falló — configura SCIENCE_DATA_API_URL');
+      toast.error(data?.error ?? error ?? 'Sync falló — configura SCIENCE_DATA_API_URL');
     }
+  };
+
+  const severityLabelEs: Record<string, string> = {
+    none: 'Ninguna',
+    low: 'Baja',
+    medium: 'Media',
+    high: 'Alta',
+    critical: 'Crítica',
   };
 
   const chartData = metricsSummary
@@ -212,32 +252,35 @@ export default function ScienceStudiesClient() {
     : [];
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-2">
-        <FlaskConical className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">Estudios y validación</h1>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Importa etiquetas de campo (CSV/API), cruza con series satelitales y mide concordancia reglas vs ML.
-      </p>
+    <PageContainer size="wide" className="space-y-6">
+      <PageHeader
+        description="Importa etiquetas de campo (CSV/API), cruza con series satelitales y mide concordancia reglas vs ML."
+        badge={
+          <Badge variant="secondary" className="gap-1">
+            <FlaskConical className="h-3 w-3" />
+            Validación
+          </Badge>
+        }
+      />
 
-      <Card>
-        <CardContent className="pt-6 flex flex-wrap gap-3">
+      <Card className="glass-card">
+        <CardContent className="pt-6">
+          <ResponsiveToolbar>
           <Select value={crop} onValueChange={(v) => setCrop(v as ScienceCropId)}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-10 w-full min-w-[140px] shrink-0 sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {crops.map((c) => (
                 <SelectItem key={c.crop} value={c.crop}>{c.displayName}</SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={load} disabled={loading}>
+          <Button variant="outline" className="h-10 shrink-0" onClick={load} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar'}
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" className="h-10 shrink-0" asChild>
             <Link href={`/science/${crop}`}>Ir al lab</Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button variant="outline" className="h-10 shrink-0" asChild>
             <a href={`/api/science/import?crop=${crop}`} download>
               <Download className="h-4 w-4 mr-1" /> Plantilla CSV
             </a>
@@ -252,14 +295,15 @@ export default function ScienceStudiesClient() {
               if (f) handleCsvUpload(f);
             }}
           />
-          <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+          <Button variant="secondary" className="h-10 shrink-0" onClick={() => fileRef.current?.click()}>
             <Upload className="h-4 w-4 mr-1" /> Importar CSV
           </Button>
-          <Button variant="secondary" onClick={syncApi}>Sync API</Button>
-          <Button onClick={runValidation} disabled={runningMetrics}>
+          <Button variant="secondary" className="h-10 shrink-0" onClick={syncApi}>Sincronizar API</Button>
+          <Button className="h-10 shrink-0" onClick={runValidation} disabled={runningMetrics}>
             {runningMetrics ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 mr-1" />}
             Ejecutar validación
           </Button>
+          </ResponsiveToolbar>
         </CardContent>
       </Card>
 
@@ -277,35 +321,38 @@ export default function ScienceStudiesClient() {
       )}
 
       {metricsSummary && (
-        <Card>
+        <Card className="glass-card">
           <CardHeader>
             <CardTitle className="text-base flex items-center justify-between">
               Métricas de validación
               {metricsRunAt && (
                 <Badge variant="outline" className="font-normal">
-                  {new Date(metricsRunAt).toLocaleString()}
+                  {formatDateTimeEs(metricsRunAt)}
                 </Badge>
               )}
             </CardTitle>
           </CardHeader>
-          <CardContent className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v) => `${v}%`} />
-                <Legend />
-                <Bar dataKey="Reglas" fill="#22c55e" />
-                <Bar dataKey="ML" fill="#8b5cf6" />
+          <CardContent>
+            <ChartFrame
+              heightClassName="min-h-[220px] h-[50vw] max-h-[320px] sm:h-[260px] w-full min-w-0"
+              aria-label="Concordancia reglas vs ML"
+            >
+              <BarChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" />
+                <XAxis dataKey="name" tick={chartTick} />
+                <YAxis domain={[0, 100]} tick={chartTick} width={36} />
+                <Tooltip content={<ChartTooltipContent />} />
+                <Legend wrapperStyle={chartLegendWrapperStyle} formatter={chartLegendLabel} />
+                <Bar dataKey="Reglas" fill={chartSeries.rules} name="Reglas" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ML" fill={chartSeries.ml} name="ML" radius={[4, 4, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer>
+            </ChartFrame>
           </CardContent>
         </Card>
       )}
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card>
+        <Card className="glass-card min-w-0">
           <CardHeader><CardTitle className="text-base">Experimentos recientes</CardTitle></CardHeader>
           <CardContent className="space-y-3 max-h-[400px] overflow-y-auto">
             {experiments.length === 0 && (
@@ -317,10 +364,14 @@ export default function ScienceStudiesClient() {
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="outline">{exp.crop}</Badge>
                   {exp.result?.fusionScore != null && (
-                    <Badge>Reglas {(exp.result.fusionScore * 100).toFixed(0)}%</Badge>
+                    <Badge>
+                      Reglas {formatDecimal((exp.result.fusionScore ?? 0) * 100, 0)}%
+                    </Badge>
                   )}
                   {exp.result?.fusionScoreMl != null && (
-                    <Badge variant="secondary">ML {(exp.result.fusionScoreMl * 100).toFixed(0)}%</Badge>
+                    <Badge variant="secondary">
+                      ML {formatDecimal(exp.result.fusionScoreMl * 100, 0)}%
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -328,7 +379,7 @@ export default function ScienceStudiesClient() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-card min-w-0">
           <CardHeader><CardTitle className="text-base">Validación de campo</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             <Select value={fieldId} onValueChange={(id) => {
@@ -349,7 +400,7 @@ export default function ScienceStudiesClient() {
                 <SelectItem value="none">Sin observación</SelectItem>
                 {observations.map((o) => (
                   <SelectItem key={o.id} value={o.id}>
-                    {o.id.slice(0, 8)}… {new Date(o.created_at).toLocaleDateString()}
+                    {o.id.slice(0, 8)}… {formatDateEs(o.created_at)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -362,8 +413,10 @@ export default function ScienceStudiesClient() {
             <Select value={severity} onValueChange={setSeverity}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {['none', 'low', 'medium', 'high', 'critical'].map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                {(['none', 'low', 'medium', 'high', 'critical'] as const).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {severityLabelEs[s]}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -381,12 +434,12 @@ export default function ScienceStudiesClient() {
         </Card>
       </div>
 
-      <Card>
+      <Card className="glass-card">
         <CardHeader><CardTitle className="text-base">Documentación de datos</CardTitle></CardHeader>
         <CardContent className="text-sm text-muted-foreground">
           Ver <code className="text-xs bg-muted px-1 rounded">docs/research/data-requirements/</code> para formatos CSV/API.
         </CardContent>
       </Card>
-    </div>
+    </PageContainer>
   );
 }

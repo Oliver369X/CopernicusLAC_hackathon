@@ -1,18 +1,20 @@
-import type { Field, FieldZone } from '@/lib/types/field';
+import type { Field, FieldZone, GeoPoint } from '@/lib/types/field';
 import { MOCK_FIELDS } from '@/lib/mock-data/fields';
 import { isDatabaseConfigured } from '@/lib/db/config';
 import { createClient } from '@/lib/supabase/server';
+import { normalizeGeoBounds } from '@/lib/services/copernicus/bounds';
 
 function rowToField(row: Record<string, unknown>, zones: FieldZone[]): Field {
+  const center: GeoPoint = {
+    lat: Number(row.center_lat),
+    lng: Number(row.center_lng),
+  };
   return {
     id: row.id as string,
     name: row.name as string,
     locationLabel: (row.location_label as string) ?? '',
-    center: {
-      lat: Number(row.center_lat),
-      lng: Number(row.center_lng),
-    },
-    bounds: row.bounds as Field['bounds'],
+    center,
+    bounds: normalizeGeoBounds(row.bounds, center),
     area: Number(row.area_ha),
     crop: row.crop_type as Field['crop'],
     plantedDate: new Date(row.planting_date as string),
@@ -25,13 +27,17 @@ function rowToField(row: Record<string, unknown>, zones: FieldZone[]): Field {
   };
 }
 
-function rowToZone(row: Record<string, unknown>, crop: Field['crop']): FieldZone {
+function rowToZone(
+  row: Record<string, unknown>,
+  crop: Field['crop'],
+  fieldCenter: GeoPoint
+): FieldZone {
   return {
     id: row.id as string,
     name: row.name as string,
     fieldId: row.field_id as string,
     area: Number(row.area_ha),
-    bounds: row.bounds as FieldZone['bounds'],
+    bounds: normalizeGeoBounds(row.bounds, fieldCenter),
     crop,
     health: row.health as FieldZone['health'],
     ndviAverage: Number(row.ndvi_average),
@@ -69,9 +75,13 @@ export async function getFields(orgId?: string): Promise<Field[]> {
 
     return (fields as Record<string, unknown>[]).map((field) => {
       const crop = field.crop_type as Field['crop'];
+      const center: GeoPoint = {
+        lat: Number(field.center_lat),
+        lng: Number(field.center_lng),
+      };
       const fieldZones = ((zones as Record<string, unknown>[]) ?? [])
         .filter((z) => z.field_id === field.id)
-        .map((z) => rowToZone(z, crop));
+        .map((z) => rowToZone(z, crop, center));
       return rowToField(field, fieldZones);
     });
   } catch {

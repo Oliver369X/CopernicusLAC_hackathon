@@ -16,10 +16,13 @@ import { useFields } from '@/hooks/use-fields';
 import { saveObservation } from '@/lib/offline-storage';
 import { compressImageDataUrl, validateImageDataUrl } from '@/lib/utils/image-compress';
 import { toast } from 'sonner';
+import { FieldPageIntro } from '@/components/field/field-page-intro';
+import { formatDecimal } from '@/lib/i18n/format-number';
+import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 
 export default function PhotoCapture() {
   return (
-    <Suspense fallback={<div className="p-4 text-center text-sm">Loading...</div>}>
+    <Suspense fallback={<div className="p-4 text-center text-sm text-muted-foreground">Cargando...</div>}>
       <PhotoCaptureContent />
     </Suspense>
   );
@@ -111,7 +114,7 @@ function PhotoCaptureContent() {
       const compressed = await compressImageDataUrl(capturedImage);
       const validation = validateImageDataUrl(compressed);
       if (!validation.ok) {
-        toast.error(validation.error ?? 'Invalid image');
+        toast.error(validation.error ?? 'Imagen no válida');
         return;
       }
 
@@ -140,7 +143,8 @@ function PhotoCaptureContent() {
               imageData: compressed,
             }),
           });
-          if (res.ok) {
+          const { error: syncError } = await parseJsonResponse(res);
+          if (res.ok && !syncError) {
             const { markAsSynced } = await import('@/lib/offline-storage');
             await markAsSynced(id);
           }
@@ -166,18 +170,16 @@ function PhotoCaptureContent() {
   };
 
   return (
-    <div className="p-4 space-y-4 pb-4">
-      <div className="text-center space-y-2 py-4">
-        <Camera className="h-12 w-12 text-primary mx-auto opacity-50" />
-        <h2 className="text-xl font-bold text-foreground">Capture Crop Photo</h2>
-        <p className="text-sm text-muted-foreground">
-          Take a photo for AI analysis and diagnosis
-        </p>
-      </div>
+    <div className="space-y-4 pb-4">
+      <FieldPageIntro
+        title="Nueva observación"
+        description="Elegí lote y zona, adjuntá la foto y opcionalmente GPS y notas para el diagnóstico IA."
+      />
 
-      <Card>
+      <div className="space-y-4 px-4">
+      <Card className="glass-card">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Field & Zone</CardTitle>
+          <CardTitle className="text-sm">Campo y zona</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <Select value={fieldId} onValueChange={handleFieldChange}>
@@ -216,13 +218,13 @@ function PhotoCaptureContent() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-dashed">
+        <Card className="glass-card border-dashed">
           <CardContent className="pt-6 pb-6">
             <div className="text-center space-y-4">
               <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-muted">
                 <Camera className="h-8 w-8 text-muted-foreground" />
               </div>
-              <p className="text-sm font-medium text-foreground">No image selected</p>
+              <p className="text-sm font-medium text-foreground">Sin imagen seleccionada</p>
             </div>
           </CardContent>
         </Card>
@@ -239,49 +241,49 @@ function PhotoCaptureContent() {
       <div className="space-y-2">
         <Button onClick={() => fileInputRef.current?.click()} variant="outline" className="w-full gap-2">
           <Upload className="h-4 w-4" />
-          {capturedImage ? 'Change Image' : 'Upload Photo'}
+          {capturedImage ? 'Cambiar imagen' : 'Subir foto'}
         </Button>
         {capturedImage && (
           <Button onClick={handleClearImage} variant="outline" className="w-full gap-2 text-destructive">
             <Trash2 className="h-4 w-4" />
-            Clear Photo
+            Borrar foto
           </Button>
         )}
       </div>
 
-      <Card>
+      <Card className="glass-card">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Location Data</CardTitle>
+          <CardTitle className="text-sm">Ubicación GPS</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {gpsData ? (
             <div className="rounded-lg border border-border p-3 bg-muted/30 text-sm">
               <div className="flex items-start gap-2">
                 <MapPin className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
-                <p className="font-medium text-foreground">
-                  {gpsData.lat.toFixed(4)}, {gpsData.lng.toFixed(4)}
+                <p className="font-medium tabular-nums text-foreground">
+                  {formatDecimal(gpsData.lat, 4)}, {formatDecimal(gpsData.lng, 4)}
                 </p>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground">No location captured</p>
+            <p className="text-xs text-muted-foreground">Sin ubicación registrada</p>
           )}
           <Button onClick={handleGetLocation} variant="outline" className="w-full gap-2 text-sm">
             <MapPin className="h-4 w-4" />
-            {gpsData ? 'Update Location' : 'Capture GPS Location'}
+            {gpsData ? 'Actualizar ubicación' : 'Capturar GPS'}
           </Button>
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="glass-card">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Observation Notes</CardTitle>
+          <CardTitle className="text-sm">Notas de observación</CardTitle>
         </CardHeader>
         <CardContent>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder="Add any visible symptoms..."
+            placeholder="Síntomas visibles, estado del lote..."
             className="w-full min-h-[120px] rounded-lg border border-border bg-background p-3 text-sm"
           />
         </CardContent>
@@ -290,9 +292,10 @@ function PhotoCaptureContent() {
       {capturedImage && (
         <Button onClick={handleSubmit} disabled={submitting} className="w-full gap-2">
           <Send className="h-4 w-4" />
-          {submitting ? 'Saving...' : 'Submit for AI Analysis'}
+          {submitting ? 'Guardando...' : 'Enviar a análisis IA'}
         </Button>
       )}
+      </div>
     </div>
   );
 }
