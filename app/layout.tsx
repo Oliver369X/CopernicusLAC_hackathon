@@ -10,14 +10,16 @@ import { Toaster } from '@/components/ui/sonner'
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 
+import { APP_NAME, APP_TAGLINE } from '@/lib/constants/app-brand'
+
 export const metadata: Metadata = {
-  title: 'Doctor Soya - Monitoreo Agrícola',
-  description: 'Datos satelitales Copernicus y análisis de salud de cultivos para agricultura inteligente',
+  title: `${APP_NAME} - Monitoreo Agrícola`,
+  description: `${APP_TAGLINE}. Datos satelitales Copernicus multisensor para cultivos en América Latina.`,
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Doctor Soya',
+    title: APP_NAME,
   },
   formatDetection: {
     telephone: false,

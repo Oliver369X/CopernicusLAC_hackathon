@@ -16,8 +16,12 @@
     "worker": "node worker/index.mjs",
     "worker:queue": "node worker/queue.mjs",
     "verify": "node scripts/verify-integrations.mjs",
+    "verify:onboarding": "node scripts/verify-onboarding.mjs",
+    "verify:pilot": "node scripts/verify-pilot.mjs",
+    "backfill:bounds": "node scripts/backfill-zone-bounds.mjs",
     "cron:once": "node scripts/cron-once.mjs all",
-    "cron:satellite": "node scripts/cron-once.mjs satellite"
+    "cron:satellite": "node scripts/cron-once.mjs satellite",
+    "cron:backfill": "node scripts/backfill-satellite.mjs 90"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1056.0",
@@ -78,6 +82,8 @@
     "react-leaflet": "^5.0.0",
     "react-resizable-panels": "^2.1.7",
     "recharts": "2.15.0",
+    "shpjs": "^6.2.0",
+    "@react-pdf/renderer": "^4.3.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
     "vaul": "^1.1.2",
@@ -103,5 +109,12 @@
     "typescript": "5.7.3",
     "vitest": "^4.1.7",
     "@playwright/test": "^1.51.1"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "msgpackr-extract",
+      "unrs-resolver"
+    ]
   }
 }

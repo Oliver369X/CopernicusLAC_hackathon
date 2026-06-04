@@ -3,6 +3,7 @@ import type { Field } from '@/lib/types/field';
 import { getSatelliteHistoryForZone } from '@/lib/data/zone-satellite-metrics';
 import { fetchS2ExtendedStatistics, fetchS1ExtendedStatistics } from '@/lib/services/copernicus/statistics';
 import { estimateS1Textures } from '@/lib/services/copernicus/process-textures';
+import { hasSatelliteCredentialsConfigured } from '@/lib/config/satellite';
 import { opticalFromStats } from './indices/optical';
 import { radarFromStats, computeDpRvi, computeRvi } from './indices/radar';
 import { assembleMultisensorAnalysis } from './fusion/multisensor-score';
@@ -36,7 +37,9 @@ export async function analyzeCropMultisensor(
   });
   let radar = radarFromStats({});
   let lst: number | null = null;
-  let source: MultisensorAnalysis['source'] = 'mock';
+  let source: MultisensorAnalysis['source'] = hasSatelliteCredentialsConfigured()
+    ? 'live'
+    : 'mock';
 
   if (service) {
     const rows = await getSatelliteHistoryForZone(service, zone.id, 90);
@@ -70,6 +73,8 @@ export async function analyzeCropMultisensor(
       }
       lst = (meta?.lst as number) ?? null;
       source = 'database';
+    } else if (hasSatelliteCredentialsConfigured()) {
+      source = 'live';
     }
   }
 

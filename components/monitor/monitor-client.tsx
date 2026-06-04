@@ -44,6 +44,9 @@ import { ChartFrame } from '@/components/charts/chart-frame';
 import { ChartTooltipContent } from '@/components/charts/chart-tooltip';
 import { formatDataSourcesUnique } from '@/lib/i18n/data-source';
 import { formatDateEs } from '@/lib/i18n/format-date';
+import { MetricValue } from '@/components/ui/metric-value';
+import { ZoneInsightCard } from '@/components/monitor/zone-insight-card';
+import { hasValidZoneBounds } from '@/lib/geo/bounds-utils';
 import {
   chartAxisStroke,
   chartGridStroke,
@@ -58,16 +61,28 @@ import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 
 function MonitorContent() {
   const searchParams = useSearchParams();
+  const cropFilter = searchParams.get('crop');
   const initialFieldId = searchParams.get('field') || 'field-1';
   const { fields, loading, source, fetchError, getFieldById } = useFields();
 
+  const visibleFields = useMemo(
+    () => (cropFilter ? fields.filter((f) => f.crop === cropFilter) : fields),
+    [fields, cropFilter]
+  );
+
   const [selectedFieldId, setSelectedFieldId] = useState(initialFieldId);
-  const selectedField = getFieldById(selectedFieldId) ?? fields[0];
+  const selectedField =
+    getFieldById(selectedFieldId) ??
+    visibleFields.find((f) => f.id === initialFieldId) ??
+    visibleFields[0] ??
+    fields[0];
   const [selectedZone, setSelectedZone] = useState(selectedField?.zones[0] ?? null);
   const [satelliteData, setSatelliteData] = useState<SatelliteData | null>(null);
   const [trendData, setTrendData] = useState<
     Array<{ date: string; ndvi: string; ndmi: string }>
   >([]);
+  const [trendSynthetic, setTrendSynthetic] = useState(false);
+  const [satellitePending, setSatellitePending] = useState(false);
   const [missions, setMissions] = useState<string[]>([]);
   const [satelliteSource, setSatelliteSource] = useState<string>('mock');
   const [metricsSource, setMetricsSource] = useState<'mock' | 'database'>('mock');
@@ -87,6 +102,13 @@ function MonitorContent() {
     const n = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(n) ? n.toFixed(digits) : '—';
   }
+
+  useEffect(() => {
+    if (cropFilter && visibleFields.length && !visibleFields.find((f) => f.id === selectedFieldId)) {
+      setSelectedFieldId(visibleFields[0].id);
+      setSelectedZone(visibleFields[0].zones[0] ?? null);
+    }
+  }, [cropFilter, visibleFields, selectedFieldId]);
 
   useEffect(() => {
     if (selectedField && !selectedField.zones.find((z) => z.id === selectedZone?.id)) {
@@ -110,22 +132,26 @@ function MonitorContent() {
           ndviGrid?: NdviGridPayload | null;
           source?: string;
           satelliteSource?: string;
+          satellitePending?: boolean;
           missions?: string[];
           satelliteHistory?: MetricsHistoryPoint[];
         }>(r)
       )
       .then(({ data }) => {
         const metrics = data?.metrics ?? fallback;
+        const satSource = data?.satelliteSource ?? 'mock';
+        setSatellitePending(Boolean(data?.satellitePending));
         setSatelliteData(
           buildSatelliteDataFromMetrics(
             selectedField.id,
             metrics,
             30,
-            data?.ndviGrid ?? null
+            data?.ndviGrid ?? null,
+            { satelliteSource: satSource }
           )
         );
         setMetricsSource(data?.source === 'database' ? 'database' : 'mock');
-        setSatelliteSource(data?.satelliteSource ?? 'mock');
+        setSatelliteSource(satSource);
         setMissions(data?.missions ?? []);
         setLiveMetrics({
           ndvi: metrics.ndvi != null ? Number(metrics.ndvi) : null,
@@ -137,17 +163,24 @@ function MonitorContent() {
           cloudCover: metrics.cloudCover != null ? Number(metrics.cloudCover) : null,
           sceneDate: metrics.sceneDate ?? null,
         });
-        setTrendData(
-          buildTrendFromHistory(
-            (data?.satelliteHistory ?? []) as MetricsHistoryPoint[],
-            metrics.ndvi,
-            metrics.ndmi
-          )
+        const trend = buildTrendFromHistory(
+          (data?.satelliteHistory ?? []) as MetricsHistoryPoint[],
+          fallback.ndvi,
+          fallback.ndmi
         );
+        setTrendData(trend.points);
+        setTrendSynthetic(trend.synthetic);
       })
       .catch(() => {
-        setSatelliteData(buildSatelliteDataFromMetrics(selectedField.id, fallback));
-        setTrendData(buildTrendFromHistory([], fallback.ndvi, fallback.ndmi));
+        setSatelliteData(
+          buildSatelliteDataFromMetrics(selectedField.id, fallback, 30, null, {
+            satelliteSource: 'mock',
+            allowSyntheticGrid: true,
+          })
+        );
+        const trend = buildTrendFromHistory([], fallback.ndvi, fallback.ndmi);
+        setTrendData(trend.points);
+        setTrendSynthetic(trend.synthetic);
       });
   }, [selectedField, selectedZone]);
 
@@ -220,7 +253,21 @@ function MonitorContent() {
 
   return (
     <PageContainer size="wide">
-      {fetchError && (
+      {cropFilter && (
+        <p className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <Badge variant="secondary">Cultivo: {getCropLabelEs(cropFilter)}</Badge>
+          <Link href="/monitor" className="text-primary underline text-xs">
+            Ver todos los cultivos
+          </Link>
+        </p>
+      )}
+      {satellitePending && (
+        <p className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+          Lectura Copernicus pendiente — ejecuta{' '}
+          <code className="text-xs">pnpm cron:satellite</code>.
+        </p>
+      )}
+      {fetchError && !satellitePending && (
         <p className="mb-4 rounded-lg border border-health-warning/40 bg-health-warning/10 px-4 py-3 text-sm text-muted-foreground">
           {fetchError}. Mostrando datos de demostración.
         </p>
@@ -255,7 +302,7 @@ function MonitorContent() {
               <SelectValue placeholder="Seleccionar campo" />
             </SelectTrigger>
             <SelectContent>
-              {fields.map((field) => (
+              {visibleFields.map((field) => (
                 <SelectItem key={field.id} value={field.id}>
                   {field.name} · {getCropLabelEs(field.crop)}
                 </SelectItem>
@@ -301,10 +348,19 @@ function MonitorContent() {
                     Grilla Copernicus S2
                   </Badge>
                 )}
+                {satelliteData.gridPending && (
+                  <Badge variant="outline" className="text-xs font-normal">
+                    Métricas reales · grilla pendiente
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <FieldMap field={selectedField} satelliteData={satelliteData} />
+              <FieldMap
+                field={selectedField}
+                satelliteData={satelliteData}
+                satelliteSource={satelliteSource}
+              />
             </CardContent>
           </Card>
 
@@ -313,6 +369,12 @@ function MonitorContent() {
               <CardTitle className="text-base sm:text-lg">Tendencia NDVI y NDMI</CardTitle>
             </CardHeader>
             <CardContent className="min-w-0">
+              {trendData.length === 0 && !trendSynthetic ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  Sin historial satelital — ejecuta{' '}
+                  <code className="text-xs">pnpm cron:backfill</code> para tendencias reales.
+                </p>
+              ) : (
               <ChartFrame
                 heightClassName="min-h-[200px] h-[45vw] max-h-[250px] sm:h-[250px] w-full min-w-0"
                 aria-label="Tendencia NDVI y NDMI"
@@ -352,6 +414,7 @@ function MonitorContent() {
                   />
                 </LineChart>
               </ChartFrame>
+              )}
             </CardContent>
           </Card>
 
@@ -408,16 +471,31 @@ function MonitorContent() {
               <CardContent className="space-y-2 text-sm">
                 <div className="flex justify-between gap-2">
                   <span className="text-muted-foreground">NDVI (S2)</span>
-                  <span className="font-mono tabular-nums">{formatMetric(ndviScalar)}</span>
+                  <MetricValue
+                    value={ndviScalar}
+                    meta={{
+                      source: metricsSource === 'database' ? 'copernicus' : 'mock',
+                    }}
+                  />
                 </div>
                 <div className="flex justify-between">
                   <span>NDMI (S2)</span>
-                  <span>{formatMetric(ndmiScalar)}</span>
+                  <MetricValue
+                    value={ndmiScalar}
+                    meta={{
+                      source: metricsSource === 'database' ? 'copernicus' : 'mock',
+                    }}
+                  />
                 </div>
-                {liveMetrics?.ndre != null && Number.isFinite(liveMetrics.ndre) && (
+                {liveMetrics?.ndre != null && (
                   <div className="flex justify-between">
                     <span>NDRE (S2)</span>
-                    <span>{formatMetric(liveMetrics.ndre)}</span>
+                    <MetricValue
+                      value={liveMetrics.ndre}
+                      meta={{
+                        source: metricsSource === 'database' ? 'copernicus' : 'mock',
+                      }}
+                    />
                   </div>
                 )}
                 {liveMetrics?.s1MoistureIndex != null &&
@@ -452,6 +530,18 @@ function MonitorContent() {
               </CardContent>
             </Card>
           )}
+
+          {selectedZone && !hasValidZoneBounds(selectedZone.bounds) && (
+            <p className="rounded-lg border border-health-warning/40 bg-health-warning/10 px-4 py-3 text-sm">
+              Geometría de zona incompleta.{' '}
+              <Link href="/onboarding" className="text-primary underline">
+                Importá parcelas
+              </Link>{' '}
+              para activar la grilla Copernicus.
+            </p>
+          )}
+
+          <ZoneInsightCard zoneId={selectedZone?.id ?? null} />
 
           <Card className="glass-card">
             <CardHeader>

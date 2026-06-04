@@ -25,8 +25,7 @@ jobs:
 
       - run: pnpm test
 
-      - run: pnpm exec next lint
-        continue-on-error: true
+      - run: pnpm lint
 
       - run: pnpm build
         env:

@@ -89,6 +89,9 @@ const RAW_FIELDS: RawFieldInput[] = [
       { id: 'zone-1-a', name: 'Zone A1', area: 50, ndviAverage: 0.64, ndmiAverage: 0.47, temperatureAverage: 29.6, soilMoistureAverage: 73, observationCount: 12, diseaseRisks: [] },
       { id: 'zone-1-b', name: 'Zone A2', area: 50, ndviAverage: 0.55, ndmiAverage: 0.38, temperatureAverage: 30.2, soilMoistureAverage: 68, observationCount: 10, diseaseRisks: ['Powdery Mildew Risk'] },
       { id: 'zone-1-c', name: 'Zone A3', area: 50, ndviAverage: 0.58, ndmiAverage: 0.42, temperatureAverage: 28.9, soilMoistureAverage: 71, observationCount: 11, diseaseRisks: [] },
+      { id: 'zone-1-d', name: 'Zone A4 — Estrés hídrico', area: 40, ndviAverage: 0.38, ndmiAverage: 0.22, temperatureAverage: 31.5, soilMoistureAverage: 48, observationCount: 6, diseaseRisks: ['Drought Stress', 'Water Deficit'] },
+      { id: 'zone-1-e', name: 'Zone A5 — Recuperación', area: 40, ndviAverage: 0.62, ndmiAverage: 0.44, temperatureAverage: 28.5, soilMoistureAverage: 72, observationCount: 9, diseaseRisks: [] },
+      { id: 'zone-1-f', name: 'Zone A6 — Radar S1 bajo', area: 40, ndviAverage: 0.48, ndmiAverage: 0.30, temperatureAverage: 30.0, soilMoistureAverage: 55, observationCount: 7, diseaseRisks: ['Soil Moisture Anomaly'] },
     ],
   },
   {

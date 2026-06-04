@@ -50,6 +50,13 @@ export default function RegisterPage() {
       subtitle="Comienza a monitorear tus cultivos hoy"
     >
       <form onSubmit={handleRegister} className="space-y-5">
+        <p className="text-xs text-muted-foreground">
+          Al registrarte aceptás la{' '}
+          <Link href="/privacidad" className="text-primary underline">
+            política de privacidad
+          </Link>
+          .
+        </p>
         <div className="space-y-2">
           <Label htmlFor="org">Organización / Finca</Label>
           <div className="relative">

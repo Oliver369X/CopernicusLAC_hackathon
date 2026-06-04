@@ -1,7 +1,7 @@
 /**
  * Ejecuta job cron contra la app local (requiere pnpm dev).
  * Uso: node scripts/cron-once.mjs [job]
- * job: weather | satellite | fires | climate | alerts | science-batch | all
+ * job: weather | satellite | satellite-backfill | fires | climate | alerts | science-batch | all
  */
 import { loadEnv } from './load-env.mjs';
 

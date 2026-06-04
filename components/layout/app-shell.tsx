@@ -28,6 +28,8 @@ import {
   SIDEBAR_COLLAPSED_KEY,
   getPageTitle,
 } from '@/lib/navigation/config';
+import { APP_NAME } from '@/lib/constants/app-brand';
+import { OnboardingGuard } from '@/components/auth/onboarding-guard';
 
 function BrandMark({ className }: { className?: string }) {
   return (
@@ -37,7 +39,7 @@ function BrandMark({ className }: { className?: string }) {
         'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 motion-reduce:hover:scale-100',
         className
       )}
-      aria-label="Doctor Soya — inicio"
+      aria-label={`${APP_NAME} — inicio`}
     >
       <Leaf className="h-5 w-5" aria-hidden />
     </Link>
@@ -58,13 +60,13 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
       </div>
       {!collapsed && (
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-foreground">Doctor Soya</p>
+          <p className="truncate text-sm font-bold text-foreground">{APP_NAME}</p>
           <p className="truncate text-[10px] text-muted-foreground">
             Copernicus LAC
           </p>
         </div>
       )}
-      <span className="sr-only">Doctor Soya — inicio</span>
+      <span className="sr-only">{APP_NAME} — inicio</span>
     </Link>
   );
 }
@@ -295,7 +297,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           />
 
           <main className="min-w-0 flex-1 overflow-x-hidden page-gradient pb-[env(safe-area-inset-bottom)]">
-            {children}
+            <OnboardingGuard>{children}</OnboardingGuard>
           </main>
         </div>
       </div>

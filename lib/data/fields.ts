@@ -1,8 +1,9 @@
-import type { Field, FieldZone, GeoPoint } from '@/lib/types/field';
+import type { Field, FieldZone, GeoBounds, GeoPoint } from '@/lib/types/field';
 import { MOCK_FIELDS } from '@/lib/mock-data/fields';
 import { isDatabaseConfigured } from '@/lib/db/config';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeGeoBounds } from '@/lib/services/copernicus/bounds';
+import { deriveZoneBounds, isEmptyBounds } from '@/lib/geo/bounds-utils';
 
 function rowToField(row: Record<string, unknown>, zones: FieldZone[]): Field {
   const center: GeoPoint = {
@@ -30,14 +31,23 @@ function rowToField(row: Record<string, unknown>, zones: FieldZone[]): Field {
 function rowToZone(
   row: Record<string, unknown>,
   crop: Field['crop'],
-  fieldCenter: GeoPoint
+  fieldCenter: GeoPoint,
+  fieldBoundsRaw: unknown,
+  zoneIndex: number,
+  totalZones: number
 ): FieldZone {
+  let bounds: GeoBounds;
+  if (isEmptyBounds(row.bounds)) {
+    bounds = deriveZoneBounds(fieldBoundsRaw, fieldCenter, zoneIndex, totalZones);
+  } else {
+    bounds = normalizeGeoBounds(row.bounds, fieldCenter);
+  }
   return {
     id: row.id as string,
     name: row.name as string,
     fieldId: row.field_id as string,
     area: Number(row.area_ha),
-    bounds: normalizeGeoBounds(row.bounds, fieldCenter),
+    bounds,
     crop,
     health: row.health as FieldZone['health'],
     ndviAverage: Number(row.ndvi_average),
@@ -65,7 +75,7 @@ export async function getFields(orgId?: string): Promise<Field[]> {
     }
 
     const { data: fields, error } = await query;
-    if (error || !fields?.length) return MOCK_FIELDS;
+    if (error || !fields?.length) return [];
 
     const fieldIds = (fields as Record<string, unknown>[]).map((f) => f.id);
     const { data: zones } = await db
@@ -79,13 +89,70 @@ export async function getFields(orgId?: string): Promise<Field[]> {
         lat: Number(field.center_lat),
         lng: Number(field.center_lng),
       };
-      const fieldZones = ((zones as Record<string, unknown>[]) ?? [])
-        .filter((z) => z.field_id === field.id)
-        .map((z) => rowToZone(z, crop, center));
+      const zoneRows = ((zones as Record<string, unknown>[]) ?? []).filter(
+        (z) => z.field_id === field.id
+      );
+      const fieldZones = zoneRows.map((z, index) =>
+        rowToZone(z, crop, center, field.bounds, index, zoneRows.length)
+      );
       return rowToField(field, fieldZones);
     });
   } catch {
-    return MOCK_FIELDS;
+    return [];
+  }
+}
+
+export async function getFieldsForUser(
+  userId: string,
+  orgId?: string
+): Promise<Field[]> {
+  const all = await getFields(orgId);
+  if (!isDatabaseConfigured() || !orgId) return all;
+
+  try {
+    const db = await createClient();
+    const { data: member } = await db
+      .from('organization_members')
+      .select('role')
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!member || member.role !== 'field_worker') return all;
+
+    const { data: assignments } = await db
+      .from('member_zone_assignments')
+      .select('zone_id')
+      .eq('org_id', orgId)
+      .eq('user_id', userId);
+
+    const zoneIds = new Set(
+      (assignments ?? []).map((a) => String((a as { zone_id: string }).zone_id))
+    );
+    if (zoneIds.size === 0) return all;
+
+    return all
+      .map((field) => ({
+        ...field,
+        zones: field.zones.filter((z) => zoneIds.has(z.id)),
+      }))
+      .filter((f) => f.zones.length > 0);
+  } catch {
+    return all;
+  }
+}
+
+export async function countFieldsForOrg(orgId: string): Promise<number> {
+  if (!isDatabaseConfigured()) return MOCK_FIELDS.length;
+  try {
+    const { dbQueryOne } = await import('@/lib/db/pool');
+    const row = await dbQueryOne<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM fields WHERE org_id = $1`,
+      [orgId]
+    );
+    return Number(row?.count ?? 0);
+  } catch {
+    return 0;
   }
 }
 

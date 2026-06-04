@@ -5,6 +5,7 @@ import { getFieldById } from '@/lib/mock-data/fields';
 import { getSatelliteHistoryForZone } from '@/lib/data/zone-satellite-metrics';
 import { isScienceCrop } from '@/lib/science/crops/registry';
 import { computeDpRvi } from '@/lib/science/indices/radar';
+import { hasSatelliteCredentialsConfigured } from '@/lib/config/satellite';
 
 export async function GET(
   request: Request,
@@ -56,21 +57,16 @@ export async function GET(
       });
     }
 
-    if (!series.length) {
-      const base = zone.ndviAverage;
-      const steps = Math.max(2, Math.ceil(days / 7));
-      for (let i = 0; i < steps; i++) {
-        const d = new Date();
-        d.setDate(d.getDate() - (steps - 1 - i) * 7);
-        const wobble = ((i * 17) % 10) / 100 - 0.05;
-        series.push({
-          capturedAt: d.toISOString(),
-          ndvi: Math.max(0, Math.min(1, base + wobble)),
-          ndre: Math.max(0, Math.min(1, base * 0.85 + wobble * 0.5)),
-          dpRvi: 0.15 + wobble * 0.3,
-          mock: true,
-        });
-      }
+    if (!series.length && hasSatelliteCredentialsConfigured()) {
+      return NextResponse.json({
+        crop,
+        fieldId,
+        zoneId: zone.id,
+        days,
+        series: [],
+        message: 'Sin historial satelital — ejecuta pnpm cron:backfill',
+        source: 'pending',
+      });
     }
 
     return NextResponse.json({
@@ -79,6 +75,7 @@ export async function GET(
       zoneId: zone.id,
       days,
       series,
+      source: series.length ? 'satellite_readings' : 'mock',
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Timeseries failed';

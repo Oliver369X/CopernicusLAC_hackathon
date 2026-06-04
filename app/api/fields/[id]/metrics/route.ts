@@ -3,6 +3,7 @@ import { isDatabaseConfigured } from '@/lib/db/config';
 import { createClient } from '@/lib/supabase/server';
 import { getFieldByIdFromDb } from '@/lib/data/fields';
 import { getFieldById } from '@/lib/mock-data/fields';
+import { hasSatelliteCredentialsConfigured } from '@/lib/config/satellite';
 
 interface SatelliteRow {
   captured_at: string;
@@ -63,6 +64,7 @@ export async function GET(
   let s1MoistureIndex: number | null = null;
   let s3Lst: number | null = null;
   let dataSource = 'mock';
+  let satellitePending = false;
 
   if (isDatabaseConfigured()) {
     const supabase = await createClient();
@@ -104,21 +106,33 @@ export async function GET(
 
   const latestSat = satelliteHistory[0];
   const soilFromWeather = weatherHistory[0]?.soil_moisture;
+  const hasCredentials = hasSatelliteCredentialsConfigured();
+
+  if (hasCredentials && !latestSat) {
+    satellitePending = true;
+  }
+
+  const useZoneFallback = !hasCredentials || !latestSat;
 
   return NextResponse.json({
     fieldId: id,
     zoneId: zoneId ?? null,
     metrics: {
-      ndvi: latestSat?.ndvi ?? avgNdvi,
-      ndmi: latestSat?.ndmi ?? avgNdmi,
+      ndvi: latestSat?.ndvi ?? (useZoneFallback ? avgNdvi : null),
+      ndmi: latestSat?.ndmi ?? (useZoneFallback ? avgNdmi : null),
       ndre: latestSat?.ndre ?? null,
       temperature:
         weatherHistory[0]?.temp ??
-        (s3Lst ?? zones.reduce((s, z) => s + z.temperatureAverage, 0) / zones.length),
+        (s3Lst ??
+          (useZoneFallback
+            ? zones.reduce((s, z) => s + z.temperatureAverage, 0) / zones.length
+            : null)),
       soilMoisture:
         soilFromWeather ??
         (s1MoistureIndex != null ? Math.round(s1MoistureIndex * 100) : null) ??
-        zones.reduce((s, z) => s + z.soilMoistureAverage, 0) / zones.length,
+        (useZoneFallback
+          ? zones.reduce((s, z) => s + z.soilMoistureAverage, 0) / zones.length
+          : null),
       s1MoistureIndex,
       s3Lst,
       cloudCover,
@@ -129,6 +143,7 @@ export async function GET(
     satelliteHistory,
     weatherHistory,
     source: dataSource,
-    satelliteSource: latestSat?.source ?? 'mock',
+    satelliteSource: latestSat?.source ?? (hasCredentials ? 'pending' : 'mock'),
+    satellitePending,
   });
 }

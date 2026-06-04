@@ -1,0 +1,38 @@
+# Hackathon overlay — Traefik en VPS Aura (sin Caddy en 80/443)
+services:
+  caddy:
+    profiles: ['with-caddy']
+
+  web:
+    networks:
+      - default
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=dokploy-network
+      - traefik.http.routers.aura-agro-hackathon.rule=Host(`hackathon.aura.ia.bo`)
+      - traefik.http.routers.aura-agro-hackathon.entrypoints=websecure
+      - traefik.http.routers.aura-agro-hackathon.tls=true
+      - traefik.http.routers.aura-agro-hackathon.tls.certresolver=letsencrypt
+      - traefik.http.services.aura-agro-hackathon.loadbalancer.server.port=3000
+      - traefik.http.routers.aura-agro-hackathon-http.rule=Host(`hackathon.aura.ia.bo`)
+      - traefik.http.routers.aura-agro-hackathon-http.entrypoints=web
+      - traefik.http.routers.aura-agro-hackathon-http.middlewares=redirect-to-https@file
+    environment:
+      - APP_URL=https://hackathon.aura.ia.bo
+      - NEXT_PUBLIC_APP_URL=https://hackathon.aura.ia.bo
+      - NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS=true
+      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@aura-agro-db:5432/doctorsoya
+
+  worker:
+    environment:
+      - APP_URL=http://web:3000
+      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@aura-agro-db:5432/doctorsoya
+
+  worker-queue:
+    environment:
+      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@aura-agro-db:5432/doctorsoya
+
+networks:
+  dokploy-network:
+    external: true

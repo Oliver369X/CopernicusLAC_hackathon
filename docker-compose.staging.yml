@@ -1,0 +1,15 @@
+# Override para entorno staging (DB y volumen separados).
+services:
+  postgres:
+    environment:
+      POSTGRES_DB: doctorsoya_staging
+    volumes:
+      - postgres_staging_data:/var/lib/postgresql/data
+
+  app:
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${STAGING_APP_URL:-http://localhost:3001}
+
+volumes:
+  postgres_staging_data:

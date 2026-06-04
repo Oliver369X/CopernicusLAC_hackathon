@@ -1,0 +1,23 @@
+# Traefik file provider — Aura Agro hackathon (fallback si labels Docker no aplican)
+http:
+  routers:
+    aura-agro-hackathon:
+      rule: Host(`hackathon.aura.ia.bo`)
+      service: aura-agro-hackathon
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+    aura-agro-hackathon-http:
+      rule: Host(`hackathon.aura.ia.bo`)
+      service: aura-agro-hackathon
+      entryPoints:
+        - web
+      middlewares:
+        - redirect-to-https
+  services:
+    aura-agro-hackathon:
+      loadBalancer:
+        servers:
+          - url: http://aura-agro-web-1:3000
+        passHostHeader: true

@@ -8,6 +8,7 @@ import {
 } from '@/lib/design/tokens';
 import { PageContainer, PageHeader } from '@/components/layout/page-header';
 import { formatDecimal } from '@/lib/i18n/format-number';
+import { MetricValue } from '@/components/ui/metric-value';
 import {
   HorizontalScrollRow,
   ResponsiveToolbar,
@@ -335,9 +336,11 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
                   <Badge className={healthColors[analysis.healthLabel]}>
                     {healthLabel(analysis.healthLabel)}
                   </Badge>
-                  <p className="mt-2 font-mono tabular-nums">
-                    {formatDecimal(analysis.fusionScore * 100, 1)}%
-                  </p>
+                  <MetricValue
+                    className="mt-2"
+                    value={analysis.fusionScore * 100}
+                    decimals={1}
+                  />
                 </div>
                 <div className="border rounded-lg p-3">
                   <p className="font-medium mb-1">ML baseline (RF surrogate)</p>
@@ -346,11 +349,15 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
                       {healthLabel(analysis.healthLabelMl)}
                     </Badge>
                   )}
-                  <p className="mt-2 font-mono tabular-nums">
-                    {analysis.fusionScoreMl != null
-                      ? `${formatDecimal(analysis.fusionScoreMl * 100, 1)}%`
-                      : '—'}
-                  </p>
+                  <MetricValue
+                    className="mt-2"
+                    value={
+                      analysis.fusionScoreMl != null
+                        ? analysis.fusionScoreMl * 100
+                        : null
+                    }
+                    decimals={1}
+                  />
                 </div>
                 <p className="md:col-span-2 text-xs text-muted-foreground">
                   Concordancia:{' '}
@@ -379,8 +386,8 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
                     return (
                       <tr key={idx.id} className="border-b border-border/50">
                         <td className="py-2">{idx.label}</td>
-                        <td className="py-2 font-mono tabular-nums">
-                          {formatDecimal(val, 2)}
+                        <td className="py-2">
+                          <MetricValue value={val} decimals={2} />
                         </td>
                         <td className="py-2 text-muted-foreground">{idx.objective}</td>
                       </tr>
@@ -399,9 +406,7 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
                   v != null && (
                     <div key={k} className="flex justify-between border-b py-1">
                       <span className="uppercase text-muted-foreground">{k}</span>
-                      <span className="font-mono tabular-nums">
-                        {formatDecimal(v, 2)}
-                      </span>
+                      <MetricValue value={v} decimals={2} />
                     </div>
                   )
                 ))}
@@ -414,9 +419,7 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
                   v != null && (
                     <div key={k} className="flex justify-between border-b py-1">
                       <span className="uppercase text-muted-foreground">{k}</span>
-                      <span className="font-mono tabular-nums">
-                        {formatDecimal(v, 2)}
-                      </span>
+                      <MetricValue value={v} decimals={2} />
                     </div>
                   )
                 ))}

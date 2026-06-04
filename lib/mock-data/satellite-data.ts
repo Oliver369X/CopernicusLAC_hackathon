@@ -14,6 +14,7 @@ export interface SatelliteData {
   cloudCover: number;
   timestamp: string;
   isRealGrid?: boolean;
+  gridPending?: boolean;
 }
 
 // Simulate Perlin-like noise for realistic patterns

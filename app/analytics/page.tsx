@@ -1,15 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  getHighRiskFields,
-  getAverageHealth,
-  getAverageRiskScore,
-  getTotalArea,
-} from '@/lib/mock-data/fields';
 import { useFields } from '@/hooks/use-fields';
 import { useAnalyticsSummary } from '@/hooks/use-analytics-summary';
+import type { SatelliteRiskPoint } from '@/lib/analytics/satellite-risk';
 import { CROP_PROFILES } from '@/lib/mock-data/crops';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +14,6 @@ import { DistributionDonutChart } from '@/components/charts/distribution-donut-c
 import { FieldComparisonChart } from '@/components/charts/field-comparison-chart';
 import { RiskTimelineChart } from '@/components/charts/risk-timeline-chart';
 import { RoiEconomicChart, type RoiChartDatum } from '@/components/charts/roi-economic-chart';
-import { buildRiskTimeline } from '@/lib/analytics/risk-timeline';
 import { FadeIn } from '@/components/ui/motion';
 import {
   AlertCircle,
@@ -38,8 +32,16 @@ import {
 
 export default function Analytics() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'season'>('month');
+  const [riskTimeline, setRiskTimeline] = useState<SatelliteRiskPoint[]>([]);
   const { fields } = useFields();
   const { summary } = useAnalyticsSummary();
+
+  useEffect(() => {
+    fetch(`/api/analytics/satellite-risk?range=${selectedTimeRange}`)
+      .then((r) => r.json())
+      .then((data) => setRiskTimeline((data.timeline ?? []) as SatelliteRiskPoint[]))
+      .catch(() => setRiskTimeline([]));
+  }, [selectedTimeRange]);
 
   const healthDistribution = useMemo(() => {
     const data = summary?.healthDistribution ?? {
@@ -62,11 +64,6 @@ export default function Analytics() {
       fill: getCropColor(crop),
     }));
   }, [fields]);
-
-  const riskTimeline = useMemo(
-    () => buildRiskTimeline(selectedTimeRange),
-    [selectedTimeRange]
-  );
 
   const economicData = useMemo((): (RoiChartDatum & { daysToMaturity: number })[] => {
     return fields.map((field) => {
@@ -94,29 +91,48 @@ export default function Analytics() {
     });
   }, [fields]);
 
-  const highRiskFields = useMemo(() => getHighRiskFields(), []);
+  const healthScoreMap = { excellent: 95, good: 80, warning: 60, critical: 35 };
+
+  const highRiskFields = useMemo(
+    () =>
+      [...fields]
+        .filter((f) => f.riskScore >= 50)
+        .sort((a, b) => b.riskScore - a.riskScore)
+        .slice(0, 5),
+    [fields]
+  );
+
   const averageHealth = useMemo(
     () =>
       fields.length
         ? fields.reduce((sum, f) => {
-            const score =
-              { excellent: 95, good: 80, warning: 60, critical: 35 }[f.overallHealth] ?? 50;
+            const score = healthScoreMap[f.overallHealth] ?? 50;
             return sum + score;
           }, 0) / fields.length
-        : getAverageHealth(),
+        : 0,
     [fields]
   );
+
   const totalArea = useMemo(
-    () => (fields.length ? fields.reduce((s, f) => s + f.area, 0) : getTotalArea()),
+    () => fields.reduce((s, f) => s + f.area, 0),
     [fields]
   );
+
   const averageRisk = useMemo(
     () =>
       fields.length
         ? fields.reduce((s, f) => s + f.riskScore, 0) / fields.length
-        : getAverageRiskScore(),
+        : 0,
     [fields]
   );
+
+  function downloadCsv() {
+    window.location.href = '/api/reports/csv?range=month';
+  }
+
+  function downloadPdf() {
+    window.location.href = '/api/reports/pdf';
+  }
 
   const timeRangeLabel =
     selectedTimeRange === 'week'
@@ -131,9 +147,14 @@ export default function Analytics() {
         title="Analítica y reportes"
         description="Distribución de salud, cultivos, tendencias de riesgo y proyecciones económicas por campo."
         actions={
-          <Button variant="outline" size="sm" className="h-10 gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-10 gap-2"
+            onClick={downloadCsv}
+          >
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Exportar</span>
+            <span className="hidden sm:inline">Exportar CSV</span>
           </Button>
         }
       />
@@ -243,11 +264,17 @@ export default function Analytics() {
               Tendencia de riesgo ({timeRangeLabel})
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Evolución del riesgo promedio y cantidad de campos en alerta
+              Riesgo derivado de NDVI Copernicus (estrés y caídas vs media 14 días)
             </p>
           </CardHeader>
           <CardContent className="min-w-0 pt-0">
-            <RiskTimelineChart data={riskTimeline} />
+            {riskTimeline.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Sin historial satelital — ejecuta <code className="text-xs">pnpm cron:backfill</code>
+              </p>
+            ) : (
+              <RiskTimelineChart data={riskTimeline} />
+            )}
           </CardContent>
         </Card>
 
@@ -343,7 +370,7 @@ export default function Analytics() {
       </FadeIn>
 
       <div className="flex justify-end pb-2">
-        <Button className="h-11 gap-2 px-5 text-sm sm:text-base">
+        <Button className="h-11 gap-2 px-5 text-sm sm:text-base" onClick={downloadPdf}>
           <Download className="h-4 w-4" />
           Exportar informe (PDF)
         </Button>

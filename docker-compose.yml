@@ -11,6 +11,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      default:
+        aliases:
+          - aura-agro-db
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U doctorsoya -d doctorsoya']
       interval: 5s
@@ -57,7 +61,7 @@ services:
     env_file: .env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@postgres:5432/doctorsoya
+      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@aura-agro-db:5432/doctorsoya
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
@@ -92,7 +96,7 @@ services:
     environment:
       - APP_URL=http://web:3000
       - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@postgres:5432/doctorsoya
+      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@aura-agro-db:5432/doctorsoya
       - MINIO_ENDPOINT=http://minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
@@ -114,7 +118,7 @@ services:
     environment:
       - APP_URL=http://web:3000
       - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@postgres:5432/doctorsoya
+      - DATABASE_URL=postgresql://doctorsoya:doctorsoya@aura-agro-db:5432/doctorsoya
     depends_on:
       - redis
       - web

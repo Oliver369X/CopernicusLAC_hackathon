@@ -1,5 +1,6 @@
 import type { DbClient } from '@/lib/db/adapter';
 import type { DbAlertInsert } from '@/lib/cron/jobs';
+import { APP_NAME } from '@/lib/constants/app-brand';
 import { sendWhatsAppMessage, isTwilioConfigured } from './twilio-whatsapp';
 
 export async function dispatchAlertNotifications(
@@ -42,8 +43,8 @@ export async function dispatchAlertNotifications(
 
   const message =
     alert.type === 'science_multisensor'
-      ? `Doctor Soya — Science Lab\n${alert.title}\n${alert.description.slice(0, 220)}\n${alert.recommendation.slice(0, 120)}`
-      : `Doctor Soya — ${alert.title}\n${alert.description.slice(0, 200)}\n${alert.recommendation.slice(0, 150)}`;
+      ? `${APP_NAME} — Science Lab\n${alert.title}\n${alert.description.slice(0, 220)}\n${alert.recommendation.slice(0, 120)}`
+      : `${APP_NAME} — ${alert.title}\n${alert.description.slice(0, 200)}\n${alert.recommendation.slice(0, 150)}`;
 
   for (const profile of profiles ?? []) {
     const phone = profile.phone != null ? String(profile.phone) : '';

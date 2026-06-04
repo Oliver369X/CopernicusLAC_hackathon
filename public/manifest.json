@@ -1,7 +1,7 @@
 {
-  "name": "Doctor Soya - Agricultural Monitoring",
-  "short_name": "Doctor Soya",
-  "description": "Real-time satellite data and crop health analysis for smart farming",
+  "name": "Aura Agro - Monitoreo Agrícola",
+  "short_name": "Aura Agro",
+  "description": "Datos satelitales Copernicus multisensor para cultivos en América Latina",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -19,19 +19,19 @@
   ],
   "shortcuts": [
     {
-      "name": "Monitor Field",
+      "name": "Monitor",
       "short_name": "Monitor",
+      "url": "/monitor"
+    },
+    {
+      "name": "Campo",
+      "short_name": "Campo",
       "url": "/field"
     },
     {
-      "name": "Capture Photo",
-      "short_name": "Capture",
-      "url": "/field/capture"
-    },
-    {
-      "name": "View Diagnostics",
-      "short_name": "Diagnose",
-      "url": "/field/diagnostics"
+      "name": "Perspectivas",
+      "short_name": "Insights",
+      "url": "/insights"
     }
   ]
 }

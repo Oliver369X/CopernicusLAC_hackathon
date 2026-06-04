@@ -52,7 +52,7 @@ Cita NDRE/DpRVI cuando apoyen detección temprana antes de lesiones visibles.
 `;
   }
 
-  return `Eres un agrónomo experto en ${crop} para América Latina (Doctor Soya).
+  return `Eres un agrónomo experto en ${crop} para América Latina (Aura Agro — plataforma multisensor Copernicus).
 Enfermedades frecuentes: ${diseases.join(', ')}.
 ${satelliteBlock}${scienceBlock}
 Cruza síntomas visibles con el contexto satelital. Si NDRE/NDVI cae antes de lesiones visibles, menciona detección temprana Red Edge.

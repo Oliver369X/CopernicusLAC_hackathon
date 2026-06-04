@@ -17,7 +17,10 @@ import { fetchWeatherForField } from '@/lib/services/open-meteo';
 import {
   fetchZoneSatelliteReading,
   hasSatelliteCredentials,
+  type ZoneSatelliteReading,
 } from '@/lib/services/satellite';
+import { fetchS2NdviGrid } from '@/lib/services/copernicus/process';
+import { fetchZoneSatelliteHistory } from '@/lib/services/copernicus/statistics-history';
 import {
   fetchFireAlertsForField,
   fetchFireHotspotsInBounds,
@@ -217,6 +220,45 @@ export async function runWeatherJob(
   return results;
 }
 
+async function ensureNdviGrid(
+  zone: Field['zones'][number],
+  reading: ZoneSatelliteReading
+): Promise<ZoneSatelliteReading> {
+  if (reading.ndviGrid?.ndvi?.length) {
+    return {
+      ...reading,
+      rawMetadata: { ...reading.rawMetadata, gridStatus: 'ok' },
+    };
+  }
+
+  const hasS2 = reading.missions.includes('sentinel-2');
+  if (!hasS2 || reading.source === 'mock') {
+    return {
+      ...reading,
+      rawMetadata: { ...reading.rawMetadata, gridStatus: 'skipped_no_s2' },
+    };
+  }
+
+  await new Promise((r) => setTimeout(r, 500));
+  let grid = await fetchS2NdviGrid(zone.bounds);
+  if (!grid) {
+    await new Promise((r) => setTimeout(r, 500));
+    grid = await fetchS2NdviGrid(zone.bounds);
+  }
+
+  return {
+    ...reading,
+    ndviGrid: grid,
+    rawMetadata: {
+      ...reading.rawMetadata,
+      gridStatus: grid ? 'ok' : 'missing',
+      gridRetry: true,
+    },
+  };
+}
+
+const SATELLITE_ZONE_DELAY_MS = Number(process.env.SATELLITE_ZONE_DELAY_MS ?? 2000);
+
 export async function runSatelliteJob(
   service: DbClient,
   fields: Field[]
@@ -227,8 +269,8 @@ export async function runSatelliteJob(
 
   for (const field of fields) {
     for (const zone of field.zones) {
-      await new Promise((r) => setTimeout(r, 250));
-      const reading = await fetchZoneSatelliteReading(zone, field.center);
+      await new Promise((r) => setTimeout(r, SATELLITE_ZONE_DELAY_MS));
+      let reading = await fetchZoneSatelliteReading(zone, field.center);
 
       if (hasCredentials && reading.source === 'mock' && reading.missions.length === 0) {
         results.push({
@@ -237,6 +279,10 @@ export async function runSatelliteJob(
           reason: 'cdse_no_data',
         });
         continue;
+      }
+
+      if (hasCredentials && reading.source !== 'mock') {
+        reading = await ensureNdviGrid(zone, reading);
       }
 
       const vectors = isScienceCrop(field.crop)
@@ -252,9 +298,9 @@ export async function runSatelliteJob(
 
       const row = {
         zone_id: zone.id,
-        ndvi: reading.ndvi,
-        ndmi: reading.ndmi,
-        ndre: reading.ndre,
+        ndvi: Number.isFinite(reading.ndvi) ? reading.ndvi : zone.ndviAverage,
+        ndmi: Number.isFinite(reading.ndmi) ? reading.ndmi : zone.ndmiAverage,
+        ndre: Number.isFinite(reading.ndre ?? NaN) ? reading.ndre : null,
         s1_vh: reading.s1Vh,
         s1_vv: reading.s1Vv,
         s1_moisture_index: reading.s1MoistureIndex,
@@ -265,7 +311,11 @@ export async function runSatelliteJob(
         source: reading.source,
         reading_date: readingDate,
         science_metadata: scienceMeta,
-        raw_metadata: { ...reading.rawMetadata, missions: reading.missions },
+        raw_metadata: {
+          ...reading.rawMetadata,
+          missions: reading.missions,
+          gridStatus: reading.rawMetadata.gridStatus ?? (reading.ndviGrid ? 'ok' : 'missing'),
+        },
       };
 
       const { error } = await service
@@ -306,6 +356,96 @@ export async function runSatelliteJob(
       }
 
       results.push({ zoneId: zone.id, ...reading });
+      const { trackImportJobProgressForZone } = await import(
+        '@/lib/import-jobs/track-progress'
+      );
+      await trackImportJobProgressForZone(zone.id);
+    }
+  }
+
+  return results;
+}
+
+/** Backfill satellite_readings from CDSE Statistical API (multi-week history). */
+export async function runSatelliteBackfillJob(
+  service: DbClient,
+  fields: Field[],
+  days = 90
+): Promise<unknown[]> {
+  const hasCredentials = hasSatelliteCredentials();
+  if (!hasCredentials) {
+    return [{ error: 'no_satellite_credentials' }];
+  }
+
+  const results: unknown[] = [];
+
+  for (const field of fields) {
+    for (const zone of field.zones) {
+      await new Promise((r) => setTimeout(r, 400));
+      const history = await fetchZoneSatelliteHistory(zone.bounds, days, field.center);
+
+      if (!history.length) {
+        results.push({ zoneId: zone.id, inserted: 0, reason: 'no_cdse_history' });
+        continue;
+      }
+
+      let inserted = 0;
+      for (const point of history) {
+        const scienceMeta = scienceMetadataFromReading(
+          field.crop,
+          point.s1Vv,
+          point.s1Vh,
+          null
+        );
+
+        const row = {
+          zone_id: zone.id,
+          ndvi: point.ndvi,
+          ndmi: point.ndmi ?? zone.ndmiAverage,
+          ndre: point.ndre,
+          s1_vh: point.s1Vh,
+          s1_vv: point.s1Vv,
+          s1_moisture_index: point.s1MoistureIndex,
+          s3_lst: point.s3Lst,
+          cloud_cover: point.cloudCover,
+          ndvi_grid: null,
+          scene_date: point.sceneDate,
+          source: 'copernicus',
+          reading_date: point.readingDate,
+          science_metadata: scienceMeta,
+          raw_metadata: {
+            backfill: true,
+            days,
+            missions: [
+              'sentinel-2',
+              ...(point.s1Vv != null ? ['sentinel-1'] : []),
+              ...(point.s3Lst != null ? ['sentinel-3'] : []),
+            ],
+          },
+        };
+
+        const { error } = await service
+          .from('satellite_readings')
+          .upsert(row, { onConflict: 'zone_id,reading_date' });
+
+        if (error) {
+          await service.from('satellite_readings').insert(row);
+        }
+        inserted++;
+      }
+
+      const latest = history[history.length - 1];
+      if (latest?.ndvi != null) {
+        await service
+          .from('zones')
+          .update({
+            ndvi_average: latest.ndvi,
+            ndmi_average: latest.ndmi ?? zone.ndmiAverage,
+          })
+          .eq('id', zone.id);
+      }
+
+      results.push({ zoneId: zone.id, inserted, days });
     }
   }
 
@@ -426,32 +566,3 @@ export async function runAlertsJob(
   return { count, critical };
 }
 
-/** Fallback sync for dev without Supabase readings */
-export function generateAllAlertsMock(): Alert[] {
-  const allAlerts: Alert[] = [];
-  for (const field of MOCK_FIELDS) {
-    for (const zone of field.zones) {
-      allAlerts.push(
-        ...alertEngine.checkThresholds(
-          field.crop,
-          field.id,
-          zone.id,
-          zone.ndviAverage,
-          zone.ndmiAverage,
-          zone.temperatureAverage,
-          zone.soilMoistureAverage,
-          field.daysFromPlanting
-        ),
-        ...alertEngine.checkAnomalies(
-          field.crop,
-          field.id,
-          zone.id,
-          zone.ndviAverage,
-          zone.ndviAverage * 0.95,
-          0.08
-        )
-      );
-    }
-  }
-  return allAlerts;
-}

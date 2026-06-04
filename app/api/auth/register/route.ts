@@ -13,10 +13,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Auth disabled' }, { status: 503 });
   }
 
-  const { email, password, orgName } = (await request.json()) as {
+  const { email, password, orgName, inviteOnly, inviteToken } = (await request.json()) as {
     email?: string;
     password?: string;
     orgName?: string;
+    inviteOnly?: boolean;
+    inviteToken?: string;
   };
 
   if (!email?.trim() || !password || password.length < 6) {
@@ -42,17 +44,32 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No se pudo crear el usuario' }, { status: 500 });
   }
 
-  const org = await dbQueryOne<{ id: string }>(
-    `INSERT INTO organizations (name) VALUES ($1) RETURNING id`,
-    [orgName?.trim() || 'Mi Finca']
-  );
-
-  if (org) {
-    await dbQuery(
-      `INSERT INTO organization_members (org_id, user_id, role) VALUES ($1, $2, 'owner')`,
-      [org.id, user.id]
+  if (inviteToken?.trim()) {
+    const { acceptInviteForUser } = await import('@/lib/team/accept-invite');
+    const accepted = await acceptInviteForUser(inviteToken.trim(), user.id, user.email);
+    if ('error' in accepted) {
+      return NextResponse.json({ error: accepted.error }, { status: accepted.status });
+    }
+  } else if (!inviteOnly) {
+    const org = await dbQueryOne<{ id: string }>(
+      `INSERT INTO organizations (name) VALUES ($1) RETURNING id`,
+      [orgName?.trim() || 'Mi Finca']
     );
-    await seedFieldsForOrg(org.id);
+
+    if (org) {
+      await dbQuery(
+        `INSERT INTO organization_members (org_id, user_id, role) VALUES ($1, $2, 'owner')`,
+        [org.id, user.id]
+      );
+      if (process.env.SEED_DEMO_ON_REGISTER === 'true') {
+        await seedFieldsForOrg(org.id);
+      }
+    }
+  } else {
+    return NextResponse.json(
+      { error: 'Registro solo vía invitación' },
+      { status: 400 }
+    );
   }
 
   const token = await createSessionToken({ id: user.id, email: user.email });

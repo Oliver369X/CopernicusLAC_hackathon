@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { APP_NAME } from '@/lib/constants/app-brand';
 import { getScienceProfile, isScienceCrop } from '@/lib/science/crops/registry';
 import {
   LayoutDashboard,
@@ -8,6 +9,7 @@ import {
   Bell,
   FlaskConical,
   Sprout,
+  Settings,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -45,6 +47,7 @@ export const navGroups: NavGroup[] = [
   {
     label: 'Operaciones',
     items: [
+      { href: '/gestion', label: 'Gestión', icon: Settings },
       { href: '/alerts', label: 'Alertas', icon: Bell },
       { href: '/field', label: 'App de Campo', icon: Sprout },
     ],
@@ -59,6 +62,8 @@ const pageTitles: Record<string, string> = {
   '/science': 'Laboratorio científico',
   '/alerts': 'Alertas y notificaciones',
   '/alerts/settings': 'Configuración de alertas',
+  '/gestion': 'Gestión de finca',
+  '/onboarding': 'Configuración inicial',
 };
 
 export const AUTH_ROUTES = ['/login', '/register'];
@@ -93,7 +98,7 @@ export function getPageTitle(pathname: string): string {
     }
   }
 
-  return 'Doctor Soya';
+  return APP_NAME;
 }
 
 export function findNavItem(pathname: string): NavItem | undefined {

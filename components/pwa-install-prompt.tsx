@@ -1,5 +1,6 @@
 'use client';
 
+import { APP_NAME } from '@/lib/constants/app-brand';
 import { useEffect, useState } from 'react';
 import { X, Download, Leaf } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,7 +74,7 @@ export function PWAInstallPrompt() {
                 id="pwa-install-title"
                 className="font-semibold text-foreground"
               >
-                Instalar Doctor Soya
+                Instalar {APP_NAME}
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 Acceso rápido desde tu pantalla de inicio y trabajo sin conexión

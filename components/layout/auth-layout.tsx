@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { APP_NAME, APP_TAGLINE } from '@/lib/constants/app-brand';
 import { Leaf, Satellite, FlaskConical, Shield } from 'lucide-react';
 import { FadeIn, StaggerList } from '@/components/ui/motion';
 
@@ -35,10 +36,8 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
             <Leaf className="h-6 w-6 text-primary" aria-hidden />
           </div>
           <div>
-            <p className="text-lg font-bold text-foreground">Doctor Soya</p>
-            <p className="text-xs text-muted-foreground">
-              Seguridad alimentaria · Copernicus LAC
-            </p>
+            <p className="text-lg font-bold text-foreground">{APP_NAME}</p>
+            <p className="text-xs text-muted-foreground">{APP_TAGLINE}</p>
           </div>
         </FadeIn>
 
@@ -78,7 +77,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary font-bold text-primary-foreground">
             DS
           </div>
-          <span className="text-lg font-bold">Doctor Soya</span>
+          <span className="text-lg font-bold">{APP_NAME}</span>
         </div>
 
         <FadeIn className="w-full max-w-md space-y-6">

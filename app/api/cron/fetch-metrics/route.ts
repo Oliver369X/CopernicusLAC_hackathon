@@ -6,10 +6,13 @@ import {
   runAlertsJob,
   runClimateJob,
   runFiresJob,
+  runSatelliteBackfillJob,
   runSatelliteJob,
   runWeatherJob,
 } from '@/lib/cron/jobs';
 import { runScienceBatchJob } from '@/lib/cron/science-batch';
+import { runNarrativeBatch } from '@/lib/cron/narrative-batch';
+import { dbQuery } from '@/lib/db/pool';
 
 function authorizeCron(request: Request): boolean {
   const secret = process.env.CRON_SECRET ?? process.env.WORKER_SECRET;
@@ -31,7 +34,23 @@ export async function GET(request: Request) {
   }
 
   const service = await createServiceClient();
-  const fields = await getFields();
+  const orgId = searchParams.get('orgId') ?? undefined;
+  const fields = await getFields(orgId);
+
+  if (job === 'onboarding' && orgId) {
+    const { markImportJobRunning, getActiveImportJobForOrg } = await import(
+      '@/lib/import-jobs/active-job'
+    );
+    const active = await getActiveImportJobForOrg(orgId);
+    if (active) await markImportJobRunning(active.id);
+    results.satellite = await runSatelliteJob(service, fields);
+    results.narrativeBatch = await runNarrativeBatch(service, fields);
+    results.alerts = await runAlertsJob(service, fields);
+    await dbQuery(`INSERT INTO cron_runs (job_name, status) VALUES ($1, 'ok')`, [
+      'onboarding',
+    ]);
+    return NextResponse.json({ ok: true, job: 'onboarding', orgId, results });
+  }
 
   if (job === 'weather' || job === 'all') {
     results.weather = await runWeatherJob(service, fields);
@@ -39,6 +58,14 @@ export async function GET(request: Request) {
 
   if (job === 'satellite' || job === 'all') {
     results.satellite = await runSatelliteJob(service, fields);
+  }
+
+  if (job === 'satellite-backfill') {
+    const days = Math.min(
+      365,
+      Math.max(7, parseInt(searchParams.get('days') ?? '90', 10))
+    );
+    results.satelliteBackfill = await runSatelliteBackfillJob(service, fields, days);
   }
 
   if (job === 'fires' || job === 'all') {
@@ -55,6 +82,14 @@ export async function GET(request: Request) {
 
   if (job === 'science-batch' || job === 'all') {
     results.scienceBatch = await runScienceBatchJob(service, fields);
+  }
+
+  if (job === 'narrative-batch' || job === 'all') {
+    results.narrativeBatch = await runNarrativeBatch(service, fields);
+    await dbQuery(
+      `INSERT INTO cron_runs (job_name, status) VALUES ($1, 'ok')`,
+      ['narrative-batch']
+    );
   }
 
   return NextResponse.json({ ok: true, job, results });

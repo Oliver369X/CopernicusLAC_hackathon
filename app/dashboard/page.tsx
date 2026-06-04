@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFields } from '@/hooks/use-fields';
 import { useAnalyticsSummary } from '@/hooks/use-analytics-summary';
 import { useAlerts } from '@/hooks/use-alerts';
@@ -34,6 +34,8 @@ import { DistributionDonutChart } from '@/components/charts/distribution-donut-c
 import { FieldHealthBarChart } from '@/components/charts/field-health-bar-chart';
 import { ChartTooltipContent } from '@/components/charts/chart-tooltip';
 import { FadeIn, StaggerList } from '@/components/ui/motion';
+import { PilotOverviewCard } from '@/components/dashboard/pilot-overview-card';
+import { SatelliteSyncProgress } from '@/components/onboarding/satellite-sync-progress';
 import {
   chartColors,
   healthColors,
@@ -44,50 +46,61 @@ import {
   chartGridStroke,
 } from '@/lib/design/tokens';
 
-const trendData = [
-  { date: 'Lun', salud: 72, riesgo: 42 },
-  { date: 'Mar', salud: 74, riesgo: 40 },
-  { date: 'Mié', salud: 71, riesgo: 45 },
-  { date: 'Jue', salud: 75, riesgo: 38 },
-  { date: 'Vie', salud: 76, riesgo: 36 },
-  { date: 'Sáb', salud: 78, riesgo: 32 },
-  { date: 'Dom', salud: 75, riesgo: 40 },
-];
-
-const DEFAULT_CROP_DATA = [
-  { name: 'Soja', value: 35, fill: chartColors[0] },
-  { name: 'Maíz', value: 28, fill: chartColors[1] },
-  { name: 'Trigo', value: 18, fill: chartColors[2] },
-  { name: 'Algodón', value: 12, fill: chartColors[3] },
-  { name: 'Canola', value: 7, fill: chartColors[4] },
-];
-
-const RISK_DISTRIBUTION = [
-  { label: 'Riesgo bajo', labelLong: 'Riesgo bajo (0-30)', count: 15, color: riskLevels.low },
-  { label: 'Riesgo medio', labelLong: 'Riesgo medio (30-60)', count: 18, color: riskLevels.medium },
-  { label: 'Riesgo alto', labelLong: 'Riesgo alto (60-85)', count: 8, color: riskLevels.high },
-  { label: 'Crítico', labelLong: 'Crítico (85+)', count: 2, color: riskLevels.critical },
-];
-
-const RISK_TOTAL = RISK_DISTRIBUTION.reduce((s, i) => s + i.count, 0);
-
 export default function EnhancedDashboard() {
   const { fields, source: fieldsSource } = useFields();
   const { alerts: engineAlerts } = useAlerts();
   const { summary } = useAnalyticsSummary();
+  const [trendData, setTrendData] = useState<
+    Array<{ date: string; salud: number; riesgo: number }>
+  >([]);
+
+  useEffect(() => {
+    fetch('/api/analytics/health-trend?range=week')
+      .then((r) => r.json())
+      .then((d) => {
+        const timeline = (d.timeline ?? []) as Array<{
+          date: string;
+          salud: number;
+          riesgo: number;
+        }>;
+        setTrendData(
+          timeline.map((p) => ({
+            date: p.date.slice(5),
+            salud: p.salud,
+            riesgo: p.riesgo,
+          }))
+        );
+      })
+      .catch(() => setTrendData([]));
+  }, []);
 
   const cropChartData = useMemo(() => {
-    if (!summary?.fields?.length) return DEFAULT_CROP_DATA;
     const counts: Record<string, number> = {};
-    summary.fields.forEach((f) => {
-      counts[f.crop] = (counts[f.crop] ?? 0) + 1;
+    (summary?.fields?.length ? summary.fields : fields).forEach((f) => {
+      const crop = 'crop' in f ? f.crop : (f as { crop: string }).crop;
+      counts[crop] = (counts[crop] ?? 0) + 1;
     });
     return Object.entries(counts).map(([crop, value]) => ({
       name: getCropLabelEs(crop),
       value,
       fill: getCropColor(crop),
     }));
-  }, [summary]);
+  }, [summary, fields]);
+
+  const riskDistribution = useMemo(() => {
+    const buckets = [
+      { label: 'Riesgo bajo', labelLong: 'Riesgo bajo (0-30)', min: 0, max: 30, color: riskLevels.low },
+      { label: 'Riesgo medio', labelLong: 'Riesgo medio (30-60)', min: 30, max: 60, color: riskLevels.medium },
+      { label: 'Riesgo alto', labelLong: 'Riesgo alto (60-85)', min: 60, max: 85, color: riskLevels.high },
+      { label: 'Crítico', labelLong: 'Crítico (85+)', min: 85, max: 101, color: riskLevels.critical },
+    ];
+    return buckets.map((b) => ({
+      ...b,
+      count: fields.filter((f) => f.riskScore >= b.min && f.riskScore < b.max).length,
+    }));
+  }, [fields]);
+
+  const riskTotal = riskDistribution.reduce((s, i) => s + i.count, 0) || 1;
 
   const activeAlerts = useMemo(
     () => engineAlerts.filter((a) => !a.resolved).slice(0, 5),
@@ -169,6 +182,11 @@ export default function EnhancedDashboard() {
           />
         </li>
       </StaggerList>
+
+      <FadeIn className="space-y-4">
+        <SatelliteSyncProgress />
+        <PilotOverviewCard alerts={engineAlerts} />
+      </FadeIn>
 
       <FadeIn className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         <Card className="glass-card min-w-0 lg:col-span-2">
@@ -258,7 +276,7 @@ export default function EnhancedDashboard() {
             <CardTitle className="text-base sm:text-lg">Distribución de riesgo</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {RISK_DISTRIBUTION.map((item) => (
+            {riskDistribution.map((item) => (
               <MetricProgressRow
                 key={item.label}
                 label={
@@ -268,7 +286,7 @@ export default function EnhancedDashboard() {
                   </>
                 }
                 valueLabel={String(item.count)}
-                percent={(item.count / RISK_TOTAL) * 100}
+                percent={(item.count / riskTotal) * 100}
                 barStyle={{ backgroundColor: item.color }}
               />
             ))}

@@ -30,6 +30,14 @@ pnpm dev
 
 Copia manual de variables: `cp .env.local.example .env`
 
+## Primera vez con datos reales
+
+1. `pnpm setup` — Postgres, seed con bounds de zonas y lecturas satélite demo.
+2. Opcional: `COPERNICUS_CLIENT_ID` + `SECRET` en `.env` → el setup intenta `cron:satellite` y backfill.
+3. `pnpm dev` → login demo o registro nuevo → `/onboarding` para importar GeoJSON/KML/Shapefile/CSV.
+4. `pnpm cron:satellite` y `pnpm cron:backfill` si no hay credenciales en setup.
+5. `GET /api/health/data-pipeline` — estado de zonas con geometría y satélite.
+
 ## Usuarios demo
 
 Al ejecutar `pnpm setup` o `pnpm docker:infra` por primera vez, Postgres carga el seed en `docker/postgres/init/02-seed.sql` con **3 usuarios** y datos de ejemplo (organización, campos, zonas, alertas).

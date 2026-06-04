@@ -57,7 +57,21 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 3. Login con usuario real (no depender de cuentas demo)
 4. Checklist demo: [DEMO-HACKATHON.md](./DEMO-HACKATHON.md)
 
-Jobs cron: `weather`, `satellite`, `fires`, `climate`, `alerts`, `all`.
+Jobs cron satelitales (Copernicus CDSE):
+
+```bash
+# Diario — lectura del día (S1/S2/S3 + grilla NDVI)
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "$APP_URL/api/cron/fetch-metrics?job=satellite"
+
+# Semanal — historial 90 días (tendencias + science timeseries)
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  "$APP_URL/api/cron/fetch-metrics?job=satellite-backfill&days=90"
+```
+
+Otros jobs: `weather`, `fires`, `climate`, `alerts`, `science-batch`, `all`.
+
+Monitoreo: alerta si `satellite_readings` no tiene filas nuevas en 48 h (`max(captured_at)`).
 
 ## Logs
 

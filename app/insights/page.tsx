@@ -2,9 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo } from 'react';
-import { MOCK_FIELDS } from '@/lib/mock-data/fields';
-import { useAnalyticsSummary } from '@/hooks/use-analytics-summary';
-import { getCropProfile } from '@/lib/mock-data/crops';
+import { useInsightsContext } from '@/hooks/use-insights-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { PageContainer, PageHeader } from '@/components/layout/page-header';
@@ -12,8 +10,9 @@ import { MetricProgressRow } from '@/components/charts/metric-progress-row';
 import { NdviYieldScatterChart } from '@/components/charts/ndvi-yield-scatter-chart';
 import { formatDecimal, roundDecimal } from '@/lib/i18n/format-number';
 import { RecommendationCard } from '@/components/insights/recommendation-card';
+import { InsightsAgentPanel } from '@/components/agents/insights-agent-panel';
 import { FadeIn, StaggerList } from '@/components/ui/motion';
-import { TrendingUp, AlertTriangle, Leaf, Droplets, Thermometer, BarChart3 } from 'lucide-react';
+import { TrendingUp, AlertTriangle, Leaf, Droplets, Thermometer, BarChart3, Satellite } from 'lucide-react';
 import {
   envStatusLabelEs,
   getCropLabelEs,
@@ -30,115 +29,24 @@ const envBarClass: Record<EnvStatusKey, string> = {
 };
 
 export default function Insights() {
-  const { summary } = useAnalyticsSummary();
+  const { summary, context, loading, error, hasSatelliteData } = useInsightsContext();
 
   const correlationData = useMemo(() => {
-    const fields = summary?.fields?.length
-      ? summary.fields.map((f) => ({
-          name: f.name,
-          ndvi: f.ndvi,
-          riskScore: f.riskScore,
-        }))
-      : MOCK_FIELDS.map((field) => {
-          const avgNdvi =
-            field.zones.reduce((sum, z) => sum + z.ndviAverage, 0) / field.zones.length;
-          return { name: field.name, ndvi: avgNdvi, riskScore: field.riskScore };
-        });
-
-    return fields.map((field) => {
-      const avgMoisture = 65;
-      const yieldPotential = field.ndvi * 100 * (avgMoisture / 100) * 35 + 1500;
-
-      return {
-        field: field.name,
-        ndvi: roundDecimal(field.ndvi, 2) ?? 0,
-        moisture: avgMoisture,
-        yieldPotential: roundDecimal(yieldPotential, 2) ?? 0,
-        riskScore: field.riskScore,
-      };
-    });
-  }, [summary]);
-
-  const diseaseRisks = useMemo(() => {
-    const risks: Record<string, number> = {};
-
-    MOCK_FIELDS.forEach((field) => {
-      field.zones.forEach((zone) => {
-        zone.diseaseRisks.forEach((disease) => {
-          risks[disease] = (risks[disease] || 0) + 1;
-        });
-      });
-    });
-
-    return Object.entries(risks)
-      .map(([disease, count]) => ({
-        disease,
-        fieldCount: count,
-        prevalence: (count / MOCK_FIELDS.length) * 100,
-      }))
-      .sort((a, b) => b.fieldCount - a.fieldCount);
-  }, []);
-
-  const cropPerformance = useMemo(() => {
-    const crops: Record<string, { fields: number; avgHealth: number; avgRisk: number }> = {};
-
-    MOCK_FIELDS.forEach((field) => {
-      const cropName = getCropProfile(field.crop).name;
-      if (!crops[cropName]) {
-        crops[cropName] = { fields: 0, avgHealth: 0, avgRisk: 0 };
-      }
-      const healthScore = { excellent: 4, good: 3, warning: 2, critical: 1 }[field.overallHealth];
-      crops[cropName].fields += 1;
-      crops[cropName].avgHealth += healthScore * 25;
-      crops[cropName].avgRisk += field.riskScore;
-    });
-
-    return Object.entries(crops).map(([crop, data]) => ({
-      crop,
-      fields: data.fields,
-      avgHealth: Math.round(data.avgHealth / data.fields),
-      avgRisk: Math.round(data.avgRisk / data.fields),
+    if (!context?.correlationData?.length) return [];
+    return context.correlationData.map((row) => ({
+      ...row,
+      ndvi: roundDecimal(row.ndvi, 2) ?? 0,
+      yieldPotential: roundDecimal(row.yieldPotential, 2) ?? 0,
     }));
-  }, []);
+  }, [context]);
 
-  const envAnalysis = useMemo(() => {
-    const conditions = {
-      optimal: 0,
-      suboptimal: 0,
-      stress: 0,
-      critical: 0,
-    };
-
-    MOCK_FIELDS.forEach((field) => {
-      field.zones.forEach((zone) => {
-        const moistureRatio = zone.soilMoistureAverage / 70;
-        const tempGood = zone.temperatureAverage > 15 && zone.temperatureAverage < 30;
-
-        if (zone.ndviAverage > 0.6 && moistureRatio > 0.8 && tempGood) {
-          conditions.optimal += 1;
-        } else if (zone.ndviAverage > 0.5 && moistureRatio > 0.6) {
-          conditions.suboptimal += 1;
-        } else if (zone.ndviAverage > 0.35 || moistureRatio < 0.5) {
-          conditions.stress += 1;
-        } else {
-          conditions.critical += 1;
-        }
-      });
-    });
-
-    const total = Object.values(conditions).reduce((a, b) => a + b, 0) || 1;
-    return (
-      [
-        { status: 'Optimal' as EnvStatusKey, zones: conditions.optimal },
-        { status: 'Suboptimal' as EnvStatusKey, zones: conditions.suboptimal },
-        { status: 'Stress' as EnvStatusKey, zones: conditions.stress },
-        { status: 'Critical' as EnvStatusKey, zones: conditions.critical },
-      ] as const
-    ).map((item) => ({
-      ...item,
-      pct: Number(((item.zones / total) * 100).toFixed(0)),
-    }));
-  }, []);
+  const diseaseRisks = context?.diseaseRisks ?? [];
+  const cropPerformance = context?.cropPerformance ?? [];
+  const envAnalysis = (context?.envAnalysis ?? []) as Array<{
+    status: EnvStatusKey;
+    zones: number;
+    pct: number;
+  }>;
 
   const recommendations = useMemo(() => {
     const recs: Array<{
@@ -149,15 +57,16 @@ export default function Insights() {
       icon: typeof Droplets;
     }> = [];
 
-    const highMoistureStress = MOCK_FIELDS.filter((f) =>
-      f.zones.some((z) => z.soilMoistureAverage < 60)
-    ).length;
+    const zones = context?.zones ?? [];
+    const moistureStressFields = new Set(
+      zones.filter((z) => (z.soilMoisture ?? 100) < 60).map((z) => z.fieldId)
+    ).size;
 
-    if (highMoistureStress > 0) {
+    if (moistureStressFields > 0) {
       recs.push({
         id: 'water',
         title: 'Alerta de manejo del agua',
-        description: `${highMoistureStress} campo(s) con estrés hídrico. Revisá el programa de riego.`,
+        description: `${moistureStressFields} campo(s) con estrés hídrico. Revisá el programa de riego.`,
         priority: 'high',
         icon: Droplets,
       });
@@ -167,7 +76,17 @@ export default function Insights() {
       recs.push({
         id: 'disease',
         title: 'Gestión de riesgo de enfermedades',
-        description: `${diseaseRisks[0].disease} detectada en ${diseaseRisks[0].fieldCount} campo(s). Aplicar medidas preventivas.`,
+        description: `${diseaseRisks[0].disease} detectada en ${diseaseRisks[0].fieldCount} zona(s). Aplicar medidas preventivas.`,
+        priority: 'high',
+        icon: AlertTriangle,
+      });
+    }
+
+    if ((context?.activeAlertCount ?? 0) > 0) {
+      recs.push({
+        id: 'alerts',
+        title: 'Alertas activas',
+        description: `${context?.activeAlertCount} alerta(s) sin resolver. Revisá /alerts.`,
         priority: 'high',
         icon: AlertTriangle,
       });
@@ -182,22 +101,30 @@ export default function Insights() {
       icon: Leaf,
     });
 
-    const highTemp = MOCK_FIELDS.filter((f) =>
-      f.zones.some((z) => z.temperatureAverage > 32)
-    ).length;
+    const highTempFields = new Set(
+      zones.filter((z) => (z.temperature ?? 0) > 32).map((z) => z.fieldId)
+    ).size;
 
-    if (highTemp > 0) {
+    if (highTempFields > 0) {
       recs.push({
         id: 'temp',
         title: 'Manejo de estrés térmico',
-        description: `${highTemp} campo(s) con temperaturas elevadas. Monitorear estrés por calor.`,
+        description: `${highTempFields} campo(s) con temperaturas elevadas. Monitorear estrés por calor.`,
         priority: 'medium',
         icon: Thermometer,
       });
     }
 
     return recs;
-  }, [diseaseRisks]);
+  }, [context, diseaseRisks]);
+
+  if (loading && !context) {
+    return (
+      <PageContainer size="wide">
+        <PageHeader title="Perspectivas avanzadas" description="Cargando datos satelitales…" />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer size="wide">
@@ -205,6 +132,21 @@ export default function Insights() {
         title="Perspectivas avanzadas"
         description="Análisis profundo y recomendaciones accionables basadas en datos satelitales y de campo."
       />
+
+      {!hasSatelliteData && (
+        <Card className="glass-card border-health-warning/40 bg-health-warning/5">
+          <CardContent className="flex items-start gap-3 pt-6 text-sm">
+            <Satellite className="mt-0.5 h-5 w-5 shrink-0 text-health-warning" />
+            <div>
+              <p className="font-medium text-foreground">Sin lecturas Copernicus recientes</p>
+              <p className="text-muted-foreground">
+                Ejecutá <code className="text-xs">pnpm cron:satellite</code> para poblar datos reales.
+                {error ? ` (${error})` : ''}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {summary?.climateViability && summary.climateViability.length > 0 && (
         <Card className="glass-card border-primary/20">
@@ -365,7 +307,7 @@ export default function Insights() {
               <MetricProgressRow
                 key={risk.disease}
                 label={risk.disease}
-                valueLabel={`${risk.fieldCount} ${risk.fieldCount === 1 ? 'campo' : 'campos'}`}
+                valueLabel={`${risk.fieldCount} ${risk.fieldCount === 1 ? 'zona' : 'zonas'}`}
                 percent={Math.min(risk.prevalence, 100)}
                 barClassName="bg-health-critical"
               />
@@ -464,6 +406,8 @@ export default function Insights() {
           </div>
         </CardContent>
       </Card>
+
+      <InsightsAgentPanel />
     </PageContainer>
   );
 }

@@ -8,9 +8,10 @@ import { healthColors, brandColors, healthLabelEs } from '@/lib/design/tokens';
 interface FieldMapProps {
   field: Field;
   satelliteData: SatelliteData;
+  satelliteSource?: string;
 }
 
-export default function FieldMap({ field, satelliteData }: FieldMapProps) {
+export default function FieldMap({ field, satelliteData, satelliteSource }: FieldMapProps) {
   // Create SVG representation of the field with satellite data overlay
   const svgContent = useMemo(() => {
     // Handle both old field format and new multi-field format
@@ -247,7 +248,11 @@ export default function FieldMap({ field, satelliteData }: FieldMapProps) {
           fontSize="12"
           fill={brandColors.mistSlate}
         >
-          {satelliteData.isRealGrid ? 'Grilla Copernicus S2' : 'Grilla sintética'}
+          {satelliteData.isRealGrid
+            ? 'Grilla Copernicus S2'
+            : satelliteData.gridPending || satelliteSource === 'copernicus'
+              ? 'Métricas Copernicus · grilla pendiente'
+              : 'Grilla sintética'}
         </text>
       </svg>
     </div>
