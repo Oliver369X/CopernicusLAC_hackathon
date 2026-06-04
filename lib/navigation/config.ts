@@ -67,6 +67,8 @@ const pageTitles: Record<string, string> = {
 };
 
 export const AUTH_ROUTES = ['/login', '/register'];
+/** Rutas públicas sin sidebar ni onboarding guard */
+export const MARKETING_ROUTES = ['/', '/privacidad'];
 export const FIELD_ROUTE_PREFIX = '/field';
 export const SIDEBAR_COLLAPSED_KEY = 'doctor-soya-sidebar-collapsed';
 

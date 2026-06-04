@@ -24,6 +24,7 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import {
   AUTH_ROUTES,
+  MARKETING_ROUTES,
   FIELD_ROUTE_PREFIX,
   SIDEBAR_COLLAPSED_KEY,
   getPageTitle,
@@ -36,7 +37,7 @@ function BrandMark({ className }: { className?: string }) {
     <Link
       href="/dashboard"
       className={cn(
-        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/30 transition-transform hover:scale-105 motion-reduce:hover:scale-100',
+        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105 motion-reduce:hover:scale-100',
         className
       )}
       aria-label={`${APP_NAME} — inicio`}
@@ -55,7 +56,7 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
         collapsed ? 'justify-center px-0' : 'px-1'
       )}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-lg shadow-primary/30 transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100">
         <Leaf className="h-5 w-5" aria-hidden />
       </div>
       {!collapsed && (
@@ -263,6 +264,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       return next;
     });
   };
+
+  if (MARKETING_ROUTES.includes(pathname)) {
+    return <>{children}</>;
+  }
 
   if (AUTH_ROUTES.some((r) => pathname.startsWith(r))) {
     return <>{children}</>;
