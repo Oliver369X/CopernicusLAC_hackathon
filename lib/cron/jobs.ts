@@ -327,8 +327,8 @@ export async function runSatelliteJob(
       await service
         .from('zones')
         .update({
-          ndvi_average: reading.ndvi,
-          ndmi_average: reading.ndmi,
+          ndvi_average: Number.isFinite(reading.ndvi) ? reading.ndvi : zone.ndviAverage,
+          ndmi_average: Number.isFinite(reading.ndmi) ? reading.ndmi : zone.ndmiAverage,
         })
         .eq('id', zone.id);
 

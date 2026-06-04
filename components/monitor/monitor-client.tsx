@@ -44,6 +44,7 @@ import { ChartFrame } from '@/components/charts/chart-frame';
 import { ChartTooltipContent } from '@/components/charts/chart-tooltip';
 import { formatDataSourcesUnique } from '@/lib/i18n/data-source';
 import { formatDateEs } from '@/lib/i18n/format-date';
+import { formatDecimal } from '@/lib/i18n/format-number';
 import { MetricValue } from '@/components/ui/metric-value';
 import { ZoneInsightCard } from '@/components/monitor/zone-insight-card';
 import { hasValidZoneBounds } from '@/lib/geo/bounds-utils';
@@ -289,7 +290,10 @@ function MonitorContent() {
               <Badge variant="outline" className="text-xs gap-1" asChild>
                 <Link href={`/science/${selectedField.crop}?field=${selectedField.id}`}>
                   <FlaskConical className="h-3 w-3" />
-                  Lab {(scienceScore * 100).toFixed(0)}%
+                  Lab {formatDecimal(
+                    typeof scienceScore === 'number' ? scienceScore * 100 : null,
+                    0
+                  )}%
                   {scienceHealthEs ? ` · ${scienceHealthEs}` : ''}
                 </Link>
               </Badge>
@@ -513,7 +517,7 @@ function MonitorContent() {
                 )}
                 <div className="flex justify-between">
                   <span>Humedad suelo</span>
-                  <span>{selectedZone.soilMoistureAverage.toFixed(0)}%</span>
+                  <span>{formatDecimal(selectedZone.soilMoistureAverage, 0)}%</span>
                 </div>
                 {liveMetrics?.sceneDate && (
                   <p className="pt-1 text-xs text-muted-foreground">
@@ -553,7 +557,7 @@ function MonitorContent() {
             <CardContent className="space-y-2 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Ubicación</span>
-                <span className="font-mono text-xs">{selectedField.center.lat.toFixed(4)}</span>
+                <span className="font-mono text-xs">{formatDecimal(selectedField.center.lat, 4)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Alertas</span>

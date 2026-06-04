@@ -6,6 +6,11 @@ export function coerceNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/** Métrica agrícola con fallback (evita null/NaN en UI tras JSON o Copernicus). */
+export function coerceMetricNumber(value: unknown, fallback = 0): number {
+  return coerceNumber(value) ?? fallback;
+}
+
 /** Redondea a como máximo `decimals` cifras decimales. */
 export function roundDecimal(value: unknown, decimals = 2): number | null {
   const n = coerceNumber(value);

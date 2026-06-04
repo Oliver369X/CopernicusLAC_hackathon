@@ -157,7 +157,9 @@ export function calculateHealthStatus(ndviGrid: number[][]): string {
 /**
  * Get average index value for a grid
  */
-export function getAverageValue(grid: number[][]): number {
-  const values = grid.flat();
+export function getAverageValue(grid: number[][] | null | undefined): number {
+  if (!grid?.length) return 0;
+  const values = grid.flat().filter((v) => Number.isFinite(v));
+  if (!values.length) return 0;
   return values.reduce((a, b) => a + b, 0) / values.length;
 }

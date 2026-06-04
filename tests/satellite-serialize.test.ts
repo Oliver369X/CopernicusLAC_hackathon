@@ -91,4 +91,20 @@ describe('serialize-field', () => {
     expect(restored.zones.length).toBe(original.zones.length);
     expect(restored.plantedDate).toBeInstanceOf(Date);
   });
+
+  it('coerces null/NaN zone metrics from API JSON', () => {
+    const original = serializeField(MOCK_FIELDS[0]);
+    const poisoned = {
+      ...original,
+      zones: original.zones.map((z) => ({
+        ...z,
+        ndviAverage: null,
+        soilMoistureAverage: Number.NaN,
+      })),
+    };
+    const restored = deserializeField(poisoned as typeof original);
+    expect(restored.zones[0].ndviAverage).toBe(0);
+    expect(restored.zones[0].soilMoistureAverage).toBe(0);
+    expect(() => restored.zones[0].ndviAverage.toFixed(2)).not.toThrow();
+  });
 });

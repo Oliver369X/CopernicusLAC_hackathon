@@ -17,6 +17,7 @@ import {
   chartGridStroke,
   healthColors,
 } from '@/lib/design/tokens';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 interface HealthMetricsProps {
   satelliteData: SatelliteData;
@@ -52,28 +53,28 @@ export default function HealthMetrics({
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
             <p className="mb-1 text-xs text-muted-foreground">NDVI</p>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              {ndviAvg.toFixed(2)}
+              {formatDecimal(ndviAvg, 2)}
             </p>
             <p className="mt-1 text-xs text-health-good">Vegetación</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
             <p className="mb-1 text-xs text-muted-foreground">NDMI</p>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              {ndmiAvg.toFixed(2)}
+              {formatDecimal(ndmiAvg, 2)}
             </p>
             <p className="mt-1 text-xs text-health-good">Humedad</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
             <p className="mb-1 text-xs text-muted-foreground">Temperatura</p>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              {tempAvg.toFixed(1)}°C
+              {formatDecimal(tempAvg, 1)}°C
             </p>
             <p className="mt-1 text-xs text-muted-foreground">Actual</p>
           </div>
           <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
             <p className="mb-1 text-xs text-muted-foreground">Humedad suelo</p>
             <p className="text-lg font-bold tabular-nums text-foreground">
-              {moistureAvg.toFixed(0)}%
+              {formatDecimal(moistureAvg, 0)}%
             </p>
             <p className="mt-1 text-xs text-muted-foreground">Óptimo</p>
           </div>

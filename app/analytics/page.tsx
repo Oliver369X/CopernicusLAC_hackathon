@@ -29,6 +29,7 @@ import {
   getCropColor,
   getCropLabelEs,
 } from '@/lib/design/tokens';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 export default function Analytics() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'season'>('month');
@@ -177,14 +178,14 @@ export default function Analytics() {
         <KpiStat label="Área total" value={totalArea} hint="hectáreas" icon={MapPin} className="min-w-0" />
         <KpiStat
           label="Salud promedio"
-          value={`${averageHealth.toFixed(0)}%`}
+          value={`${formatDecimal(averageHealth, 0)}%`}
           hint="cartera completa"
           icon={Activity}
           variant="success"
         />
         <KpiStat
           label="Riesgo promedio"
-          value={averageRisk.toFixed(0)}
+          value={formatDecimal(averageRisk, 0)}
           hint="puntuación /100"
           icon={TrendingUp}
           variant="warning"
@@ -349,13 +350,14 @@ export default function Analytics() {
               <span className="text-muted-foreground">NDVI promedio</span>
               <span className="font-semibold tabular-nums text-foreground">
                 {fields.length
-                  ? (
+                  ? formatDecimal(
                       fields.reduce(
                         (sum, f) =>
                           sum + f.zones.reduce((s, z) => s + z.ndviAverage, 0) / f.zones.length,
                         0
-                      ) / fields.length
-                    ).toFixed(2)
+                      ) / fields.length,
+                      2
+                    )
                   : '—'}
               </span>
             </div>

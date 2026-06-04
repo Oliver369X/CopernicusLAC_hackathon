@@ -239,7 +239,7 @@ export default function FieldMap({ field, satelliteData, satelliteSource }: Fiel
           fontSize="12"
           fill={brandColors.mistSlate}
         >
-          Nubes: {satelliteData.cloudCover.toFixed(0)}%
+          Nubes: {Number.isFinite(satelliteData.cloudCover) ? satelliteData.cloudCover.toFixed(0) : '—'}%
         </text>
         <text
           x={svgContent.width - svgContent.padding}

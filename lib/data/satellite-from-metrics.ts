@@ -1,5 +1,6 @@
 import type { SatelliteData } from '@/lib/mock-data/satellite-data';
 import { generateSatelliteData, getAverageValue } from '@/lib/mock-data/satellite-data';
+import { coerceMetricNumber, formatDecimal } from '@/lib/i18n/format-number';
 import {
   hasSatelliteCredentialsConfigured,
   isSatelliteStrictMode,
@@ -55,6 +56,24 @@ function emptyScalarGrid(size: number, value: number): number[][] {
 }
 
 /** Build heatmap from real Copernicus grid; synthetic only when explicitly allowed. */
+function normalizeFieldMetrics(metrics: FieldMetrics): FieldMetrics {
+  return {
+    ndvi: coerceMetricNumber(metrics.ndvi, 0),
+    ndmi: coerceMetricNumber(metrics.ndmi, 0),
+    ndre: metrics.ndre != null ? coerceMetricNumber(metrics.ndre, 0) : null,
+    temperature: coerceMetricNumber(metrics.temperature, 0),
+    soilMoisture: coerceMetricNumber(metrics.soilMoisture, 0),
+    s1MoistureIndex:
+      metrics.s1MoistureIndex != null
+        ? coerceMetricNumber(metrics.s1MoistureIndex, 0)
+        : null,
+    s3Lst: metrics.s3Lst != null ? coerceMetricNumber(metrics.s3Lst, 0) : null,
+    cloudCover:
+      metrics.cloudCover != null ? coerceMetricNumber(metrics.cloudCover, 0) : null,
+    sceneDate: metrics.sceneDate ?? null,
+  };
+}
+
 export function buildSatelliteDataFromMetrics(
   fieldId: string,
   metrics: FieldMetrics,
@@ -62,6 +81,7 @@ export function buildSatelliteDataFromMetrics(
   realGrid?: NdviGridPayload | null,
   options?: BuildSatelliteDataOptions
 ): SatelliteData {
+  const m = normalizeFieldMetrics(metrics);
   const satelliteSource = options?.satelliteSource ?? 'mock';
   const strict =
     isSatelliteStrictMode() ||
@@ -70,21 +90,21 @@ export function buildSatelliteDataFromMetrics(
     options?.allowSyntheticGrid ?? !strict;
 
   if (realGrid?.ndvi?.length) {
-    const timestamp = metrics.sceneDate ?? new Date().toISOString();
+    const timestamp = m.sceneDate ?? new Date().toISOString();
     return {
       fieldId,
       date: new Date(timestamp),
       ndvi: realGrid.ndvi,
       ndmi: realGrid.ndmi,
       temperature: scaleGridToTargetUnbounded(
-        realGrid.ndvi.map((row) => row.map(() => metrics.temperature)),
-        metrics.temperature
+        realGrid.ndvi.map((row) => row.map(() => m.temperature)),
+        m.temperature
       ),
       soilMoisture: scaleGridToTargetUnbounded(
-        realGrid.ndvi.map((row) => row.map(() => metrics.soilMoisture)),
-        metrics.soilMoisture
+        realGrid.ndvi.map((row) => row.map(() => m.soilMoisture)),
+        m.soilMoisture
       ),
-      cloudCover: metrics.cloudCover ?? 0,
+      cloudCover: m.cloudCover ?? 0,
       timestamp,
       isRealGrid: true,
       gridPending: false,
@@ -92,15 +112,15 @@ export function buildSatelliteDataFromMetrics(
   }
 
   if (!allowSynthetic) {
-    const timestamp = metrics.sceneDate ?? new Date().toISOString();
+    const timestamp = m.sceneDate ?? new Date().toISOString();
     return {
       fieldId,
       date: new Date(timestamp),
-      ndvi: emptyScalarGrid(gridSize, metrics.ndvi),
-      ndmi: emptyScalarGrid(gridSize, metrics.ndmi),
-      temperature: emptyScalarGrid(gridSize, metrics.temperature),
-      soilMoisture: emptyScalarGrid(gridSize, metrics.soilMoisture),
-      cloudCover: metrics.cloudCover ?? 0,
+      ndvi: emptyScalarGrid(gridSize, m.ndvi),
+      ndmi: emptyScalarGrid(gridSize, m.ndmi),
+      temperature: emptyScalarGrid(gridSize, m.temperature),
+      soilMoisture: emptyScalarGrid(gridSize, m.soilMoisture),
+      cloudCover: m.cloudCover ?? 0,
       timestamp,
       isRealGrid: false,
       gridPending: satelliteSource === 'copernicus',
@@ -111,10 +131,11 @@ export function buildSatelliteDataFromMetrics(
 
   return {
     ...base,
-    ndvi: scaleGridToTarget(base.ndvi, metrics.ndvi),
-    ndmi: scaleGridToTarget(base.ndmi, metrics.ndmi),
-    temperature: scaleGridToTargetUnbounded(base.temperature, metrics.temperature),
-    soilMoisture: scaleGridToTargetUnbounded(base.soilMoisture, metrics.soilMoisture),
+    ndvi: scaleGridToTarget(base.ndvi, m.ndvi),
+    ndmi: scaleGridToTarget(base.ndmi, m.ndmi),
+    temperature: scaleGridToTargetUnbounded(base.temperature, m.temperature),
+    soilMoisture: scaleGridToTargetUnbounded(base.soilMoisture, m.soilMoisture),
+    cloudCover: m.cloudCover ?? base.cloudCover,
     isRealGrid: false,
     gridPending: false,
   };
@@ -126,12 +147,12 @@ export function metricsFromZone(zone: {
   temperatureAverage: number;
   soilMoistureAverage: number;
 }): FieldMetrics {
-  return {
+  return normalizeFieldMetrics({
     ndvi: zone.ndviAverage,
     ndmi: zone.ndmiAverage,
     temperature: zone.temperatureAverage,
     soilMoisture: zone.soilMoistureAverage,
-  };
+  });
 }
 
 export interface TrendFromHistoryResult {
@@ -154,8 +175,8 @@ export function buildTrendFromHistory(
         d.setDate(d.getDate() - (13 - i));
         return {
           date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-          ndvi: fallbackNdvi.toFixed(2),
-          ndmi: fallbackNdmi.toFixed(2),
+          ndvi: formatDecimal(fallbackNdvi, 2),
+          ndmi: formatDecimal(fallbackNdmi, 2),
         };
       }),
       synthetic: true,
@@ -171,8 +192,8 @@ export function buildTrendFromHistory(
           month: 'short',
           day: 'numeric',
         }),
-        ndvi: (point.ndvi ?? fallbackNdvi).toFixed(2),
-        ndmi: (point.ndmi ?? fallbackNdmi).toFixed(2),
+        ndvi: formatDecimal(point.ndvi ?? fallbackNdvi, 2),
+        ndmi: formatDecimal(point.ndmi ?? fallbackNdmi, 2),
       })),
     synthetic: false,
   };

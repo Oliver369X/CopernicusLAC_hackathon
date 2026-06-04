@@ -4,6 +4,7 @@ import { isDatabaseConfigured } from '@/lib/db/config';
 import { createClient } from '@/lib/supabase/server';
 import { normalizeGeoBounds } from '@/lib/services/copernicus/bounds';
 import { deriveZoneBounds, isEmptyBounds } from '@/lib/geo/bounds-utils';
+import { coerceMetricNumber } from '@/lib/i18n/format-number';
 
 function rowToField(row: Record<string, unknown>, zones: FieldZone[]): Field {
   const center: GeoPoint = {
@@ -50,10 +51,10 @@ function rowToZone(
     bounds,
     crop,
     health: row.health as FieldZone['health'],
-    ndviAverage: Number(row.ndvi_average),
-    ndmiAverage: Number(row.ndmi_average),
-    temperatureAverage: Number(row.temperature_average),
-    soilMoistureAverage: Number(row.soil_moisture_average),
+    ndviAverage: coerceMetricNumber(row.ndvi_average, 0),
+    ndmiAverage: coerceMetricNumber(row.ndmi_average, 0),
+    temperatureAverage: coerceMetricNumber(row.temperature_average, 0),
+    soilMoistureAverage: coerceMetricNumber(row.soil_moisture_average, 0),
     observationCount: Number(row.observation_count ?? 0),
     diseaseRisks: (row.disease_risks as string[]) ?? [],
     lastObservation: new Date(),

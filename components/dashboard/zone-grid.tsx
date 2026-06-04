@@ -3,6 +3,7 @@
 import type { FieldZone } from '@/lib/types/field';
 import { AlertCircle, TrendingUp } from 'lucide-react';
 import { healthLabelEs, type HealthLevel } from '@/lib/design/tokens';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 interface ZoneGridProps {
   zones: FieldZone[];
@@ -57,19 +58,19 @@ export default function ZoneGrid({
 
             <div className="flex justify-between">
               <span className="text-muted-foreground">NDVI:</span>
-              <span className="font-medium">{zone.ndviAverage.toFixed(2)}</span>
+              <span className="font-medium">{formatDecimal(zone.ndviAverage, 2)}</span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-muted-foreground">Moisture:</span>
               <span className="font-medium">
-                {zone.soilMoistureAverage.toFixed(0)}%
+                {formatDecimal(zone.soilMoistureAverage, 0)}%
               </span>
             </div>
 
             <div className="flex justify-between">
               <span className="text-muted-foreground">Temp:</span>
-              <span className="font-medium">{zone.temperatureAverage.toFixed(0)}°C</span>
+              <span className="font-medium">{formatDecimal(zone.temperatureAverage, 0)}°C</span>
             </div>
           </div>
 

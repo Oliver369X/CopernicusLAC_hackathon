@@ -342,7 +342,7 @@ export default function Insights() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Humedad</p>
-                    <p className="font-semibold tabular-nums">{row.moisture.toFixed(0)}%</p>
+                    <p className="font-semibold tabular-nums">{formatDecimal(row.moisture, 0)}%</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Rendimiento</p>
@@ -387,7 +387,7 @@ export default function Insights() {
                         {formatDecimal(row.ndvi, 2)}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-center tabular-nums">{row.moisture.toFixed(0)}%</td>
+                    <td className="px-3 py-2 text-center tabular-nums">{formatDecimal(row.moisture, 0)}%</td>
                     <td className="px-3 py-2 text-center">
                       <span className="font-semibold text-health-excellent tabular-nums">
                         {formatDecimal(row.yieldPotential, 2)}
