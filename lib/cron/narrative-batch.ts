@@ -5,6 +5,7 @@ import {
   getLatestSatelliteForZones,
   getLatestWeatherForField,
 } from '@/lib/data/zone-satellite-metrics';
+import { dbQuery } from '@/lib/db/pool';
 
 export async function runNarrativeBatch(
   service: DbClient,
@@ -43,16 +44,22 @@ export async function runNarrativeBatch(
         alertTitles: zoneAlerts,
       });
 
-      await service.from('zone_insights').upsert(
-        {
-          zone_id: zone.id,
-          summary_es: narrative.summary_es,
-          actions: narrative.actions,
-          phenology_hint: narrative.phenology_hint,
-          sources: narrative.sources,
-          generated_at: new Date().toISOString(),
-        },
-        { onConflict: 'zone_id' }
+      await dbQuery(
+        `INSERT INTO zone_insights (zone_id, summary_es, actions, phenology_hint, sources, generated_at)
+         VALUES ($1, $2, $3::jsonb, $4, $5::jsonb, now())
+         ON CONFLICT (zone_id) DO UPDATE SET
+           summary_es = EXCLUDED.summary_es,
+           actions = EXCLUDED.actions,
+           phenology_hint = EXCLUDED.phenology_hint,
+           sources = EXCLUDED.sources,
+           generated_at = now()`,
+        [
+          zone.id,
+          narrative.summary_es,
+          JSON.stringify(narrative.actions),
+          narrative.phenology_hint,
+          JSON.stringify(narrative.sources),
+        ]
       );
       written += 1;
     }
