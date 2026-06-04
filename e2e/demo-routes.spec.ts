@@ -26,7 +26,10 @@ test.describe('demo routes (prod-safe)', () => {
     test(`${route.path} loads without crash`, async ({ page }) => {
       const errors = attachPageErrorCollector(page);
       await page.goto(route.path);
-      await expect(page.getByText(route.heading).first()).toBeVisible({ timeout: 25_000 });
+      const title = page.getByRole('heading', { name: route.heading });
+      await expect(
+        (await title.count()) > 0 ? title.first() : page.getByText(route.heading).first()
+      ).toBeVisible({ timeout: 25_000 });
       await expect(page.getByText(/This page couldn't load/i)).not.toBeVisible();
       expect(criticalJsErrors(errors)).toEqual([]);
     });
