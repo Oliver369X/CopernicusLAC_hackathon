@@ -15,6 +15,7 @@ const DEMO_ROUTES: Array<{ path: string; heading: RegExp }> = [
   { path: '/science/soybean', heading: /Soya|soybean|Science|Lab/i },
   { path: '/onboarding', heading: /Tu finca|Importar parcelas/i },
   { path: '/privacidad', heading: /Privacidad|datos/i },
+  { path: '/field/history', heading: /Tus registros|Historial/i },
 ];
 
 test.describe('demo routes (prod-safe)', () => {

@@ -3,65 +3,65 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Doctor Soya — Copernicus LAC design tokens (dark-first) */
+/* Aura Agro — paleta sobria, producción agrícola */
 :root {
   /* Brand primitives */
-  --copernicus-teal: #2dd4bf;
-  --copernicus-teal-dim: #14b8a6;
-  --glow-teal: rgba(45, 212, 191, 0.45);
-  --glow-green: rgba(34, 197, 94, 0.35);
-  --mesh-line: rgba(45, 212, 191, 0.06);
-  --earth-green: #22c55e;
-  --earth-green-dim: #16a34a;
-  --soil-amber: #d97706;
-  --ocean-deep: #071018;
-  --surface-elevated: #0f1f2a;
-  --surface-muted: #1a2f3d;
+  --copernicus-teal: #4a7c6f;
+  --copernicus-teal-dim: #3d6b5f;
+  --glow-teal: rgba(74, 124, 111, 0.18);
+  --glow-green: rgba(56, 120, 90, 0.12);
+  --mesh-line: rgba(148, 163, 184, 0.04);
+  --earth-green: #3d7a57;
+  --earth-green-dim: #2f6245;
+  --soil-amber: #b45309;
+  --ocean-deep: #0c1117;
+  --surface-elevated: #141a22;
+  --surface-muted: #1c2430;
   --mist-slate: #94a3b8;
 
   /* Semantic (shadcn) */
   --background: var(--ocean-deep);
-  --foreground: #f0fdfa;
+  --foreground: #f1f5f9;
   --card: var(--surface-elevated);
   --card-foreground: #e2e8f0;
   --popover: var(--surface-elevated);
   --popover-foreground: #e2e8f0;
   --primary: var(--copernicus-teal);
-  --primary-foreground: #042f2e;
-  --secondary: var(--earth-green);
-  --secondary-foreground: #052e16;
-  --muted: #1e3a47;
+  --primary-foreground: #f8fafc;
+  --secondary: #243044;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1a2332;
   --muted-foreground: var(--mist-slate);
   --accent: var(--soil-amber);
-  --accent-foreground: #451a03;
-  --destructive: #ef4444;
+  --accent-foreground: #fff7ed;
+  --destructive: #dc2626;
   --destructive-foreground: #fecaca;
-  --border: #1e3a47;
+  --border: #2a3544;
   --input: var(--surface-muted);
-  --ring: var(--copernicus-teal);
+  --ring: var(--copernicus-teal-dim);
 
   /* Charts — derived from brand */
   --chart-1: var(--copernicus-teal);
   --chart-2: var(--earth-green);
   --chart-3: var(--soil-amber);
-  --chart-4: #a78bfa;
-  --chart-5: #f472b6;
+  --chart-4: #64748b;
+  --chart-5: #78716c;
 
   /* Crop health */
-  --health-excellent: #22c55e;
-  --health-good: #84cc16;
-  --health-warning: #d97706;
-  --health-critical: #ef4444;
+  --health-excellent: #3d7a57;
+  --health-good: #5a8f4a;
+  --health-warning: #b45309;
+  --health-critical: #dc2626;
 
   /* Sidebar */
-  --sidebar: #0a151c;
-  --sidebar-foreground: #f0fdfa;
+  --sidebar: #0f1419;
+  --sidebar-foreground: #f1f5f9;
   --sidebar-primary: var(--copernicus-teal);
-  --sidebar-primary-foreground: #042f2e;
-  --sidebar-accent: var(--soil-amber);
-  --sidebar-accent-foreground: #451a03;
-  --sidebar-border: #1e3a47;
-  --sidebar-ring: var(--copernicus-teal);
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: #243044;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: #2a3544;
+  --sidebar-ring: var(--copernicus-teal-dim);
 
   --radius: 0.75rem;
 
@@ -72,43 +72,43 @@
 }
 
 .dark {
-  /* Dark-first: same semantic mapping */
+  /* Dark-first: misma paleta sobria */
   --background: var(--ocean-deep);
-  --foreground: #f0fdfa;
+  --foreground: #f1f5f9;
   --card: var(--surface-elevated);
   --card-foreground: #e2e8f0;
   --popover: var(--surface-elevated);
   --popover-foreground: #e2e8f0;
   --primary: var(--copernicus-teal);
-  --primary-foreground: #042f2e;
-  --secondary: var(--earth-green);
-  --secondary-foreground: #052e16;
-  --muted: #1e3a47;
+  --primary-foreground: #f8fafc;
+  --secondary: #243044;
+  --secondary-foreground: #e2e8f0;
+  --muted: #1a2332;
   --muted-foreground: var(--mist-slate);
   --accent: var(--soil-amber);
-  --accent-foreground: #451a03;
-  --destructive: #ef4444;
+  --accent-foreground: #fff7ed;
+  --destructive: #dc2626;
   --destructive-foreground: #fecaca;
-  --border: #1e3a47;
+  --border: #2a3544;
   --input: var(--surface-muted);
-  --ring: var(--copernicus-teal);
+  --ring: var(--copernicus-teal-dim);
   --chart-1: var(--copernicus-teal);
   --chart-2: var(--earth-green);
   --chart-3: var(--soil-amber);
-  --chart-4: #a78bfa;
-  --chart-5: #f472b6;
-  --health-excellent: #22c55e;
-  --health-good: #84cc16;
-  --health-warning: #d97706;
-  --health-critical: #ef4444;
-  --sidebar: #0a151c;
-  --sidebar-foreground: #f0fdfa;
+  --chart-4: #64748b;
+  --chart-5: #78716c;
+  --health-excellent: #3d7a57;
+  --health-good: #5a8f4a;
+  --health-warning: #b45309;
+  --health-critical: #dc2626;
+  --sidebar: #0f1419;
+  --sidebar-foreground: #f1f5f9;
   --sidebar-primary: var(--copernicus-teal);
-  --sidebar-primary-foreground: #042f2e;
-  --sidebar-accent: var(--soil-amber);
-  --sidebar-accent-foreground: #451a03;
-  --sidebar-border: #1e3a47;
-  --sidebar-ring: var(--copernicus-teal);
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: #243044;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: #2a3544;
+  --sidebar-ring: var(--copernicus-teal-dim);
 }
 
 @theme inline {
@@ -176,9 +176,7 @@
     background:
       linear-gradient(var(--mesh-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--mesh-line) 1px, transparent 1px),
-      radial-gradient(ellipse 90% 55% at 50% -15%, rgba(45, 212, 191, 0.28), transparent),
-      radial-gradient(ellipse 65% 45% at 100% 100%, rgba(34, 197, 94, 0.18), transparent),
-      radial-gradient(ellipse 40% 35% at 0% 60%, rgba(217, 119, 6, 0.08), transparent),
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(74, 124, 111, 0.08), transparent),
       var(--background);
     background-size:
       48px 48px,
@@ -201,21 +199,14 @@
   }
 
   .glass-card {
-    @apply border-primary/20 bg-card/90 backdrop-blur-md shadow-md shadow-black/20;
+    @apply border-border/80 bg-card shadow-sm;
     transition:
       border-color var(--motion-base) ease,
-      box-shadow var(--motion-base) ease,
-      transform var(--motion-base) ease;
+      box-shadow var(--motion-base) ease;
   }
 
   .glass-card:hover {
-    @apply border-primary/35 shadow-lg shadow-primary/10;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .glass-card:hover {
-      transform: translateY(-2px);
-    }
+    @apply border-border shadow-md;
   }
 
   .card-glow-hover {
@@ -223,22 +214,14 @@
   }
 
   .card-glow-hover:hover {
-    box-shadow:
-      0 0 0 1px rgba(45, 212, 191, 0.25),
-      0 8px 32px rgba(45, 212, 191, 0.12);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   }
 
   .btn-copernicus {
-    background: linear-gradient(
-      135deg,
-      var(--copernicus-teal) 0%,
-      var(--earth-green-dim) 100%
-    );
-    color: #042f2e;
-    box-shadow:
-      0 2px 12px var(--glow-teal),
-      0 1px 0 rgba(255, 255, 255, 0.1) inset;
-    border: 1px solid rgba(45, 212, 191, 0.4);
+    background: var(--copernicus-teal);
+    color: var(--primary-foreground);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--copernicus-teal-dim);
     transition:
       filter var(--motion-fast) ease,
       transform var(--motion-fast) ease,
@@ -246,10 +229,8 @@
   }
 
   .btn-copernicus:hover {
-    filter: brightness(1.08);
-    box-shadow:
-      0 4px 20px var(--glow-teal),
-      0 0 24px var(--glow-green);
+    filter: brightness(1.06);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
   }
 
   .btn-copernicus:active {

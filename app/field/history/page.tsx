@@ -13,6 +13,7 @@ import {
   type ObservationCardData,
 } from '@/components/field/observation-history-card';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
+import { normalizeDiagnosis } from '@/lib/field/normalize-diagnosis';
 
 function mapStored(obs: StoredObservation): ObservationCardData {
   const vision = obs.visionAnalysis as ObservationCardData['diagnosis'] | undefined;
@@ -51,7 +52,7 @@ export default function History() {
             obs.lat != null && obs.lng != null
               ? { lat: Number(obs.lat), lng: Number(obs.lng) }
               : undefined,
-          diagnosis: obs.vision_result as ObservationCardData['diagnosis'],
+          diagnosis: normalizeDiagnosis(obs.vision_result),
           photographerName: 'Usuario de campo',
           source: 'api' as const,
         }));

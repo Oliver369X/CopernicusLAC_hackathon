@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, Loader2, Send, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import type { AgentChatResponse } from '@/lib/agents/types';
 import { APP_NAME } from '@/lib/constants/app-brand';
+import { MarkdownContent } from '@/components/ui/markdown-content';
 
 const SUGGESTED_CHIPS = [
   'Resumen satelital hoy',
@@ -25,7 +26,7 @@ export function InsightsAgentPanel() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [briefingDone, setBriefingDone] = useState(false);
+  const briefingStarted = useRef(false);
 
   const sendMessage = useCallback(async (text: string) => {
     const trimmed = text.trim();
@@ -60,13 +61,13 @@ export function InsightsAgentPanel() {
   }, [loading]);
 
   useEffect(() => {
-    if (briefingDone) return;
-    setBriefingDone(true);
+    if (briefingStarted.current) return;
+    briefingStarted.current = true;
     void sendMessage('Resumen satelital hoy');
-  }, [briefingDone, sendMessage]);
+  }, [sendMessage]);
 
   return (
-    <Card className="glass-card border-primary/20">
+    <Card className="border-border/80 bg-card shadow-sm">
       <CardHeader>
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <Bot className="h-5 w-5 text-primary" />
@@ -97,25 +98,29 @@ export function InsightsAgentPanel() {
           ))}
         </div>
 
-        <div className="max-h-80 space-y-3 overflow-y-auto rounded-lg border border-border/60 bg-muted/20 p-3">
+        <div className="max-h-96 space-y-3 overflow-y-auto rounded-lg border border-border/60 bg-muted/30 p-3 scrollbar-thin">
           {messages.map((msg, i) => (
             <div
               key={`${msg.role}-${i}`}
               className={
                 msg.role === 'user'
-                  ? 'ml-8 rounded-lg bg-primary/10 px-3 py-2 text-sm'
-                  : 'mr-4 rounded-lg bg-background px-3 py-2 text-sm shadow-sm'
+                  ? 'ml-6 rounded-lg border border-border/50 bg-muted/50 px-3 py-2'
+                  : 'mr-2 rounded-lg border border-border/50 bg-background px-3 py-3'
               }
             >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
-              {msg.meta && (
-                <div className="mt-2 flex flex-wrap gap-1">
+              {msg.role === 'user' ? (
+                <p className="text-sm text-foreground">{msg.content}</p>
+              ) : (
+                <MarkdownContent content={msg.content} />
+              )}
+              {msg.meta && msg.role === 'assistant' && (
+                <div className="mt-3 flex flex-wrap gap-1 border-t border-border/40 pt-2">
                   {msg.meta.sources.map((s) => (
-                    <Badge key={s} variant="outline" className="text-[10px]">
+                    <Badge key={s} variant="outline" className="text-[10px] font-normal">
                       {s}
                     </Badge>
                   ))}
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-[10px] font-normal">
                     {msg.meta.agentUsed}
                   </Badge>
                 </div>

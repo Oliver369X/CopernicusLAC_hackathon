@@ -30,7 +30,7 @@ export interface ObservationCardData {
 
 function cardTone(diagnosis: ObservationCardData['diagnosis']) {
   if (!diagnosis) return 'border-border/60 bg-muted/10';
-  const primary = diagnosis.diseases[0];
+  const primary = diagnosis.diseases?.[0];
   if (isHealthyDiagnosis(primary?.name, primary?.probability)) {
     return 'border-health-excellent/35 bg-health-excellent/5';
   }

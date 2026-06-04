@@ -6,15 +6,15 @@ import type { CSSProperties } from 'react';
  */
 
 export const brandColors = {
-  copernicusTeal: '#2dd4bf',
-  copernicusTealDim: '#14b8a6',
-  earthGreen: '#22c55e',
-  earthGreenDim: '#16a34a',
-  soilAmber: '#d97706',
-  oceanDeep: '#071018',
-  surfaceElevated: '#0f1f2a',
+  copernicusTeal: '#4a7c6f',
+  copernicusTealDim: '#3d6b5f',
+  earthGreen: '#3d7a57',
+  earthGreenDim: '#2f6245',
+  soilAmber: '#b45309',
+  oceanDeep: '#0c1117',
+  surfaceElevated: '#141a22',
   mistSlate: '#94a3b8',
-  border: '#1e3a47',
+  border: '#2a3544',
   foregroundMuted: '#e2e8f0',
 } as const;
 
@@ -28,10 +28,10 @@ export const chartColors = [
 ] as const;
 
 export const healthColors = {
-  excellent: '#22c55e',
-  good: '#84cc16',
-  warning: '#d97706',
-  critical: '#ef4444',
+  excellent: '#3d7a57',
+  good: '#5a8f4a',
+  warning: '#b45309',
+  critical: '#dc2626',
 } as const;
 
 export type HealthLevel = keyof typeof healthColors;

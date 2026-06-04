@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('smoke', () => {
+  test('landing page shows product overview', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: /Monitoreo agrícola profesional/i })).toBeVisible();
+    await expect(page.getByText(/Próximamente/i)).toBeVisible();
+  });
+
   test('health endpoint returns ok', async ({ request }) => {
     const res = await request.get('/api/health');
     expect(res.ok()).toBeTruthy();
