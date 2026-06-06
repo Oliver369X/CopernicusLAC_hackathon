@@ -18,6 +18,8 @@
     "verify": "node scripts/verify-integrations.mjs",
     "verify:onboarding": "node scripts/verify-onboarding.mjs",
     "verify:pilot": "node scripts/verify-pilot.mjs",
+    "verify:satellite": "node scripts/verify-satellite-data.mjs",
+    "seed:san-julian": "node scripts/apply-san-julian-seeds.mjs",
     "backfill:bounds": "node scripts/backfill-zone-bounds.mjs",
     "cron:once": "node scripts/cron-once.mjs all",
     "cron:satellite": "node scripts/cron-once.mjs satellite",

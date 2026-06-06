@@ -34,11 +34,11 @@ export interface Observation {
 export const MOCK_OBSERVATIONS: Observation[] = [
   {
     id: 'obs-001',
-    zoneId: 'zone-001-a',
-    fieldId: 'field-001',
+    zoneId: 'zone-sj-n-1',
+    fieldId: 'field-sj-norte',
     timestamp: new Date(Date.now() - 1000 * 60 * 120),
     imageUrl: 'https://picsum.photos/seed/campo-saludable/800/450',
-    gps: { lat: 40.2200, lng: -88.2450 },
+    gps: { lat: -16.95, lng: -62.85 },
     diagnosis: {
       id: 'diag-001',
       diseases: [
@@ -54,11 +54,11 @@ export const MOCK_OBSERVATIONS: Observation[] = [
   },
   {
     id: 'obs-002',
-    zoneId: 'zone-001-b',
-    fieldId: 'field-001',
+    zoneId: 'zone-sj-n-2',
+    fieldId: 'field-sj-norte',
     timestamp: new Date(Date.now() - 1000 * 60 * 180),
     imageUrl: 'https://picsum.photos/seed/campo-roya/800/450',
-    gps: { lat: 40.2200, lng: -88.2300 },
+    gps: { lat: -16.94, lng: -62.84 },
     diagnosis: {
       id: 'diag-002',
       diseases: [
@@ -84,11 +84,11 @@ export const MOCK_OBSERVATIONS: Observation[] = [
   },
   {
     id: 'obs-003',
-    zoneId: 'zone-002-a',
-    fieldId: 'field-002',
+    zoneId: 'zone-sj-n-4',
+    fieldId: 'field-sj-norte',
     timestamp: new Date(Date.now() - 1000 * 60 * 240),
     imageUrl: 'https://picsum.photos/seed/campo-sequia/800/450',
-    gps: { lat: 39.9860, lng: -88.1950 },
+    gps: { lat: -16.96, lng: -62.86 },
     diagnosis: {
       id: 'diag-003',
       diseases: [
@@ -113,11 +113,11 @@ export const MOCK_OBSERVATIONS: Observation[] = [
   },
   {
     id: 'obs-004',
-    zoneId: 'zone-003-a',
-    fieldId: 'field-003',
+    zoneId: 'zone-sj-e-1',
+    fieldId: 'field-sj-este',
     timestamp: new Date(Date.now() - 1000 * 60 * 300),
     imageUrl: 'https://picsum.photos/seed/campo-saludable/800/450',
-    gps: { lat: 40.1270, lng: -87.8900 },
+    gps: { lat: -17.05, lng: -62.55 },
     diagnosis: {
       id: 'diag-004',
       diseases: [

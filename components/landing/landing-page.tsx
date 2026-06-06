@@ -151,6 +151,69 @@ export function LandingPage() {
           </div>
         </section>
 
+        <section id="planes" className="border-t border-border/60 bg-muted/10 py-16">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <h2 className="text-xl font-semibold sm:text-2xl">Planes</h2>
+            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+              Dos modelos: pequeña agricultora por hectáreas o cooperativa por zonas de manejo.
+              Precios estimados en UI; cobro real próximamente.
+            </p>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                {
+                  id: 'free',
+                  name: 'Gratis',
+                  ha: 'Hasta 5 ha',
+                  price: '$0/mes',
+                  zones: '1 zona / parcela',
+                  audience: 'Arranque sin costo',
+                },
+                {
+                  id: 'growth',
+                  name: 'Crecimiento',
+                  ha: 'Hasta 20 ha',
+                  price: '$1/ha/mes',
+                  zones: '1 zona / parcela',
+                  audience: 'Productoras en expansión',
+                },
+                {
+                  id: 'scale',
+                  name: 'Escala',
+                  ha: 'Hasta 50 ha',
+                  price: '$0.50/ha/mes',
+                  zones: 'Hasta 2 zonas',
+                  audience: 'Fincas familiares',
+                },
+                {
+                  id: 'cooperative',
+                  name: 'Cooperativa',
+                  ha: '51–500 ha',
+                  price: 'Piloto BID',
+                  zones: '4+ zonas / lote',
+                  audience: 'Cooperativas y medianas',
+                },
+              ].map((plan) => (
+                <Card key={plan.id} className="border-border/80 bg-card flex flex-col">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">{plan.name}</CardTitle>
+                    <p className="text-2xl font-semibold text-primary">{plan.price}</p>
+                  </CardHeader>
+                  <CardContent className="flex flex-1 flex-col gap-2 text-sm text-muted-foreground">
+                    <p>{plan.ha}</p>
+                    <p>{plan.zones}</p>
+                    <p className="text-xs">{plan.audience}</p>
+                    <Button className="mt-auto w-full" size="sm" asChild>
+                      <Link href={`/register?plan=${plan.id === 'cooperative' ? 'cooperative' : 'free'}`}>
+                        Empezar
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
           <div className="grid gap-8 lg:grid-cols-2 lg:items-start">
             <div>

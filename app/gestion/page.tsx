@@ -13,9 +13,16 @@ import { CROP_PROFILES } from '@/lib/mock-data/crops';
 import type { CropType } from '@/lib/mock-data/crops';
 import { toast } from 'sonner';
 import { TeamZoneAssignments } from '@/components/gestion/team-zone-assignments';
+import { FieldDetailSheet } from '@/components/fields/field-detail-sheet';
+import { ZoneDetailSheet } from '@/components/fields/zone-detail-sheet';
+import type { Field, FieldZone } from '@/lib/types/field';
 
 export default function GestionPage() {
   const { fields, refresh } = useFields();
+  const [selectedField, setSelectedField] = useState<Field | null>(null);
+  const [fieldSheetOpen, setFieldSheetOpen] = useState(false);
+  const [detailZone, setDetailZone] = useState<FieldZone | null>(null);
+  const [zoneSheetOpen, setZoneSheetOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('viewer');
 
@@ -70,7 +77,14 @@ export default function GestionPage() {
 
         <TabsContent value="parcelas" className="space-y-4 mt-4">
           {fields.map((field) => (
-            <Card key={field.id}>
+            <Card
+              key={field.id}
+              className="cursor-pointer hover:border-primary/40 transition-colors"
+              onClick={() => {
+                setSelectedField(field);
+                setFieldSheetOpen(true);
+              }}
+            >
               <CardHeader>
                 <CardTitle className="text-base">{field.name}</CardTitle>
               </CardHeader>
@@ -78,9 +92,22 @@ export default function GestionPage() {
                 <p>
                   {getCropLabelEs(field.crop)} · {field.area} ha · {field.zones.length} zonas
                 </p>
-                <Button size="sm" variant="outline" asChild>
-                  <Link href={`/monitor?field=${field.id}`}>Monitorear</Link>
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedField(field);
+                      setFieldSheetOpen(true);
+                    }}
+                  >
+                    Ver detalle
+                  </Button>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link href={`/monitor?field=${field.id}`}>Monitorear</Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -168,6 +195,25 @@ export default function GestionPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <FieldDetailSheet
+        field={selectedField}
+        open={fieldSheetOpen}
+        onOpenChange={(open) => {
+          setFieldSheetOpen(open);
+          if (!open) setSelectedField(null);
+        }}
+        onZoneSelect={(zone) => {
+          setDetailZone(zone);
+          setZoneSheetOpen(true);
+        }}
+      />
+      <ZoneDetailSheet
+        zone={detailZone}
+        field={selectedField}
+        open={zoneSheetOpen}
+        onOpenChange={setZoneSheetOpen}
+      />
     </PageContainer>
   );
 }

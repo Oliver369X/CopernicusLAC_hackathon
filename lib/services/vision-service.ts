@@ -5,6 +5,7 @@ import { analyzeCropImageMistral } from '@/lib/services/mistral-vision';
 import { buildCropExpertSystemPrompt } from '@/lib/prompts/crop-expert';
 import type { CropType } from '@/lib/mock-data/crops';
 import type { SatelliteContext } from '@/lib/services/satellite-correlation';
+import { normalizeVisionAnalysis } from '@/lib/services/normalize-vision-analysis';
 
 function normalizeCropType(crop: string): CropType {
   if (crop === 'maize' || crop === 'soy') return crop === 'maize' ? 'corn' : 'soybean';
@@ -73,7 +74,7 @@ export async function analyzeCropImage(
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: process.env.VISION_MODEL ?? 'gpt-4o',
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -81,7 +82,7 @@ export async function analyzeCropImage(
           content: [
             {
               type: 'text',
-              text: 'Analyze this crop image for health and diseases. Return structured JSON.',
+              text: 'Analizá esta imagen de cultivo. Detectá hongos, manchas, oídio, roya y lesiones foliares visibles. Estimá el % de área afectada. JSON estructurado.',
             },
             {
               type: 'image_url',
@@ -104,7 +105,7 @@ export async function analyzeCropImage(
     if (!content) return analyzeImageMock();
 
     const parsed = JSON.parse(content) as Omit<VisionAnalysis, 'timestamp'>;
-    return { ...parsed, timestamp: new Date() };
+    return normalizeVisionAnalysis(parsed, normalizeCropType(cropType));
   } catch {
     return analyzeImageMock();
   }

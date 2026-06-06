@@ -17,6 +17,10 @@ import {
   getSatelliteHistoryForZone,
   getLatestWeatherForField,
 } from '@/lib/data/zone-satellite-metrics';
+import { buildMonitorUrl, buildScienceUrl } from '@/lib/navigation/context-links';
+import { isScienceCrop } from '@/lib/science/crops/registry';
+import type { ScienceCropId } from '@/lib/science/types';
+import { uniqueSources } from '@/lib/agents/unique-sources';
 
 const SKILLS_DIR = join(process.cwd(), 'lib/agents/skills');
 
@@ -24,7 +28,7 @@ const AGENT_PROMPTS: Record<Exclude<AgentId, 'router'>, string> = {
   satellite: `Eres SatelliteAnalyst de ${APP_NAME}. Interpreta datos Sentinel-1/2/3, tendencias NDVI y grilla. Responde en español, conciso, citando números de las tools.`,
   advisor: `Eres FieldAdvisor de ${APP_NAME}. Recomienda acciones agronómicas por zona (riego, fungicida, monitoreo). Usa alertas y métricas reales.`,
   guide: `Eres DemoGuide de ${APP_NAME}. Ayuda al jurado a usar la plataforma, demo 3 min y credenciales. Usa getPlatformGuide y listDemoCredentials.`,
-  interpreter: `Eres FieldInterpreter de ${APP_NAME}. Explicá métricas en lenguaje claro para productores. Usá explainZoneMetrics y getZoneSatelliteDetail.`,
+  interpreter: `Eres FieldInterpreter de Aura. Explicá métricas en lenguaje claro para productores: qué significa cada número, si está bien o mal, y qué heurística aplicar. Usá explainZoneMetrics y getZoneSatelliteDetail.`,
 };
 
 function readSkill(name: string): string {
@@ -56,7 +60,9 @@ async function ruleBasedReply(
   agent: AgentId
 ): Promise<AgentChatResponse> {
   const summary = await getFieldsSummary();
-  const sources: string[] = [summary.source === 'satellite_readings' ? 'Copernicus CDSE' : 'seed'];
+  const sources = uniqueSources([
+    summary.source === 'satellite_readings' ? 'Copernicus CDSE' : 'seed',
+  ]);
 
   if (agent === 'guide') {
     const creds = await executeAgentTool('listDemoCredentials', {});
@@ -96,7 +102,7 @@ async function ruleBasedReply(
       reply,
       agentUsed: 'advisor',
       sources,
-      suggestedActions: ['Ver /alerts', 'Abrir zone-1-d en monitor'],
+      suggestedActions: ['Ver /alerts', 'Abrir zone-sj-n-4 en monitor'],
     };
   }
 
@@ -123,17 +129,36 @@ async function ruleBasedReply(
         }
       );
       const narrative = buildMultiSensorNarrative(ctx);
+      const monitorLink = buildMonitorUrl({
+        fieldId: field.id,
+        zoneId: zone.id,
+        crop: field.crop,
+      });
+      const scienceLink = isScienceCrop(field.crop)
+        ? buildScienceUrl({
+            fieldId: field.id,
+            zoneId: zone.id,
+            crop: field.crop as ScienceCropId,
+            tab: 'lab',
+          })
+        : '/science';
       return {
-        reply: `Resumen satelital (${zone.name}): ${narrative}\n\nDetalle: ${JSON.stringify(detail.latest).slice(0, 300)}`,
+        reply: `Resumen satelital (${zone.name}): ${narrative}\n\nDetalle: ${JSON.stringify(detail.latest).slice(0, 300)}\n\n[Ver en monitor](${monitorLink}) · [Lab ${field.crop}](${scienceLink})`,
         agentUsed: 'satellite',
         sources,
-        suggestedActions: ['Comparar zone-1-d vs zone-1-e', 'Ver grilla en /monitor'],
+        suggestedActions: ['Comparar zone-sj-n-4 vs zone-sj-n-5', 'Ver grilla en /monitor'],
       };
     }
   }
 
+  const monitorLink = buildMonitorUrl({ fieldId: 'field-sj-norte' });
+  const scienceLink = buildScienceUrl({
+    fieldId: 'field-sj-norte',
+    crop: 'soybean',
+    tab: 'lab',
+  });
   return {
-    reply: `Resumen portfolio: ${summary.fieldCount} campos, ${summary.satelliteZones} zonas con Copernicus. NDVI por campo: ${summary.fields.map((f) => `${f.field}: ${f.ndvi.toFixed(2)}`).join('; ')}`,
+    reply: `Resumen portfolio: ${summary.fieldCount} campos, ${summary.satelliteZones} zonas con Copernicus. NDVI por campo: ${summary.fields.map((f) => `${f.field}: ${f.ndvi.toFixed(2)}`).join('; ')}\n\n[Ver en monitor](${monitorLink}) · [Lab soja](${scienceLink})`,
     agentUsed: 'satellite',
     sources,
     suggestedActions: ['Zona con más estrés', 'Guía demo 3 min'],
@@ -219,11 +244,15 @@ export async function runAgentChat(req: AgentChatRequest): Promise<AgentChatResp
         ? readSkill('monitor-copernicus.md')
         : '';
 
-  const systemPrompt = `${AGENT_PROMPTS[agent]}\n\nContexto:\nfieldId=${req.fieldId ?? 'any'}\nzoneId=${req.zoneId ?? 'any'}\n\n${skillContext}`;
+  const systemPrompt = `${AGENT_PROMPTS[agent]}\n\nContexto:\nfieldId=${req.fieldId ?? 'any'}\nzoneId=${req.zoneId ?? 'any'}\n${req.screenContext ? `Pantalla: ${req.screenContext}\n` : ''}\n${skillContext}`;
+
+  const userContent = req.screenContext
+    ? `[Contexto pantalla: ${req.screenContext}]\n\n${req.message}`
+    : req.message;
 
   const messages: MistralMessage[] = [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: req.message },
+    { role: 'user', content: userContent },
   ];
 
   const sources: string[] = ['Mistral AI'];
@@ -237,7 +266,7 @@ export async function runAgentChat(req: AgentChatRequest): Promise<AgentChatResp
       return {
         reply: content || 'Sin respuesta del modelo.',
         agentUsed: agent,
-        sources: [...sources, 'Copernicus CDSE'],
+        sources: uniqueSources([...sources, 'Copernicus CDSE']),
         suggestedActions: ['Resumen satelital hoy', 'Guía demo 3 min'],
       };
     }
@@ -265,7 +294,8 @@ export async function runAgentChat(req: AgentChatRequest): Promise<AgentChatResp
     }
   }
 
-  return ruleBasedReply(req, agent);
+  const fallback = await ruleBasedReply(req, agent);
+  return { ...fallback, sources: uniqueSources(fallback.sources) };
 }
 
 export async function buildAutoBriefing(): Promise<string> {

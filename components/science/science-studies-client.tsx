@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,11 +44,17 @@ import { formatDateTimeEs, formatDateEs } from '@/lib/i18n/format-date';
 import { formatDecimal } from '@/lib/i18n/format-number';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 import { ResponsiveToolbar } from '@/components/layout/responsive-layout';
+import { FieldContextBar } from '@/components/layout/field-context-bar';
+import { buildScienceUrl } from '@/lib/navigation/context-links';
+import { getStudySite } from '@/lib/science/study-sites';
+import { DEMO_REGION_LABEL } from '@/lib/geo/demo-region';
+import { getCropLabelEs } from '@/lib/design/tokens';
 
 interface ExperimentRow {
   id: string;
   crop: string;
   field_id: string;
+  zone_id?: string;
   hypothesis: string;
   created_at: string;
   result?: { fusionScore?: number; fusionScoreMl?: number; healthLabel?: string };
@@ -78,8 +85,10 @@ interface MetricsSummary {
   concordancePct: number;
 }
 
-export default function ScienceStudiesClient() {
-  const { fields } = useFields();
+function ScienceStudiesClientInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { fields, getFieldById } = useFields();
   const crops = listScienceCrops();
   const fileRef = useRef<HTMLInputElement>(null);
   const [crop, setCrop] = useState<ScienceCropId>('soybean');
@@ -97,6 +106,28 @@ export default function ScienceStudiesClient() {
   const [metricsSummary, setMetricsSummary] = useState<MetricsSummary | null>(null);
   const [metricsRunAt, setMetricsRunAt] = useState<string | null>(null);
   const [runningMetrics, setRunningMetrics] = useState(false);
+
+  const cropFields = useMemo(
+    () => fields.filter((f) => f.crop === crop),
+    [fields, crop]
+  );
+
+  const studySite = fieldId && zoneId ? getStudySite(fieldId, zoneId) : undefined;
+
+  const syncUrl = useCallback(
+    (nextCrop: ScienceCropId, nextFieldId: string, nextZoneId: string) => {
+      const params = new URLSearchParams();
+      params.set('crop', nextCrop);
+      params.set('field', nextFieldId);
+      if (nextZoneId) params.set('zone', nextZoneId);
+      router.replace(`/science/studies?${params.toString()}`, { scroll: false });
+    },
+    [router]
+  );
+
+  const resolveFieldName = (id: string) => getFieldById(id)?.name ?? id;
+  const resolveZoneName = (fid: string, zid: string) =>
+    getFieldById(fid)?.zones.find((z) => z.id === zid)?.name ?? zid;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,11 +157,28 @@ export default function ScienceStudiesClient() {
   }, [crop, fieldId]);
 
   useEffect(() => {
-    if (fields[0] && !fieldId) {
-      setFieldId(fields[0].id);
-      setZoneId(fields[0].zones[0]?.id ?? '');
+    const urlCrop = searchParams.get('crop');
+    const urlField = searchParams.get('field');
+    const urlZone = searchParams.get('zone');
+    if (urlCrop && crops.some((c) => c.crop === urlCrop)) {
+      setCrop(urlCrop as ScienceCropId);
     }
-  }, [fields, fieldId]);
+    const pool = urlCrop
+      ? fields.filter((f) => f.crop === urlCrop)
+      : fields.filter((f) => f.crop === crop);
+    if (urlField && pool.some((f) => f.id === urlField)) {
+      setFieldId(urlField);
+      const f = pool.find((x) => x.id === urlField);
+      if (urlZone && f?.zones.some((z) => z.id === urlZone)) {
+        setZoneId(urlZone);
+      } else if (f?.zones[0]) {
+        setZoneId(f.zones[0].id);
+      }
+    } else if (pool[0] && !fieldId) {
+      setFieldId(pool[0].id);
+      setZoneId(pool[0].zones[0]?.id ?? '');
+    }
+  }, [searchParams, fields, fieldId, crop, crops]);
 
   useEffect(() => {
     load();
@@ -263,10 +311,70 @@ export default function ScienceStudiesClient() {
         }
       />
 
+      {fieldId && (
+        <FieldContextBar
+          fieldId={fieldId}
+          zoneId={zoneId}
+          crop={crop}
+          currentPage="studies"
+        />
+      )}
+
+      {studySite && (
+        <Card className="glass-card border-primary/20">
+          <CardHeader>
+            <CardTitle className="text-base">Sitio de estudio</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p>
+              <span className="text-muted-foreground">Cohorte:</span>{' '}
+              <strong>{studySite.cohort}</strong>
+              {' · '}
+              <span className="text-muted-foreground">Fenología:</span>{' '}
+              {studySite.phenologyNote}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Tile {studySite.sentinelTile} · {DEMO_REGION_LABEL}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {studySite.groundTruthFocus.map((g) => (
+                <Badge key={g} variant="outline" className="text-xs">
+                  {g.replace(/_/g, ' ')}
+                </Badge>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link
+                href={buildScienceUrl({
+                  fieldId,
+                  zoneId,
+                  crop,
+                  tab: 'lab',
+                })}
+              >
+                Abrir en Lab
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="glass-card">
         <CardContent className="pt-6">
           <ResponsiveToolbar>
-          <Select value={crop} onValueChange={(v) => setCrop(v as ScienceCropId)}>
+          <Select
+            value={crop}
+            onValueChange={(v) => {
+              const nextCrop = v as ScienceCropId;
+              setCrop(nextCrop);
+              const first = fields.find((f) => f.crop === nextCrop);
+              const fid = first?.id ?? '';
+              const zid = first?.zones[0]?.id ?? '';
+              setFieldId(fid);
+              setZoneId(zid);
+              if (fid) syncUrl(nextCrop, fid, zid);
+            }}
+          >
             <SelectTrigger className="h-10 w-full min-w-[140px] shrink-0 sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               {crops.map((c) => (
@@ -278,11 +386,25 @@ export default function ScienceStudiesClient() {
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar'}
           </Button>
           <Button variant="outline" className="h-10 shrink-0" asChild>
-            <Link href={`/science/${crop}`}>Ir al lab</Link>
+            <Link
+              href={buildScienceUrl({
+                fieldId: fieldId || cropFields[0]?.id || 'field-sj-norte',
+                zoneId,
+                crop,
+                tab: 'lab',
+              })}
+            >
+              Ir al lab
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-10 shrink-0" asChild>
+            <a href="/templates/ground-truth-san-julian.csv" download>
+              <Download className="h-4 w-4 mr-1" /> Plantilla San Julián
+            </a>
           </Button>
           <Button variant="outline" className="h-10 shrink-0" asChild>
             <a href={`/api/science/import?crop=${crop}`} download>
-              <Download className="h-4 w-4 mr-1" /> Plantilla CSV
+              <Download className="h-4 w-4 mr-1" /> Plantilla {getCropLabelEs(crop)}
             </a>
           </Button>
           <input
@@ -360,9 +482,13 @@ export default function ScienceStudiesClient() {
             )}
             {experiments.map((exp) => (
               <div key={exp.id} className="border rounded-lg p-3 text-sm space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  {formatDateEs(exp.created_at)} · {resolveFieldName(exp.field_id)}
+                  {exp.zone_id ? ` · ${resolveZoneName(exp.field_id, exp.zone_id)}` : ''}
+                </p>
                 <p className="font-medium line-clamp-2">{exp.hypothesis}</p>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">{exp.crop}</Badge>
+                  <Badge variant="outline">{getCropLabelEs(exp.crop as ScienceCropId)}</Badge>
                   {exp.result?.fusionScore != null && (
                     <Badge>
                       Reglas {formatDecimal((exp.result.fusionScore ?? 0) * 100, 0)}%
@@ -382,15 +508,34 @@ export default function ScienceStudiesClient() {
         <Card className="glass-card min-w-0">
           <CardHeader><CardTitle className="text-base">Validación de campo</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <Select value={fieldId} onValueChange={(id) => {
-              setFieldId(id);
-              const f = fields.find((x) => x.id === id);
-              setZoneId(f?.zones[0]?.id ?? '');
-            }}>
+            <Select
+              value={fieldId}
+              onValueChange={(id) => {
+                setFieldId(id);
+                const f = cropFields.find((x) => x.id === id);
+                const z = f?.zones[0]?.id ?? '';
+                setZoneId(z);
+                syncUrl(crop, id, z);
+              }}
+            >
               <SelectTrigger><SelectValue placeholder="Campo" /></SelectTrigger>
               <SelectContent>
-                {fields.map((f) => (
+                {cropFields.map((f) => (
                   <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={zoneId}
+              onValueChange={(z) => {
+                setZoneId(z);
+                syncUrl(crop, fieldId, z);
+              }}
+            >
+              <SelectTrigger><SelectValue placeholder="Zona" /></SelectTrigger>
+              <SelectContent>
+                {(getFieldById(fieldId)?.zones ?? []).map((z) => (
+                  <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -441,5 +586,19 @@ export default function ScienceStudiesClient() {
         </CardContent>
       </Card>
     </PageContainer>
+  );
+}
+
+export default function ScienceStudiesClient() {
+  return (
+    <Suspense
+      fallback={
+        <PageContainer size="wide">
+          <div className="py-12 text-center text-sm text-muted-foreground">Cargando estudios…</div>
+        </PageContainer>
+      }
+    >
+      <ScienceStudiesClientInner />
+    </Suspense>
   );
 }

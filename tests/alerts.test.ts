@@ -22,7 +22,7 @@ describe('generateAllAlerts', () => {
 
 describe('MOCK_FIELDS', () => {
   it('has unified field data with bounds', () => {
-    expect(MOCK_FIELDS.length).toBe(6);
+    expect(MOCK_FIELDS.length).toBe(4);
     for (const field of MOCK_FIELDS) {
       expect(field.bounds).toHaveLength(4);
       expect(field.zones.every((z) => z.fieldId === field.id)).toBe(true);

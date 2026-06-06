@@ -19,6 +19,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const fieldId = searchParams.get('fieldId');
     const zoneIdParam = searchParams.get('zoneId');
+    const asOf = searchParams.get('asOf') ?? undefined;
 
     const fields = await getFields();
     const field = fieldId
@@ -48,7 +49,8 @@ export async function GET(
       crop as ScienceCropId,
       field,
       zone.id,
-      service
+      service,
+      { asOfDate: asOf, allowLiveFetch: false }
     );
 
     return NextResponse.json(analysis);

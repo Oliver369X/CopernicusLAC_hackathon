@@ -45,9 +45,12 @@ import {
   chartAxisStroke,
   chartGridStroke,
 } from '@/lib/design/tokens';
+import { useOrgBilling } from '@/hooks/use-org-billing';
+import { PlanUsageBanner } from '@/components/billing/plan-usage-banner';
 
 export default function EnhancedDashboard() {
   const { fields, source: fieldsSource } = useFields();
+  const { billing } = useOrgBilling();
   const { alerts: engineAlerts } = useAlerts();
   const { summary } = useAnalyticsSummary();
   const [trendData, setTrendData] = useState<
@@ -140,6 +143,12 @@ export default function EnhancedDashboard() {
           </Link>
         }
       />
+
+      {billing && (
+        <FadeIn>
+          <PlanUsageBanner billing={billing} />
+        </FadeIn>
+      )}
 
       <StaggerList className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <li className="min-w-0">

@@ -10,7 +10,7 @@ import golden from './fixtures/science/soybean-golden.json';
 describe('parseGroundTruthCsv', () => {
   it('parses soybean template rows', () => {
     const csv = `crop,field_id,zone_id,captured_at,disease_label,severity,health_label,lat,lng,source,notes
-soybean,field-1,zone-1,2026-03-15,rust,medium,warning,-34.61,-58.38,manual_csv,test`;
+soybean,field-sj-norte,zone-sj-n-1,2026-03-15,rust,medium,warning,-16.95,-62.85,manual_csv,test`;
     const rows = parseGroundTruthCsv(csv);
     expect(rows).toHaveLength(1);
     expect(rows[0].crop).toBe('soybean');
@@ -19,7 +19,7 @@ soybean,field-1,zone-1,2026-03-15,rust,medium,warning,-34.61,-58.38,manual_csv,t
 
   it('validates rows', () => {
     const csv = `crop,field_id,zone_id,captured_at,source
-soybean,field-1,zone-1,2026-03-15,manual_csv`;
+soybean,field-sj-norte,zone-sj-n-1,2026-03-15,manual_csv`;
     const { valid, errors } = validateGroundTruthRows(parseGroundTruthCsv(csv));
     expect(valid).toHaveLength(1);
     expect(errors).toHaveLength(0);
@@ -91,8 +91,8 @@ describe('golden soybean assembly', () => {
     const temporal = buildTemporalSignature([], 60, SOYBEAN_SCIENCE_PROFILE);
     const analysis = assembleMultisensorAnalysis({
       crop: 'soybean',
-      fieldId: 'field-1',
-      zoneId: 'zone-1',
+      fieldId: 'field-sj-norte',
+      zoneId: 'zone-sj-n-1',
       capturedAt: new Date().toISOString(),
       optical: { ndvi: 0.65, ndre: 0.38 },
       radar: { dpRvi: 0.2 },

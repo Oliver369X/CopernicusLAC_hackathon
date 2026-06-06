@@ -7,11 +7,14 @@ import { cn } from '@/lib/utils';
 interface ConnectionStatusProps {
   className?: string;
   showWhenOnline?: boolean;
+  /** Texto más corto en pantallas chicas */
+  compact?: boolean;
 }
 
 export function ConnectionStatus({
   className,
   showWhenOnline = false,
+  compact = false,
 }: ConnectionStatusProps) {
   const [online, setOnline] = useState(true);
 
@@ -42,12 +45,16 @@ export function ConnectionStatus({
       {online ? (
         <>
           <Wifi className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>Conectado — sincronización activa</span>
+          <span>{compact ? 'En línea · sync activa' : 'Conectado — sincronización activa'}</span>
         </>
       ) : (
         <>
           <WifiOff className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span>Modo sin conexión — los datos se guardan en el dispositivo</span>
+          <span>
+            {compact
+              ? 'Sin conexión · guardado local'
+              : 'Modo sin conexión — los datos se guardan en el dispositivo'}
+          </span>
         </>
       )}
     </div>

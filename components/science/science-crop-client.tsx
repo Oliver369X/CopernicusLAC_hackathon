@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ScienceTimeseriesChart } from '@/components/charts/science-timeseries-chart';
 import {
   healthLabelEs,
@@ -29,17 +30,51 @@ import { useFields } from '@/hooks/use-fields';
 import type { CropScienceProfile } from '@/lib/science/types';
 import type { MultisensorAnalysis } from '@/lib/science/types';
 import { analysisToCsvRow, downloadBlob, experimentToJson } from '@/lib/science/export';
-import { FlaskConical, BookOpen, Loader2, Download, GitCompare } from 'lucide-react';
+import { FlaskConical, BookOpen, Loader2, Download, GitCompare, Satellite } from 'lucide-react';
+import { DataProvenanceBanner } from '@/components/science/data-provenance-banner';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 import { formatDateEs } from '@/lib/i18n/format-date';
+import { FieldContextBar } from '@/components/layout/field-context-bar';
+import {
+  buildMonitorUrl,
+  buildStudiesUrl,
+} from '@/lib/navigation/context-links';
+import { getStudySite } from '@/lib/science/study-sites';
+import {
+  listLocalExperiments,
+  mergeExperiments,
+  saveLocalExperiment,
+  type ExperimentRow,
+} from '@/lib/science/experiments-local';
+import type { ScienceCropId } from '@/lib/science/types';
+
+const HYPOTHESIS_TEMPLATES: Partial<Record<ScienceCropId, string[]>> = {
+  soybean: [
+    'H3: NDRE cae antes que NDVI en roya asiática; DpRVI confirma biomasa',
+    'H3b: MSI > 1.8 y LSWI < 0 indican patrón SDS',
+    'H3c: DpRVI confirma caída de biomasa bajo nubes',
+  ],
+  wheat: [
+    'H1: Caída NDRE/REDSI precede síntomas roya en 7–14 días',
+    'H1b: REDSI detecta roya amarilla antes que NDVI',
+  ],
+  corn: [
+    'H2: NDRE detecta estrés en dosel denso antes que NDVI',
+    'H2b: EVI cae con mancha foliar gris en V12–VT',
+  ],
+  coffee: ['H4: Texturas SAR + NDVI discriminan agroforestería vs full sun'],
+  cacao: ['H4: Texturas SAR + NDVI discriminan agroforestería vs full sun'],
+};
 
 interface ScienceCropClientProps {
   profile: CropScienceProfile;
 }
 
-export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
+function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { fields } = useFields();
   const cropFields = fields.filter((f) => f.crop === profile.crop);
   const [fieldId, setFieldId] = useState('');
@@ -57,17 +92,55 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
           : 'H2: NDRE detecta estrés en dosel denso antes que NDVI'
   );
   const [tab, setTab] = useState<'client' | 'lab'>('client');
-  const [experiments, setExperiments] = useState<Array<{ id: string; hypothesis: string; created_at: string }>>([]);
+  const [chartMode, setChartMode] = useState<'90d' | 'week'>('90d');
+  const [asOf, setAsOf] = useState<string>('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [experiments, setExperiments] = useState<ExperimentRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const selectedField = cropFields.find((f) => f.id === fieldId) ?? cropFields[0];
+  const studySite = selectedField
+    ? getStudySite(selectedField.id, zoneId || (selectedField.zones[0]?.id ?? ''))
+    : undefined;
+
+  const syncUrl = useCallback(
+    (
+      nextFieldId: string,
+      nextZoneId: string,
+      nextTab: 'client' | 'lab',
+      nextAsOf?: string
+    ) => {
+      const params = new URLSearchParams();
+      params.set('field', nextFieldId);
+      if (nextZoneId) params.set('zone', nextZoneId);
+      if (nextTab !== 'client') params.set('tab', nextTab);
+      if (nextAsOf) params.set('asOf', nextAsOf);
+      router.replace(`/science/${profile.crop}?${params.toString()}`, { scroll: false });
+    },
+    [router, profile.crop]
+  );
 
   useEffect(() => {
-    if (cropFields[0] && !fieldId) {
+    const urlField = searchParams.get('field');
+    const urlZone = searchParams.get('zone');
+    const urlTab = searchParams.get('tab');
+    const urlAsOf = searchParams.get('asOf');
+    if (urlTab === 'lab' || urlTab === 'client') setTab(urlTab);
+    if (urlAsOf) setAsOf(urlAsOf);
+
+    if (urlField && cropFields.some((f) => f.id === urlField)) {
+      setFieldId(urlField);
+      const f = cropFields.find((x) => x.id === urlField);
+      if (urlZone && f?.zones.some((z) => z.id === urlZone)) {
+        setZoneId(urlZone);
+      } else if (f?.zones[0]) {
+        setZoneId(f.zones[0].id);
+      }
+    } else if (cropFields[0] && !fieldId) {
       setFieldId(cropFields[0].id);
       setZoneId(cropFields[0].zones[0]?.id ?? '');
     }
-  }, [cropFields, fieldId]);
+  }, [searchParams, cropFields, fieldId]);
 
   const loadData = useCallback(async () => {
     if (!selectedField) return;
@@ -75,9 +148,19 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
     setLoadError(null);
     try {
       const z = zoneId || selectedField.zones[0]?.id;
+      const asOfParam = asOf ? `&asOf=${encodeURIComponent(asOf)}` : '';
+      let timeseriesUrl = `/api/science/${profile.crop}/timeseries?fieldId=${selectedField.id}&zoneId=${z}`;
+      if (chartMode === 'week') {
+        const to = new Date().toISOString().split('T')[0];
+        const from = new Date();
+        from.setUTCDate(from.getUTCDate() - 6);
+        timeseriesUrl += `&from=${from.toISOString().split('T')[0]}&to=${to}`;
+      } else {
+        timeseriesUrl += '&days=90';
+      }
       const [aRes, tRes, eRes] = await Promise.all([
-        fetch(`/api/science/${profile.crop}/analysis?fieldId=${selectedField.id}&zoneId=${z}`),
-        fetch(`/api/science/${profile.crop}/timeseries?fieldId=${selectedField.id}&zoneId=${z}&days=90`),
+        fetch(`/api/science/${profile.crop}/analysis?fieldId=${selectedField.id}&zoneId=${z}${asOfParam}`),
+        fetch(timeseriesUrl),
         fetch(`/api/science/experiments?crop=${profile.crop}&fieldId=${selectedField.id}&limit=10`),
       ]);
 
@@ -90,7 +173,7 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
           dpRvi?: number;
         }>;
       }>(tRes, { series: [] });
-      const eResult = await parseJsonResponse<{ experiments?: typeof experiments }>(eRes, {
+      const eResult = await parseJsonResponse<{ experiments?: ExperimentRow[] }>(eRes, {
         experiments: [],
       });
 
@@ -101,7 +184,12 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
         return;
       }
 
-      setExperiments(eResult.data?.experiments ?? []);
+      const remote = eResult.data?.experiments ?? [];
+      const local = listLocalExperiments({
+        crop: profile.crop,
+        fieldId: selectedField.id,
+      });
+      setExperiments(mergeExperiments(remote, local));
       setAnalysis(aResult.data);
       setSeries(
         (tResult.data?.series ?? []).map((p) => ({
@@ -118,11 +206,40 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
     } finally {
       setLoading(false);
     }
-  }, [selectedField, zoneId, profile.crop]);
+  }, [selectedField, zoneId, profile.crop, asOf, chartMode]);
 
   useEffect(() => {
     if (selectedField) loadData();
-  }, [selectedField, zoneId, loadData]);
+  }, [selectedField, zoneId, loadData, asOf, chartMode]);
+
+  const refreshSatellite = async () => {
+    if (!selectedField) return;
+    setRefreshing(true);
+    try {
+      const z = zoneId || selectedField.zones[0]?.id;
+      const res = await fetch(`/api/science/${profile.crop}/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fieldId: selectedField.id, zoneId: z }),
+      });
+      const { data, error } = await parseJsonResponse<{
+        ok?: boolean;
+        error?: string;
+        analysis?: MultisensorAnalysis;
+      }>(res);
+      if (res.ok && data?.analysis) {
+        setAnalysis(data.analysis);
+        toast.success('Satélite actualizado');
+        loadData();
+      } else {
+        toast.error(data?.error ?? error ?? 'No se pudo actualizar satélite');
+      }
+    } catch {
+      toast.error('Error de red al actualizar satélite');
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const runExperiment = async () => {
     const res = await fetch('/api/science/experiments', {
@@ -135,15 +252,59 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
         hypothesis,
       }),
     });
-    const { data, error } = await parseJsonResponse<{ error?: string; result?: MultisensorAnalysis }>(
-      res
-    );
+    const { data, error } = await parseJsonResponse<{
+      error?: string;
+      result?: MultisensorAnalysis;
+      saved?: boolean;
+      experiment?: { id: string };
+    }>(res);
     if (res.ok && data?.result) {
-      toast.success('Experimento registrado');
+      if (data.experiment?.id || data.saved !== false) {
+        toast.success('Guardado en nube');
+      } else {
+        saveLocalExperiment({
+          crop: profile.crop,
+          fieldId: selectedField?.id ?? '',
+          zoneId: zoneId || (selectedField?.zones[0]?.id ?? ''),
+          hypothesis,
+          notes: null,
+          result: data.result,
+        });
+        toast.success('Guardado local (modo demo)');
+      }
       setAnalysis(data.result);
       loadData();
     } else {
       toast.error(data?.error ?? error ?? 'Error al guardar');
+    }
+  };
+
+  const prevExperiment = experiments[1];
+  const lastExperiment = experiments[0];
+  const fusionDelta =
+    lastExperiment?.result?.fusionScore != null &&
+    prevExperiment?.result?.fusionScore != null
+      ? (lastExperiment.result.fusionScore - prevExperiment.result.fusionScore) * 100
+      : null;
+  const ndreDelta =
+    lastExperiment?.result?.optical?.ndre != null &&
+    prevExperiment?.result?.optical?.ndre != null
+      ? (lastExperiment.result.optical.ndre ?? 0) -
+        (prevExperiment.result.optical.ndre ?? 0)
+      : null;
+
+  const setTabAndSync = (nextTab: 'client' | 'lab') => {
+    setTab(nextTab);
+    if (selectedField) {
+      syncUrl(selectedField.id, zoneId, nextTab, asOf || undefined);
+    }
+  };
+
+  const handleAsOfChange = (value: string) => {
+    const next = value === 'latest' ? '' : value;
+    setAsOf(next);
+    if (selectedField) {
+      syncUrl(selectedField.id, zoneId, tab, next || undefined);
     }
   };
 
@@ -184,7 +345,7 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
               variant={tab === 'client' ? 'default' : 'outline'}
               size="sm"
               className="h-10 shrink-0 snap-start"
-              onClick={() => setTab('client')}
+              onClick={() => setTabAndSync('client')}
             >
               Vista cliente
             </Button>
@@ -192,7 +353,7 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
               variant={tab === 'lab' ? 'default' : 'outline'}
               size="sm"
               className="h-10 shrink-0 snap-start"
-              onClick={() => setTab('lab')}
+              onClick={() => setTabAndSync('lab')}
             >
               <FlaskConical className="h-4 w-4 mr-1" /> Experimentos
             </Button>
@@ -205,13 +366,26 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
         }
       />
 
+      {selectedField && (
+        <FieldContextBar
+          fieldId={selectedField.id}
+          zoneId={zoneId}
+          crop={profile.crop}
+          currentPage="science"
+        />
+      )}
+
+      <DataProvenanceBanner provenance={analysis?.provenance} />
+
       <Card className="glass-card">
         <CardContent className="pt-6">
           <ResponsiveToolbar>
           <Select value={selectedField.id} onValueChange={(id) => {
             setFieldId(id);
             const f = cropFields.find((x) => x.id === id);
-            setZoneId(f?.zones[0]?.id ?? '');
+            const z = f?.zones[0]?.id ?? '';
+            setZoneId(z);
+            syncUrl(id, z, tab, asOf || undefined);
           }}>
             <SelectTrigger className="h-10 w-full min-w-[140px] shrink-0 sm:w-[200px]"><SelectValue placeholder="Campo" /></SelectTrigger>
             <SelectContent>
@@ -220,7 +394,13 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
               ))}
             </SelectContent>
           </Select>
-          <Select value={zoneId} onValueChange={setZoneId}>
+          <Select
+            value={zoneId}
+            onValueChange={(z) => {
+              setZoneId(z);
+              syncUrl(selectedField.id, z, tab, asOf || undefined);
+            }}
+          >
             <SelectTrigger className="h-10 w-full min-w-[120px] shrink-0 sm:w-[160px]"><SelectValue placeholder="Zona" /></SelectTrigger>
             <SelectContent>
               {selectedField.zones.map((z) => (
@@ -228,8 +408,49 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
               ))}
             </SelectContent>
           </Select>
+          {(analysis?.provenance?.availableDates?.length ?? 0) > 0 && (
+            <Select
+              value={asOf || 'latest'}
+              onValueChange={handleAsOfChange}
+            >
+              <SelectTrigger className="h-10 w-full min-w-[140px] shrink-0 sm:w-[180px]">
+                <SelectValue placeholder="Fecha lectura" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest">Última en DB</SelectItem>
+                {analysis?.provenance?.availableDates.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {formatDateEs(d)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Select value={chartMode} onValueChange={(v) => setChartMode(v as '90d' | 'week')}>
+            <SelectTrigger className="h-10 w-full min-w-[120px] shrink-0 sm:w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="90d">Serie 90d</SelectItem>
+              <SelectItem value="week">Modo semana</SelectItem>
+            </SelectContent>
+          </Select>
           <Button onClick={loadData} disabled={loading} variant="outline" className="h-10 shrink-0">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar'}
+          </Button>
+          <Button
+            onClick={refreshSatellite}
+            disabled={refreshing || loading}
+            variant="secondary"
+            className="h-10 shrink-0"
+          >
+            {refreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <>
+                <Satellite className="h-4 w-4 mr-1" /> Actualizar satélite
+              </>
+            )}
           </Button>
           {analysis && (
             <>
@@ -452,33 +673,179 @@ export default function ScienceCropClient({ profile }: ScienceCropClientProps) {
           )}
 
           {tab === 'lab' && (
-            <Card className="glass-card">
-              <CardHeader><CardTitle className="text-base">Registrar experimento</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea value={hypothesis} onChange={(e) => setHypothesis(e.target.value)} rows={3} />
-                <p className="text-xs text-muted-foreground">
-                  Fase fenológica: {analysis.temporal.phenologyPhase ?? '—'} ({analysis.temporal.phenologyMatch}) ·
-                  muestras: {analysis.temporal.sampleCount}
-                </p>
-                <Button onClick={runExperiment}>Ejecutar y guardar en DB</Button>
-                {experiments.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t">
-                    <p className="text-xs font-medium">Historial reciente</p>
-                    {experiments.slice(0, 5).map((exp) => (
-                      <div key={exp.id} className="text-xs text-muted-foreground border-b py-1">
-                        {exp.hypothesis.slice(0, 80)}… · {formatDateEs(exp.created_at)}
+            <div className="space-y-4">
+              <Card className="glass-card">
+                <CardHeader><CardTitle className="text-base">1. Hipótesis</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  {(HYPOTHESIS_TEMPLATES[profile.crop]?.length ?? 0) > 0 && (
+                    <Select
+                      value={hypothesis}
+                      onValueChange={setHypothesis}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Plantilla de hipótesis" /></SelectTrigger>
+                      <SelectContent>
+                        {(HYPOTHESIS_TEMPLATES[profile.crop] ?? []).map((h) => (
+                          <SelectItem key={h} value={h}>{h.slice(0, 60)}…</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Textarea value={hypothesis} onChange={(e) => setHypothesis(e.target.value)} rows={3} />
+                  <p className="text-xs text-muted-foreground">
+                    {selectedField.zones.find((z) => z.id === zoneId)?.name ?? '—'}
+                    {studySite ? ` · ${studySite.cohort} · ${studySite.phenologyNote}` : ''}
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="glass-card">
+                <CardHeader><CardTitle className="text-base">2. Ejecutar</CardTitle></CardHeader>
+                <CardContent className="space-y-3">
+                  {!analysis ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">
+                        Cargá el análisis multisensor para registrar un experimento.
+                      </p>
+                      <Button onClick={loadData} disabled={loading}>
+                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cargar análisis'}
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs text-muted-foreground">
+                        Fase: {analysis.temporal.phenologyPhase ?? '—'} ({analysis.temporal.phenologyMatch}) ·
+                        muestras: {analysis.temporal.sampleCount}
+                      </p>
+                      <Button onClick={runExperiment}>Ejecutar experimento</Button>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+
+              {analysis && (
+                <Card className="glass-card">
+                  <CardHeader><CardTitle className="text-base">3. Resultado</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                      <div className="border rounded-lg p-3">
+                        <p className="text-muted-foreground text-xs">Fusión reglas</p>
+                        <MetricValue value={analysis.fusionScore * 100} decimals={1} />
                       </div>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Referencias: {profile.references.join(' · ')}
-                </p>
-              </CardContent>
-            </Card>
+                      <div className="border rounded-lg p-3">
+                        <p className="text-muted-foreground text-xs">Fusión ML</p>
+                        <MetricValue
+                          value={analysis.fusionScoreMl != null ? analysis.fusionScoreMl * 100 : null}
+                          decimals={1}
+                        />
+                      </div>
+                    </div>
+                    {analysis.anomalyFlags.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {analysis.anomalyFlags.map((f) => (
+                          <Badge key={f} variant="destructive">{f}</Badge>
+                        ))}
+                      </div>
+                    )}
+                    {experiments.length >= 2 && fusionDelta != null && (
+                      <p className="text-xs text-muted-foreground">
+                        Δ fusionScore vs anterior: {fusionDelta >= 0 ? '+' : ''}
+                        {formatDecimal(fusionDelta, 1)} pp
+                        {ndreDelta != null && ` · Δ NDRE: ${formatDecimal(ndreDelta, 3)}`}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          downloadBlob(
+                            analysisToCsvRow(analysis),
+                            `${profile.crop}-analysis.csv`,
+                            'text/csv'
+                          )
+                        }
+                      >
+                        <Download className="h-4 w-4 mr-1" /> CSV
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          downloadBlob(
+                            experimentToJson({
+                              crop: profile.crop,
+                              fieldId: selectedField.id,
+                              zoneId,
+                              hypothesis,
+                              notes: null,
+                              result: analysis,
+                            }),
+                            `${profile.crop}-experiment.json`,
+                            'application/json'
+                          )
+                        }
+                      >
+                        <Download className="h-4 w-4 mr-1" /> JSON
+                      </Button>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={buildMonitorUrl({ fieldId: selectedField.id, zoneId })}>
+                          Ver en monitor
+                        </Link>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link
+                          href={buildStudiesUrl({
+                            fieldId: selectedField.id,
+                            zoneId,
+                            crop: profile.crop,
+                          })}
+                        >
+                          Registrar etiqueta
+                        </Link>
+                      </Button>
+                    </div>
+                    {experiments.length > 0 && (
+                      <div className="space-y-2 pt-2 border-t">
+                        <p className="text-xs font-medium">Historial reciente</p>
+                        {experiments.slice(0, 5).map((exp) => (
+                          <div key={exp.id} className="text-xs text-muted-foreground border-b py-1">
+                            {exp.hypothesis.slice(0, 80)}
+                            {exp.hypothesis.length > 80 ? '…' : ''} · {formatDateEs(exp.created_at)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
         </>
       )}
+
+      {tab === 'lab' && !analysis && !loadError && (
+        <Card className="glass-card">
+          <CardHeader><CardTitle className="text-base">Modo Lab</CardTitle></CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>Seleccioná campo y zona, cargá el análisis y registrá hipótesis multisensor.</p>
+            <p className="text-xs">Referencias: {profile.references.join(' · ')}</p>
+          </CardContent>
+        </Card>
+      )}
     </PageContainer>
+  );
+}
+
+export default function ScienceCropClient(props: ScienceCropClientProps) {
+  return (
+    <Suspense
+      fallback={
+        <PageContainer size="wide">
+          <div className="py-12 text-center text-sm text-muted-foreground">Cargando laboratorio…</div>
+        </PageContainer>
+      }
+    >
+      <ScienceCropClientInner {...props} />
+    </Suspense>
   );
 }

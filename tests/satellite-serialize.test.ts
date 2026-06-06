@@ -17,7 +17,7 @@ describe('satellite-from-metrics', () => {
   it('anchors grid average to provided NDVI', () => {
     const zone = MOCK_FIELDS[0].zones[0];
     const metrics = metricsFromZone(zone);
-    const data = buildSatelliteDataFromMetrics('field-1', metrics, 20);
+    const data = buildSatelliteDataFromMetrics('field-sj-norte', metrics, 20);
     const avg = getAverageValue(data.ndvi);
     expect(Math.abs(avg - metrics.ndvi)).toBeLessThan(0.05);
   });
@@ -38,7 +38,7 @@ describe('satellite-from-metrics', () => {
       min: 0.6,
       max: 0.8,
     };
-    const data = buildSatelliteDataFromMetrics('field-1', metrics, 20, realGrid);
+    const data = buildSatelliteDataFromMetrics('field-sj-norte', metrics, 20, realGrid);
     expect(data.isRealGrid).toBe(true);
     expect(data.ndvi[0][0]).toBe(0.7);
   });
@@ -57,22 +57,22 @@ describe('copernicus bounds', () => {
   });
 
   it('normalizes GeoJSON polygon from Postgres seed', () => {
-    const center = { lat: -34.9, lng: -62.3 };
+    const center = { lat: -16.95, lng: -62.85 };
     const geoJson = {
       type: 'Polygon' as const,
       coordinates: [
         [
-          [-62.32, -34.92],
-          [-62.28, -34.92],
-          [-62.28, -34.88],
-          [-62.32, -34.88],
-          [-62.32, -34.92],
+          [-62.87, -16.97],
+          [-62.83, -16.97],
+          [-62.83, -16.93],
+          [-62.87, -16.93],
+          [-62.87, -16.97],
         ],
       ],
     };
     const bounds = normalizeGeoBounds(geoJson, center);
     expect(bounds).toHaveLength(4);
-    expect(bounds[0].lat).toBeCloseTo(-34.88, 1);
+    expect(bounds[0].lat).toBeCloseTo(-16.93, 1);
   });
 });
 

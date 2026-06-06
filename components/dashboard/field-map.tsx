@@ -3,15 +3,24 @@
 import { useMemo } from 'react';
 import { Field, FieldZone } from '@/lib/types/field';
 import { SatelliteData } from '@/lib/mock-data/satellite-data';
-import { healthColors, brandColors, healthLabelEs } from '@/lib/design/tokens';
+import { healthColors, brandColors, healthLabelEs, zoneHealthMapColors } from '@/lib/design/tokens';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 interface FieldMapProps {
   field: Field;
   satelliteData: SatelliteData;
   satelliteSource?: string;
+  selectedZoneId?: string | null;
+  onZoneClick?: (zone: FieldZone) => void;
 }
 
-export default function FieldMap({ field, satelliteData, satelliteSource }: FieldMapProps) {
+export default function FieldMap({
+  field,
+  satelliteData,
+  satelliteSource,
+  selectedZoneId,
+  onZoneClick,
+}: FieldMapProps) {
   // Create SVG representation of the field with satellite data overlay
   const svgContent = useMemo(() => {
     // Handle both old field format and new multi-field format
@@ -142,14 +151,34 @@ export default function FieldMap({ field, satelliteData, satelliteSource }: Fiel
               )},${svgContent.scale(p.lat, svgContent.minLat, svgContent.maxLat)}`
           );
 
+          const strokeColor = zoneHealthMapColors[zone.health];
+          const selected = zone.id === selectedZoneId;
+
           return (
-            <g key={zone.id}>
+            <g
+              key={zone.id}
+              className={onZoneClick ? 'cursor-pointer' : undefined}
+              onClick={() => onZoneClick?.(zone)}
+              role={onZoneClick ? 'button' : undefined}
+              tabIndex={onZoneClick ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (onZoneClick && (e.key === 'Enter' || e.key === ' ')) {
+                  e.preventDefault();
+                  onZoneClick(zone);
+                }
+              }}
+            >
+              <title>
+                {zone.name} · {formatDecimal(zone.area)} ha ·{' '}
+                {healthLabelEs[zone.health]}
+              </title>
               <polygon
                 points={points.join(' ')}
-                fill="none"
-                stroke={brandColors.mistSlate}
-                strokeWidth="2"
-                opacity={0.6}
+                fill={strokeColor}
+                fillOpacity={selected ? 0.25 : 0.1}
+                stroke={strokeColor}
+                strokeWidth={selected ? 3 : 2}
+                opacity={0.9}
               />
               <text
                 x={svgContent.scale(

@@ -1,11 +1,13 @@
 import type { VisionAnalysis } from '@/lib/mock-data/vision-analyzer';
 import { analyzeImageMock } from '@/lib/mock-data/vision-analyzer';
+import { buildCropExpertSystemPrompt } from '@/lib/prompts/crop-expert';
+import { normalizeVisionAnalysis } from '@/lib/services/normalize-vision-analysis';
+import type { CropType } from '@/lib/mock-data/crops';
 
-const VISION_PROMPT = `You are an agricultural plant pathologist. Analyze crop images and return JSON with:
-overallHealth (excellent|good|warning|critical), healthScore (0-100), confidence (0-1),
-detectedDiseases (array with disease, confidence, severity, affectedArea, description, recommendations),
-leafCondition (color, spotting, wilt, necrosis booleans), moistureStatus, nutritionStatus.
-Return valid JSON only.`;
+function normalizeCropType(crop: string): CropType {
+  if (crop === 'maize' || crop === 'soy') return crop === 'maize' ? 'corn' : 'soybean';
+  return crop as CropType;
+}
 
 export async function analyzeCropImageMistral(
   imageBase64: string,
@@ -26,7 +28,7 @@ export async function analyzeCropImageMistral(
         messages: [
           {
             role: 'system',
-            content: `${VISION_PROMPT} Crop: ${cropType}.`,
+            content: buildCropExpertSystemPrompt(normalizeCropType(cropType)),
           },
           {
             role: 'user',
@@ -50,7 +52,7 @@ export async function analyzeCropImageMistral(
     if (!content) return analyzeImageMock();
 
     const parsed = JSON.parse(content) as Omit<VisionAnalysis, 'timestamp'>;
-    return { ...parsed, timestamp: new Date() };
+    return normalizeVisionAnalysis(parsed, normalizeCropType(cropType));
   } catch {
     return analyzeImageMock();
   }

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo, useEffect, Suspense } from 'react';
+import { useState, useMemo, useEffect, Suspense, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getDaysToMaturityForField } from '@/lib/mock-data/fields';
 import { useFields } from '@/hooks/use-fields';
 import type { SatelliteData } from '@/lib/mock-data/satellite-data';
@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { AlertCircle, Eye, TrendingUp, Loader2, FlaskConical } from 'lucide-react';
 import { isScienceCrop } from '@/lib/science/crops/registry';
+import type { ScienceCropId } from '@/lib/science/types';
 import FieldMap from '@/components/dashboard/field-map';
 import SatelliteMapPanel from '@/components/monitor/satellite-map-panel';
 import HealthMetrics from '@/components/dashboard/health-metrics';
@@ -59,11 +60,18 @@ import {
   type HealthLevel,
 } from '@/lib/design/tokens';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
+import { FieldContextBar } from '@/components/layout/field-context-bar';
+import { buildScienceUrl } from '@/lib/navigation/context-links';
+import { ZoneDetailSheet } from '@/components/fields/zone-detail-sheet';
+import type { FieldZone } from '@/lib/types/field';
 
 function MonitorContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const cropFilter = searchParams.get('crop');
-  const initialFieldId = searchParams.get('field') || 'field-1';
+  const initialFieldId = searchParams.get('field') || 'field-sj-norte';
+  const initialZoneId = searchParams.get('zone');
+  const initialAsOf = searchParams.get('asOf') ?? '';
   const { fields, loading, source, fetchError, getFieldById } = useFields();
 
   const visibleFields = useMemo(
@@ -77,7 +85,12 @@ function MonitorContent() {
     visibleFields.find((f) => f.id === initialFieldId) ??
     visibleFields[0] ??
     fields[0];
-  const [selectedZone, setSelectedZone] = useState(selectedField?.zones[0] ?? null);
+  const [selectedZone, setSelectedZone] = useState(() => {
+    if (initialZoneId && selectedField?.zones.find((z) => z.id === initialZoneId)) {
+      return selectedField.zones.find((z) => z.id === initialZoneId) ?? selectedField.zones[0] ?? null;
+    }
+    return selectedField?.zones[0] ?? null;
+  });
   const [satelliteData, setSatelliteData] = useState<SatelliteData | null>(null);
   const [trendData, setTrendData] = useState<
     Array<{ date: string; ndvi: string; ndmi: string }>
@@ -89,6 +102,9 @@ function MonitorContent() {
   const [metricsSource, setMetricsSource] = useState<'mock' | 'database'>('mock');
   const [scienceScore, setScienceScore] = useState<number | null>(null);
   const [scienceHealth, setScienceHealth] = useState<string | null>(null);
+  const [zoneDetailOpen, setZoneDetailOpen] = useState(false);
+  const [asOf, setAsOf] = useState(initialAsOf);
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [liveMetrics, setLiveMetrics] = useState<{
     ndvi?: number | null;
     ndmi?: number | null;
@@ -125,17 +141,22 @@ function MonitorContent() {
 
     const fallback = metricsFromZone(zone);
 
-    const zoneParam = zone.id ? `?zoneId=${encodeURIComponent(zone.id)}` : '';
-    fetch(`/api/fields/${selectedField.id}/metrics${zoneParam}`)
+    const params = new URLSearchParams();
+    if (zone.id) params.set('zoneId', zone.id);
+    if (asOf) params.set('asOf', asOf);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    fetch(`/api/fields/${selectedField.id}/metrics${qs}`)
       .then((r) =>
         parseJsonResponse<{
           metrics?: ReturnType<typeof metricsFromZone>;
           ndviGrid?: NdviGridPayload | null;
           source?: string;
+          metricsSource?: string;
           satelliteSource?: string;
           satellitePending?: boolean;
           missions?: string[];
           satelliteHistory?: MetricsHistoryPoint[];
+          availableDates?: string[];
         }>(r)
       )
       .then(({ data }) => {
@@ -151,7 +172,12 @@ function MonitorContent() {
             { satelliteSource: satSource }
           )
         );
-        setMetricsSource(data?.source === 'database' ? 'database' : 'mock');
+        setMetricsSource(
+          data?.metricsSource === 'database' || data?.source === 'database'
+            ? 'database'
+            : 'mock'
+        );
+        setAvailableDates(data?.availableDates ?? []);
         setSatelliteSource(satSource);
         setMissions(data?.missions ?? []);
         setLiveMetrics({
@@ -183,7 +209,7 @@ function MonitorContent() {
         setTrendData(trend.points);
         setTrendSynthetic(trend.synthetic);
       });
-  }, [selectedField, selectedZone]);
+  }, [selectedField, selectedZone, asOf]);
 
   useEffect(() => {
     if (!selectedField || !isScienceCrop(selectedField.crop)) {
@@ -193,8 +219,9 @@ function MonitorContent() {
     }
     const zone = selectedZone ?? selectedField.zones[0];
     if (!zone) return;
+    const asOfParam = asOf ? `&asOf=${encodeURIComponent(asOf)}` : '';
     fetch(
-      `/api/science/${selectedField.crop}/analysis?fieldId=${selectedField.id}&zoneId=${zone.id}`
+      `/api/science/${selectedField.crop}/analysis?fieldId=${selectedField.id}&zoneId=${zone.id}${asOfParam}`
     )
       .then((r) =>
         parseJsonResponse<{ fusionScore?: number; healthLabel?: string }>(r)
@@ -209,18 +236,69 @@ function MonitorContent() {
         setScienceScore(null);
         setScienceHealth(null);
       });
-  }, [selectedField, selectedZone]);
+  }, [selectedField, selectedZone, asOf]);
 
   const growthStage = useMemo(() => {
     if (!selectedField) return '—';
     return getGrowthStageEs(getDaysToMaturityForField(selectedField));
   }, [selectedField]);
 
+  const syncUrl = useCallback(
+    (
+      fieldId: string,
+      zoneId: string | undefined,
+      crop?: string,
+      nextAsOf?: string
+    ) => {
+      const params = new URLSearchParams();
+      params.set('field', fieldId);
+      if (zoneId) params.set('zone', zoneId);
+      if (crop) params.set('crop', crop);
+      if (nextAsOf) params.set('asOf', nextAsOf);
+      router.replace(`/monitor?${params.toString()}`, { scroll: false });
+    },
+    [router]
+  );
+
+  useEffect(() => {
+    const urlAsOf = searchParams.get('asOf');
+    if (urlAsOf) setAsOf(urlAsOf);
+  }, [searchParams]);
+
   const handleFieldChange = (fieldId: string) => {
     setSelectedFieldId(fieldId);
     const field = getFieldById(fieldId);
-    if (field) setSelectedZone(field.zones[0] ?? null);
+    const zone = field?.zones[0] ?? null;
+    if (zone) setSelectedZone(zone);
+    syncUrl(fieldId, zone?.id, cropFilter ?? undefined, asOf || undefined);
   };
+
+  const openZoneDetail = useCallback((zone: FieldZone) => {
+    setSelectedZone(zone);
+    syncUrl(selectedFieldId, zone.id, cropFilter ?? undefined, asOf || undefined);
+    setZoneDetailOpen(true);
+  }, [selectedFieldId, cropFilter, syncUrl]);
+
+  const handleZoneSelect = (zone: NonNullable<typeof selectedZone>) => {
+    setSelectedZone(zone);
+    syncUrl(selectedFieldId, zone.id, cropFilter ?? undefined, asOf || undefined);
+  };
+
+  const handleAsOfChange = (value: string) => {
+    const next = value === 'latest' ? '' : value;
+    setAsOf(next);
+    syncUrl(selectedFieldId, selectedZone?.id, cropFilter ?? undefined, next || undefined);
+  };
+
+  useEffect(() => {
+    if (initialZoneId && selectedField) {
+      const z = selectedField.zones.find((zone) => zone.id === initialZoneId);
+      if (z) {
+        setSelectedZone(z);
+        setZoneDetailOpen(true);
+      }
+    }
+  }, [initialZoneId, selectedField?.id]);
 
   if (loading) {
     return (
@@ -288,7 +366,17 @@ function MonitorContent() {
             )}
             {isScienceCrop(selectedField.crop) && scienceScore != null && (
               <Badge variant="outline" className="text-xs gap-1" asChild>
-                <Link href={`/science/${selectedField.crop}?field=${selectedField.id}`}>
+                <Link
+                  href={
+                    isScienceCrop(selectedField.crop)
+                      ? buildScienceUrl({
+                          fieldId: selectedField.id,
+                          zoneId: selectedZone?.id,
+                          crop: selectedField.crop as ScienceCropId,
+                        })
+                      : `/science`
+                  }
+                >
                   <FlaskConical className="h-3 w-3" />
                   Lab {formatDecimal(
                     typeof scienceScore === 'number' ? scienceScore * 100 : null,
@@ -301,19 +389,47 @@ function MonitorContent() {
           </div>
         }
         actions={
-          <Select value={selectedField.id} onValueChange={handleFieldChange}>
-            <SelectTrigger className="h-10 w-full min-w-0 sm:w-[min(100%,280px)]">
-              <SelectValue placeholder="Seleccionar campo" />
-            </SelectTrigger>
-            <SelectContent>
-              {visibleFields.map((field) => (
-                <SelectItem key={field.id} value={field.id}>
-                  {field.name} · {getCropLabelEs(field.crop)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center">
+            <Select value={selectedField.id} onValueChange={handleFieldChange}>
+              <SelectTrigger className="h-10 w-full min-w-0 sm:w-[min(100%,280px)]">
+                <SelectValue placeholder="Seleccionar campo" />
+              </SelectTrigger>
+              <SelectContent>
+                {visibleFields.map((field) => (
+                  <SelectItem key={field.id} value={field.id}>
+                    {field.name} — {field.locationLabel} · {getCropLabelEs(field.crop)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {availableDates.length > 0 && (
+              <Select value={asOf || 'latest'} onValueChange={handleAsOfChange}>
+                <SelectTrigger className="h-10 w-full min-w-0 sm:w-[200px]">
+                  <SelectValue placeholder="Fecha lectura" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="latest">Última en DB</SelectItem>
+                  {availableDates.map((d) => (
+                    <SelectItem key={d} value={d}>
+                      {formatDateEs(d)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         }
+      />
+
+      <FieldContextBar
+        fieldId={selectedField.id}
+        zoneId={selectedZone?.id}
+        crop={
+          isScienceCrop(selectedField.crop)
+            ? (selectedField.crop as ScienceCropId)
+            : undefined
+        }
+        currentPage="monitor"
       />
 
       {activeAlerts > 0 && (
@@ -337,9 +453,19 @@ function MonitorContent() {
           <Card className="glass-card min-w-0 overflow-hidden">
             <CardHeader>
               <CardTitle className="text-base sm:text-lg">Mapa satelital (Copernicus S2)</CardTitle>
+              {liveMetrics?.sceneDate && (
+                <p className="text-xs text-muted-foreground">
+                  Escena: {formatDateEs(liveMetrics.sceneDate)}
+                  {metricsSource === 'database' ? ' · lectura DB' : ''}
+                </p>
+              )}
             </CardHeader>
             <CardContent>
-              <SatelliteMapPanel field={selectedField} />
+              <SatelliteMapPanel
+                field={selectedField}
+                selectedZoneId={selectedZone?.id}
+                onZoneClick={openZoneDetail}
+              />
             </CardContent>
           </Card>
 
@@ -364,6 +490,8 @@ function MonitorContent() {
                 field={selectedField}
                 satelliteData={satelliteData}
                 satelliteSource={satelliteSource}
+                selectedZoneId={selectedZone?.id}
+                onZoneClick={openZoneDetail}
               />
             </CardContent>
           </Card>
@@ -430,7 +558,8 @@ function MonitorContent() {
               <ZoneGrid
                 zones={selectedField.zones}
                 selectedZone={selectedZone}
-                onZoneSelect={setSelectedZone}
+                onZoneSelect={handleZoneSelect}
+                onDetailClick={openZoneDetail}
               />
             </CardContent>
           </Card>
@@ -569,6 +698,12 @@ function MonitorContent() {
           <HealthMetrics satelliteData={satelliteData} trendHistory={trendData} />
         </div>
       </div>
+      <ZoneDetailSheet
+        zone={selectedZone}
+        field={selectedField}
+        open={zoneDetailOpen}
+        onOpenChange={setZoneDetailOpen}
+      />
     </PageContainer>
   );
 }

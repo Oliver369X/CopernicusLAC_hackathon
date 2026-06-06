@@ -1,7 +1,7 @@
 'use client';
 
 import type { FieldZone } from '@/lib/types/field';
-import { AlertCircle, TrendingUp } from 'lucide-react';
+import { AlertCircle, Eye, TrendingUp } from 'lucide-react';
 import { healthLabelEs, type HealthLevel } from '@/lib/design/tokens';
 import { formatDecimal } from '@/lib/i18n/format-number';
 
@@ -9,6 +9,7 @@ interface ZoneGridProps {
   zones: FieldZone[];
   selectedZone: FieldZone | null;
   onZoneSelect: (zone: FieldZone) => void;
+  onDetailClick?: (zone: FieldZone) => void;
 }
 
 const healthColors = {
@@ -29,6 +30,7 @@ export default function ZoneGrid({
   zones,
   selectedZone,
   onZoneSelect,
+  onDetailClick,
 }: ZoneGridProps) {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -41,11 +43,26 @@ export default function ZoneGrid({
             healthColors[zone.health]
           } ${selectedZone?.id === zone.id ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
         >
-          <div className="flex items-start justify-between mb-3">
+          <div className="flex items-start justify-between mb-3 gap-2">
             <h3 className="font-semibold text-foreground">{zone.name}</h3>
-            {zone.diseaseRisks.length > 0 && (
-              <AlertCircle className={`h-4 w-4 flex-shrink-0 ${healthText[zone.health]}`} />
-            )}
+            <div className="flex items-center gap-1">
+              {onDetailClick && (
+                <button
+                  type="button"
+                  aria-label={`Ver detalle de ${zone.name}`}
+                  className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-md hover:bg-muted/60"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDetailClick(zone);
+                  }}
+                >
+                  <Eye className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+              {zone.diseaseRisks.length > 0 && (
+                <AlertCircle className={`h-4 w-4 flex-shrink-0 ${healthText[zone.health]}`} />
+              )}
+            </div>
           </div>
 
           <div className="space-y-2 text-sm">

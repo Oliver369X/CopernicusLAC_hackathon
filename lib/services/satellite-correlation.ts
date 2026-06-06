@@ -82,9 +82,19 @@ export function correlateVisionWithSatellite(
     );
   } else if (visionBad && !satBad) {
     alignment = 'mixed';
-    recommendations.push(
-      'El daño visible es localizado; el promedio satelital aún no refleja caída fuerte — posible inicio de brote.'
-    );
+    const strongFieldSignal = vision.detectedDiseases.some((d) => {
+      const c = d.confidence <= 1 ? d.confidence : d.confidence / 100;
+      return c >= 0.75;
+    });
+    if (strongFieldSignal) {
+      recommendations.push(
+        'Patología confirmada en imagen de campo (alta confianza). El NDVI de zona es un promedio grueso — el brote visible requiere acción fitosanitaria aunque el satélite aún no baje.'
+      );
+    } else {
+      recommendations.push(
+        'Daño visible localizado; el promedio satelital aún no refleja caída fuerte — posible inicio de brote.'
+      );
+    }
   } else if (!visionBad && satBad) {
     alignment = 'conflicting';
     recommendations.push(

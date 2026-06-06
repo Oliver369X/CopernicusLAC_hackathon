@@ -34,8 +34,8 @@ function PhotoCaptureContent() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const { fields } = useFields();
-  const [fieldId, setFieldId] = useState('field-1');
-  const [zoneId, setZoneId] = useState('zone-1-a');
+  const [fieldId, setFieldId] = useState('field-sj-norte');
+  const [zoneId, setZoneId] = useState('zone-sj-n-1');
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [gpsData, setGpsData] = useState<{ lat: number; lng: number } | null>(null);
@@ -59,7 +59,7 @@ function PhotoCaptureContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (fields[0] && fieldId === 'field-1' && !fields.find((f) => f.id === fieldId)) {
+    if (fields[0] && fieldId === 'field-sj-norte' && !fields.find((f) => f.id === fieldId)) {
       setFieldId(fields[0].id);
       setZoneId(fields[0].zones[0]?.id ?? zoneId);
     }
@@ -176,7 +176,7 @@ function PhotoCaptureContent() {
         description="Elegí lote y zona, adjuntá la foto y opcionalmente GPS y notas para el diagnóstico IA."
       />
 
-      <div className="space-y-4 px-4">
+      <div className="space-y-4">
       <Card className="glass-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm">Campo y zona</CardTitle>

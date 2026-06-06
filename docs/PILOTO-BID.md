@@ -10,6 +10,21 @@ Validar adopción real con productores LAC: carga de parcelas sin fricción, dat
 - Shapefile, GeoJSON o CSV con polígonos (WKT o lat/lng)  
 - 1 dueño (owner) + hasta 2 técnicos (field_worker)  
 
+## Convivencia de tiers (pequeña agricultora + piloto BID)
+
+| Tier | Modelo | Rango ha | Zonas | Precio estimado |
+|------|--------|----------|-------|-----------------|
+| `free` | hectáreas | 0–5 | 1 / parcela | $0 |
+| `growth` | hectáreas | 6–20 | 1 / parcela | $1/ha/mes |
+| `scale` | hectáreas | 21–50 | 1–2 / parcela | $0.50/ha/mes |
+| `cooperative` | zonas | 51–500 | 4+ / lote | Piloto manual (TBD) |
+
+Fuente de verdad de límites y precios: `lib/billing/plans.ts`.
+
+- El **piloto BID** usa `plan_tier = cooperative` y `billing_model = zone`.
+- **Pequeña agricultora** se registra con perfil `small_farmer`; el import bloquea >50 ha.
+- La UI muestra costo estimado; el cobro en piloto sigue siendo manual hasta integrar Stripe.
+
 ## Criterios
 
 | Inclusión | Exclusión |

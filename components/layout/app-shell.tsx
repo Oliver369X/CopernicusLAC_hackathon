@@ -31,6 +31,7 @@ import {
 } from '@/lib/navigation/config';
 import { APP_NAME } from '@/lib/constants/app-brand';
 import { OnboardingGuard } from '@/components/auth/onboarding-guard';
+import { AuraAssistantFab } from '@/components/agents/aura-assistant-fab';
 
 function BrandMark({ className }: { className?: string }) {
   return (
@@ -304,6 +305,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <main className="min-w-0 flex-1 overflow-x-hidden page-gradient pb-[env(safe-area-inset-bottom)]">
             <OnboardingGuard>{children}</OnboardingGuard>
           </main>
+          <AuraAssistantFab />
         </div>
       </div>
     </TooltipProvider>

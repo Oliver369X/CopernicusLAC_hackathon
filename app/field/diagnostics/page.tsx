@@ -1,29 +1,19 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { getObservation } from '@/lib/offline-storage';
+import { getObservation, updateObservation } from '@/lib/offline-storage';
 import type { CorrelationAnalysis } from '@/lib/mock-data/vision-analyzer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { buildDiagnosticsView } from '@/lib/field/build-diagnostics-view';
+import { buildSpecialistReport } from '@/lib/diagnostics/build-specialist-report';
 import { Button } from '@/components/ui/button';
-import {
-  AlertCircle,
-  CheckCircle2,
-  Zap,
-  TrendingUp,
-  Leaf,
-  Loader2,
-} from 'lucide-react';
+import { Zap, Loader2, WifiOff } from 'lucide-react';
 import { FieldPageIntro } from '@/components/field/field-page-intro';
-import { formatDecimal } from '@/lib/i18n/format-number';
-import {
-  labelDiseaseName,
-  labelObservationSeverity,
-  labelOverallHealth,
-} from '@/lib/i18n/observation-labels';
+import { DiagnosticSpecialistReport } from '@/components/field/diagnostic-specialist-report';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
-import { cn } from '@/lib/utils';
+import { useFields } from '@/hooks/use-fields';
+import { getFieldById as getMockFieldById } from '@/lib/mock-data/fields';
 
 type SatelliteContext = {
   ndvi: number;
@@ -38,10 +28,17 @@ type SatelliteContext = {
 function DiagnosticsContent() {
   const searchParams = useSearchParams();
   const observationId = searchParams.get('observationId');
+  const { getFieldById } = useFields();
+
   const [loading, setLoading] = useState(!!observationId);
+  const [offlineMode, setOfflineMode] = useState(false);
   const [analysis, setAnalysis] = useState<CorrelationAnalysis | null>(null);
   const [satelliteContext, setSatelliteContext] = useState<SatelliteContext | null>(null);
   const [disclaimer, setDisclaimer] = useState('');
+  const [fieldId, setFieldId] = useState<string | undefined>();
+  const [zoneId, setZoneId] = useState<string | undefined>();
+  const [notes, setNotes] = useState<string | undefined>();
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | undefined>();
 
   useEffect(() => {
     async function runAnalysis() {
@@ -53,6 +50,35 @@ function DiagnosticsContent() {
       const local = await getObservation(observationId);
       if (!local?.imageData) {
         setLoading(false);
+        return;
+      }
+
+      setFieldId(local.fieldId);
+      setZoneId(local.zoneId);
+      setNotes(local.notes);
+      setCoordinates(local.location);
+
+      const cropForVision =
+        getFieldById(local.fieldId)?.crop ?? getMockFieldById(local.fieldId)?.crop;
+
+      const cached = local.visionAnalysis as CorrelationAnalysis | undefined;
+      if (cached?.overallHealth) {
+        setAnalysis(
+          buildDiagnosticsView({
+            visionAnalysis: cached,
+            crop: cropForVision,
+          })
+        );
+      }
+
+      if (!navigator.onLine) {
+        setOfflineMode(true);
+        setLoading(false);
+        if (!cached?.overallHealth) {
+          setDisclaimer(
+            'Sin conexión. La foto quedó guardada en el dispositivo. Volvé a abrir esta pantalla cuando tengas red para el análisis con IA.'
+          );
+        }
         return;
       }
 
@@ -68,41 +94,104 @@ function DiagnosticsContent() {
           }),
         });
         const { data } = await parseJsonResponse<{
-          correlation?: CorrelationAnalysis;
+          visionAnalysis?: CorrelationAnalysis;
+          correlation?: {
+            summary?: string;
+            recommendations?: string[];
+          };
           disclaimer?: string;
           satelliteContext?: SatelliteContext;
         }>(res);
-        if (data?.correlation) {
-          setAnalysis(data.correlation);
-          setDisclaimer(data.disclaimer ?? '');
-          if (data.satelliteContext) setSatelliteContext(data.satelliteContext);
+
+        const view = data
+          ? buildDiagnosticsView({ ...data, crop: cropForVision })
+          : null;
+        if (view) {
+          setAnalysis(view);
+          setDisclaimer(data?.disclaimer ?? '');
+          if (data?.satelliteContext) setSatelliteContext(data.satelliteContext);
+          await updateObservation(observationId, {
+            visionAnalysis: view as unknown as Record<string, unknown>,
+          });
+        }
+      } catch {
+        setOfflineMode(true);
+        if (!cached?.overallHealth) {
+          setDisclaimer(
+            'No se pudo contactar al servidor. La observación sigue guardada localmente.'
+          );
         }
       } finally {
         setLoading(false);
       }
     }
-    runAnalysis();
+    void runAnalysis();
   }, [observationId]);
+
+  const field = fieldId ? getFieldById(fieldId) : undefined;
+  const zone = field?.zones.find((z) => z.id === zoneId) ?? field?.zones[0];
+
+  const specialistReport = useMemo(() => {
+    if (!analysis) return null;
+    return buildSpecialistReport(analysis, {
+      observationId: observationId ?? undefined,
+      fieldName: field?.name ?? 'Lote de campo',
+      zoneName: zone?.name ?? 'Zona de manejo',
+      crop: field?.crop,
+      coordinates,
+      notes,
+      disclaimer,
+      satelliteContext: satelliteContext
+        ? {
+            ndvi: satelliteContext.ndvi,
+            ndmi: satelliteContext.ndmi,
+            ndre: satelliteContext.ndre,
+            s3Lst: satelliteContext.s3Lst,
+            s1MoistureIndex: satelliteContext.s1MoistureIndex,
+            stressPattern: satelliteContext.stressPattern,
+            source: satelliteContext.source,
+          }
+        : undefined,
+    });
+  }, [
+    analysis,
+    observationId,
+    field,
+    zone,
+    coordinates,
+    notes,
+    disclaimer,
+    satelliteContext,
+  ]);
 
   if (loading) {
     return (
       <div className="flex flex-col items-center gap-3 p-8 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm">Analizando imagen con IA...</p>
+        <p className="text-sm">Generando informe especialista...</p>
       </div>
     );
   }
 
-  if (!analysis) {
+  if (!analysis || !specialistReport) {
     return (
       <div className="space-y-4 pb-4">
         <FieldPageIntro
-          title="Sin diagnóstico aún"
-          description="Capturá una foto del cultivo para obtener análisis de visión e índices satelitales."
+          title={offlineMode ? 'Guardado sin conexión' : 'Sin diagnóstico aún'}
+          description={
+            offlineMode
+              ? disclaimer ||
+                'La foto está en el dispositivo. Conectate para analizarla con IA.'
+              : 'Capturá una foto del cultivo para obtener un informe fitosanitario profesional.'
+          }
         />
-        <div className="px-4 text-center">
-          <Zap className="mx-auto mb-4 h-12 w-12 text-muted-foreground opacity-30" />
-          <Button asChild className="h-11">
+        <div className="space-y-4 text-center">
+          {offlineMode ? (
+            <WifiOff className="mx-auto h-12 w-12 text-health-warning opacity-60" />
+          ) : (
+            <Zap className="mx-auto h-12 w-12 text-muted-foreground opacity-30" />
+          )}
+          <Button asChild className="h-11 min-w-[44px]">
             <Link href="/field/capture">Ir a captura</Link>
           </Button>
         </div>
@@ -110,175 +199,15 @@ function DiagnosticsContent() {
     );
   }
 
-  const isHealthy =
-    analysis.overallHealth === 'excellent' || analysis.overallHealth === 'good';
-
   return (
-    <div className="space-y-4 pb-4">
-      <FieldPageIntro
-        title={labelOverallHealth(analysis.overallHealth)}
-        description="Resultado combinado: visión en campo + contexto Copernicus"
-      />
-
-      <div className="space-y-3 px-4">
-        {disclaimer && (
-          <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">{disclaimer}</p>
-        )}
-
-        <Card
-          className={cn(
-            'glass-card',
-            isHealthy ? 'border-health-excellent/30' : 'border-health-warning/30'
-          )}
-        >
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              {isHealthy ? (
-                <CheckCircle2 className="h-5 w-5 text-health-excellent" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-health-warning" />
-              )}
-              Resumen del lote
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-3 text-sm sm:text-base">
-            <div>
-              <p className="text-muted-foreground">Índice de salud</p>
-              <p className="font-semibold tabular-nums">
-                {formatDecimal(analysis.healthScore, 0)}%
-              </p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Confianza</p>
-              <p className="font-semibold tabular-nums">
-                {formatDecimal(analysis.confidence, 0)}%
-              </p>
-            </div>
-            <div className="col-span-2">
-              <p className="text-muted-foreground">Riesgo agregado</p>
-              <p className="font-semibold tabular-nums">
-                {formatDecimal(analysis.riskScore, 0)}/100
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {analysis.detectedDiseases.length > 0 && (
-          <Card className="glass-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Leaf className="h-4 w-4" />
-                Hallazgos detectados
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {analysis.detectedDiseases.map((d) => (
-                <div
-                  key={d.disease}
-                  className="rounded-lg border border-border/60 p-3 text-sm"
-                >
-                  <p className="font-medium text-foreground">{labelDiseaseName(d.disease)}</p>
-                  <p className="mt-0.5 text-muted-foreground">
-                    Confianza {formatDecimal(d.confidence * 100, 0)}% · Severidad{' '}
-                    {labelObservationSeverity(d.severity)}
-                  </p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-
-        {satelliteContext && (
-          <Card className="glass-card border-primary/25">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <TrendingUp className="h-4 w-4" />
-                Contexto satélite Copernicus
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className="text-muted-foreground">NDVI</span>
-                <p className="font-semibold tabular-nums">
-                  {formatDecimal(satelliteContext.ndvi, 2)}
-                </p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">NDMI</span>
-                <p className="font-semibold tabular-nums">
-                  {formatDecimal(satelliteContext.ndmi, 2)}
-                </p>
-              </div>
-              {satelliteContext.ndre != null && (
-                <div>
-                  <span className="text-muted-foreground">NDRE</span>
-                  <p className="font-semibold tabular-nums">
-                    {formatDecimal(satelliteContext.ndre, 2)}
-                  </p>
-                </div>
-              )}
-              {satelliteContext.s3Lst != null && (
-                <div>
-                  <span className="text-muted-foreground">LST (S3)</span>
-                  <p className="font-semibold tabular-nums">
-                    {formatDecimal(satelliteContext.s3Lst, 1)}°C
-                  </p>
-                </div>
-              )}
-              {satelliteContext.s1MoistureIndex != null && (
-                <div>
-                  <span className="text-muted-foreground">Humedad S1</span>
-                  <p className="font-semibold tabular-nums">
-                    {formatDecimal(satelliteContext.s1MoistureIndex * 100, 0)}%
-                  </p>
-                </div>
-              )}
-              {satelliteContext.stressPattern && (
-                <div className="col-span-2 text-sm text-muted-foreground">
-                  Patrón: {satelliteContext.stressPattern}
-                  {satelliteContext.source ? ` · ${satelliteContext.source}` : ''}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {analysis.satelliteInsights.length > 0 && (
-          <Card className="glass-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Correlación satelital</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                {analysis.satelliteInsights.map((insight) => (
-                  <li key={insight} className="flex gap-2">
-                    <span className="text-primary">•</span>
-                    {insight}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-
-        {analysis.combinedRecommendations.length > 0 && (
-          <Card className="glass-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Recomendaciones</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm">
-                {analysis.combinedRecommendations.map((rec) => (
-                  <li key={rec} className="flex gap-2">
-                    <span className="text-primary">→</span>
-                    {rec}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+    <div className="space-y-3 pb-2 pt-1">
+      {offlineMode && (
+        <p className="flex items-start gap-2 rounded-lg border border-health-warning/40 bg-health-warning/10 p-2.5 text-xs text-muted-foreground sm:p-3 sm:text-sm">
+          <WifiOff className="mt-0.5 h-4 w-4 shrink-0" />
+          Mostrando último análisis guardado en el dispositivo.
+        </p>
+      )}
+      <DiagnosticSpecialistReport report={specialistReport} />
     </div>
   );
 }

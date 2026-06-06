@@ -30,7 +30,8 @@ export function metricStateIcon(state: MetricDataState): string {
   return icons[state];
 }
 
-export function formatDataSourceLabel(source: string): string {
+export function formatDataSourceLabel(source: string | undefined | null): string {
+  if (!source?.trim()) return 'Fuente desconocida';
   const key = source.toLowerCase().trim();
   return SOURCE_LABELS[key] ?? source.charAt(0).toUpperCase() + source.slice(1);
 }

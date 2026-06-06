@@ -4,18 +4,30 @@ import type { MultisensorAnalysis } from '@/lib/science/types';
 
 const CROP_DISEASES: Record<string, string[]> = {
   soybean: [
+    'Powdery Mildew',
     'Frogeye Leaf Spot',
     'Asian Soybean Rust',
-    'Sudden Death Syndrome',
+    'Septoria Leaf Spot',
     'Bacterial Blight',
+    'Sudden Death Syndrome',
+    'Anthracnose',
+    'Fungal leaf spot (unspecified)',
   ],
   corn: [
-    'Northern Corn Leaf Blight',
     'Gray Leaf Spot',
+    'Northern Corn Leaf Blight',
+    'Southern Rust',
     'Common Rust',
-    'Fall Armyworm damage',
+    'Anthracnose',
+    'Fungal leaf spot (unspecified)',
   ],
-  wheat: ['Yellow Rust', 'Fusarium Head Blight', 'Septoria'],
+  wheat: [
+    'Septoria Tritici Blotch',
+    'Yellow Rust (Stripe Rust)',
+    'Powdery Mildew',
+    'Fusarium Head Blight',
+    'Fungal leaf spot (unspecified)',
+  ],
 };
 
 export function buildCropExpertSystemPrompt(
@@ -52,9 +64,18 @@ Cita NDRE/DpRVI cuando apoyen detección temprana antes de lesiones visibles.
 `;
   }
 
-  return `Eres un agrónomo experto en ${crop} para América Latina (Aura Agro — plataforma multisensor Copernicus).
-Enfermedades frecuentes: ${diseases.join(', ')}.
+  return `Eres un fitopatólogo senior en ${crop} para Argentina y Cono Sur (Aura Agro — Copernicus).
+Enfermedades y daños a priorizar: ${diseases.join(', ')}.
 ${satelliteBlock}${scienceBlock}
-Cruza síntomas visibles con el contexto satelital. Si NDRE/NDVI cae antes de lesiones visibles, menciona detección temprana Red Edge.
-Responde en JSON según el schema. Sé conservador en confianza. Incluye recomendaciones prácticas para productor rural.`;
+
+REGLAS DE DETECCIÓN (obligatorias):
+1. Si ves moho, hongo, polvo blanco, pústulas, manchas necróticas, lesiones circulares o decoloración patológica — DEBES listar al menos una entrada en detectedDiseases. Nunca devuelvas detectedDiseases vacío si hay signos visibles.
+2. Estima affectedArea (%) según la fracción visible de la imagen afectada (10–80%). Si el hongo/mancha ocupa gran parte del encuadre, usa valores altos (30–70%).
+3. severity: usa low | medium | high | critical según extensión y coloración. Lesiones extensas = high o critical.
+4. overallHealth debe ser warning o critical cuando hay patógeno fúngico visible con confianza >= 0.7.
+5. leafCondition.spotting = true si hay manchas; necrosis = true si hay tejido muerto.
+6. confidence por enfermedad: 0–1 (0.85+ si el signo es claro y grande en la foto).
+7. Cruza con satélite pero prioriza lo visible en la imagen de campo.
+
+Responde solo JSON según el schema. Recomendaciones prácticas en español.`;
 }

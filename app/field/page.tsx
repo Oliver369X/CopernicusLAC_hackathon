@@ -25,7 +25,7 @@ import {
 import { prefetchFieldMapTiles } from '@/lib/offline-map-cache';
 import { boundsToBbox } from '@/lib/services/copernicus/bounds';
 import { toast } from 'sonner';
-import { ConnectionStatus, OfflineMapBadge } from '@/components/field/connection-status';
+import { OfflineMapBadge } from '@/components/field/connection-status';
 import { FieldPageIntro } from '@/components/field/field-page-intro';
 import { FieldActionLink } from '@/components/field/field-action-link';
 import { FieldMetricTile } from '@/components/field/field-metric-tile';
@@ -97,11 +97,9 @@ export default function FieldMonitoring() {
   const captureHref = `/field/capture?field=${selectedField.id}&zoneId=${selectedZone.id}`;
 
   return (
-    <div className="space-y-4 pb-4">
-      <ConnectionStatus />
-
+    <div className="space-y-4 pb-2 pt-1">
       {fetchError && (
-        <p className="mx-4 rounded-lg border border-health-warning/40 bg-health-warning/10 px-4 py-3 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-health-warning/40 bg-health-warning/10 px-3 py-2.5 text-xs text-muted-foreground sm:text-sm">
           {fetchError}. Usando datos de demostración.
         </p>
       )}
@@ -111,7 +109,7 @@ export default function FieldMonitoring() {
         description={`${getCropLabelEs(selectedField.crop)} · ${selectedZone.name} · índices y acciones rápidas`}
       />
 
-      <div className="space-y-3 px-4">
+      <div className="space-y-3">
         <Card className="glass-card">
           <CardContent className="space-y-3 p-4 pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">

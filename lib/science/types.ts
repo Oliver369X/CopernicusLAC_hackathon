@@ -67,6 +67,21 @@ export interface MultisensorAnalysis {
   source: 'database' | 'live' | 'mock';
   algorithmVersion?: string;
   productionClass?: string | null;
+  provenance?: AnalysisProvenance;
+}
+
+export interface AnalysisProvenance {
+  readingDate: string;
+  sceneDate: string | null;
+  capturedAt: string;
+  dataSource: 'database' | 'live' | 'mock';
+  availableDates: string[];
+  liveFetchUsed: boolean;
+}
+
+export interface AnalyzeOptions {
+  asOfDate?: string;
+  allowLiveFetch?: boolean;
 }
 
 export interface ScienceExperimentRecord {

@@ -30,9 +30,12 @@ import {
   getCropLabelEs,
 } from '@/lib/design/tokens';
 import { formatDecimal } from '@/lib/i18n/format-number';
+import { downloadReportPdf } from '@/lib/reports/download-pdf-client';
+import { toast } from 'sonner';
 
 export default function Analytics() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'season'>('month');
+  const [pdfLoading, setPdfLoading] = useState(false);
   const [riskTimeline, setRiskTimeline] = useState<SatelliteRiskPoint[]>([]);
   const { fields } = useFields();
   const { summary } = useAnalyticsSummary();
@@ -131,8 +134,16 @@ export default function Analytics() {
     window.location.href = '/api/reports/csv?range=month';
   }
 
-  function downloadPdf() {
-    window.location.href = '/api/reports/pdf';
+  async function downloadPdf() {
+    setPdfLoading(true);
+    try {
+      await downloadReportPdf();
+      toast.success('Informe PDF descargado');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'No se pudo descargar el PDF');
+    } finally {
+      setPdfLoading(false);
+    }
   }
 
   const timeRangeLabel =
@@ -372,9 +383,13 @@ export default function Analytics() {
       </FadeIn>
 
       <div className="flex justify-end pb-2">
-        <Button className="h-11 gap-2 px-5 text-sm sm:text-base" onClick={downloadPdf}>
+        <Button
+          className="h-11 gap-2 px-5 text-sm sm:text-base"
+          onClick={() => void downloadPdf()}
+          disabled={pdfLoading}
+        >
           <Download className="h-4 w-4" />
-          Exportar informe (PDF)
+          {pdfLoading ? 'Generando PDF…' : 'Exportar informe (PDF)'}
         </Button>
       </div>
     </PageContainer>

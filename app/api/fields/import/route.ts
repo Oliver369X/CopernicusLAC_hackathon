@@ -4,6 +4,15 @@ import { parseImportFile } from '@/lib/parcel-import/parse-file';
 import { validateImportParcels } from '@/lib/parcel-import/validate-import';
 import { persistImportParcels } from '@/lib/parcel-import/persist';
 import { createImportJob, triggerOnboardingBackfill } from '@/lib/import-jobs/enqueue-backfill';
+import { getOrgHectareUsage } from '@/lib/billing/usage';
+import { validateImportAgainstPlan } from '@/lib/billing/enforce';
+import { buildOrgBillingProfile } from '@/lib/billing/profile';
+import { estimateMonthlyUsd, usagePercent } from '@/lib/billing/plans';
+import type { ImportBillingPreview } from '@/lib/billing/types';
+
+function sumImportHa(parcels: { areaHa: number }[]): number {
+  return parcels.reduce((s, p) => s + p.areaHa, 0);
+}
 
 export async function POST(request: Request) {
   const org = await getSessionOrg();
@@ -16,7 +25,7 @@ export async function POST(request: Request) {
 
   const url = new URL(request.url);
   const dryRun = url.searchParams.get('dryRun') === '1';
-  const zoneSplit = Number(url.searchParams.get('zoneSplit') ?? 4);
+  const requestedZoneSplit = Number(url.searchParams.get('zoneSplit') ?? 4);
   const form = await request.formData();
   const file = form.get('file');
   if (!(file instanceof File)) {
@@ -31,8 +40,54 @@ export async function POST(request: Request) {
   );
   const preview = validateImportParcels(parcels, parseErrors);
 
+  const usage = await getOrgHectareUsage(org.orgId);
+  const importHa = sumImportHa(preview.parcels);
+
+  const enforcement = validateImportAgainstPlan({
+    billingModel: org.billingModel,
+    planTier: org.planTier,
+    maxZoneSplit: org.maxZoneSplit,
+    currentTotalHa: usage.totalHa,
+    importTotalHa: importHa,
+    requestedZoneSplit,
+    isDryRun: dryRun,
+  });
+
+  if (!enforcement.ok) {
+    return NextResponse.json(
+      { error: enforcement.message, code: enforcement.code, ...preview },
+      { status: 422 }
+    );
+  }
+
+  const effectiveZoneSplit = enforcement.effectiveZoneSplit;
+  const projectedTotalHa = usage.totalHa + importHa;
+  const billingProfile = buildOrgBillingProfile(
+    {
+      billing_model: org.billingModel,
+      plan_tier: org.planTier,
+      hectare_limit: org.hectareLimit,
+      max_zone_split: org.maxZoneSplit,
+    },
+    projectedTotalHa
+  );
+
+  const billingPreview: ImportBillingPreview = {
+    projectedTotalHa,
+    estimatedMonthlyUsd: estimateMonthlyUsd(projectedTotalHa, org.billingModel),
+    hectareLimit: billingProfile.hectareLimit,
+    usagePercent: usagePercent(projectedTotalHa, billingProfile.hectareLimit),
+  };
+
+  const mergedWarnings = [...preview.warnings, ...enforcement.warnings];
+
   if (dryRun) {
-    return NextResponse.json(preview);
+    return NextResponse.json({
+      ...preview,
+      warnings: mergedWarnings,
+      billing: billingPreview,
+      effectiveZoneSplit,
+    });
   }
 
   const errorRate =
@@ -55,7 +110,7 @@ export async function POST(request: Request) {
   const { fieldIds, zoneIds } = await persistImportParcels(
     org.orgId,
     preview.parcels,
-    Math.min(8, Math.max(1, zoneSplit))
+    effectiveZoneSplit
   );
 
   const jobId = await createImportJob(org.orgId, zoneIds.length);
@@ -71,7 +126,8 @@ export async function POST(request: Request) {
     fieldIds,
     zoneCount: zoneIds.length,
     importJobId: jobId,
-    warnings: preview.warnings,
+    warnings: mergedWarnings,
     errors: preview.errors,
+    billing: billingPreview,
   });
 }

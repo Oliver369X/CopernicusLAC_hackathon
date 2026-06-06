@@ -2,8 +2,10 @@
 
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
-import type { Field } from '@/lib/types/field';
+import type { Field, FieldZone } from '@/lib/types/field';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { DEMO_SENTINEL_TILE } from '@/lib/geo/demo-region';
 
 const SatelliteMap = dynamic(() => import('./satellite-map'), {
   ssr: false,
@@ -14,9 +16,15 @@ const SatelliteMap = dynamic(() => import('./satellite-map'), {
 
 interface SatelliteMapPanelProps {
   field: Field;
+  selectedZoneId?: string | null;
+  onZoneClick?: (zone: FieldZone) => void;
 }
 
-export default function SatelliteMapPanel({ field }: SatelliteMapPanelProps) {
+export default function SatelliteMapPanel({
+  field,
+  selectedZoneId,
+  onZoneClick,
+}: SatelliteMapPanelProps) {
   const [layer, setLayer] = useState<'ndvi' | 'ndre' | 'truecolor'>('ndre');
 
   return (
@@ -47,10 +55,20 @@ export default function SatelliteMapPanel({ field }: SatelliteMapPanelProps) {
           Color real (S2)
         </Button>
       </div>
-      <SatelliteMap field={field} layer={layer} />
-      <p className="text-xs text-muted-foreground">
-        Imágenes vía Copernicus Data Space (Sentinel-2 L2A). Tokens en servidor.
-      </p>
+      <SatelliteMap
+        field={field}
+        layer={layer}
+        selectedZoneId={selectedZoneId}
+        onZoneClick={onZoneClick}
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="secondary" className="text-xs font-normal">
+          Santa Cruz · tile {DEMO_SENTINEL_TILE} · San Julián
+        </Badge>
+        <p className="text-xs text-muted-foreground">
+          Copernicus Data Space (Sentinel-2 L2A)
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useInsightsContext } from '@/hooks/use-insights-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,9 @@ import { NdviYieldScatterChart } from '@/components/charts/ndvi-yield-scatter-ch
 import { formatDecimal, roundDecimal } from '@/lib/i18n/format-number';
 import { RecommendationCard } from '@/components/insights/recommendation-card';
 import { InsightsAgentPanel } from '@/components/agents/insights-agent-panel';
+import { FieldContextBar } from '@/components/layout/field-context-bar';
+import { isScienceCrop } from '@/lib/science/crops/registry';
+import type { ScienceCropId } from '@/lib/science/types';
 import { FadeIn, StaggerList } from '@/components/ui/motion';
 import { TrendingUp, AlertTriangle, Leaf, Droplets, Thermometer, BarChart3, Satellite } from 'lucide-react';
 import {
@@ -28,8 +32,14 @@ const envBarClass: Record<EnvStatusKey, string> = {
   Critical: 'bg-health-critical',
 };
 
-export default function Insights() {
-  const { summary, context, loading, error, hasSatelliteData } = useInsightsContext();
+function InsightsContent() {
+  const searchParams = useSearchParams();
+  const contextFieldId = searchParams.get('field') ?? undefined;
+  const contextZoneId = searchParams.get('zone') ?? undefined;
+  const { fields, summary, context, loading, error, hasSatelliteData } = useInsightsContext();
+  const contextField = contextFieldId
+    ? fields.find((f) => f.id === contextFieldId)
+    : undefined;
 
   const correlationData = useMemo(() => {
     if (!context?.correlationData?.length) return [];
@@ -132,6 +142,19 @@ export default function Insights() {
         title="Perspectivas avanzadas"
         description="Análisis profundo y recomendaciones accionables basadas en datos satelitales y de campo."
       />
+
+      {contextFieldId && contextField && (
+        <FieldContextBar
+          fieldId={contextFieldId}
+          zoneId={contextZoneId}
+          crop={
+            isScienceCrop(contextField.crop)
+              ? (contextField.crop as ScienceCropId)
+              : undefined
+          }
+          currentPage="insights"
+        />
+      )}
 
       {!hasSatelliteData && (
         <Card className="glass-card border-health-warning/40 bg-health-warning/5">
@@ -407,7 +430,31 @@ export default function Insights() {
         </CardContent>
       </Card>
 
-      <InsightsAgentPanel />
+      <Suspense
+        fallback={
+          <Card className="glass-card">
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              Cargando asistente…
+            </CardContent>
+          </Card>
+        }
+      >
+        <InsightsAgentPanel />
+      </Suspense>
     </PageContainer>
+  );
+}
+
+export default function Insights() {
+  return (
+    <Suspense
+      fallback={
+        <PageContainer size="wide">
+          <PageHeader title="Perspectivas avanzadas" description="Cargando…" />
+        </PageContainer>
+      }
+    >
+      <InsightsContent />
+    </Suspense>
   );
 }

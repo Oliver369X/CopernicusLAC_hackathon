@@ -5,6 +5,8 @@ export interface AgentChatRequest {
   sessionId?: string;
   fieldId?: string;
   zoneId?: string;
+  /** Contexto de pantalla para explicar datos visibles al usuario. */
+  screenContext?: string;
 }
 
 export interface AgentChatResponse {

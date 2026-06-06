@@ -93,6 +93,24 @@ export async function getUnsyncedObservations(): Promise<StoredObservation[]> {
   return all.filter((obs) => !obs.synced);
 }
 
+export async function updateObservation(
+  id: string,
+  patch: Partial<StoredObservation>
+): Promise<void> {
+  const existing = await getObservation(id);
+  if (!existing) return;
+
+  const database = await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction([STORE_NAME], 'readwrite');
+    const store = transaction.objectStore(STORE_NAME);
+    const request = store.put({ ...existing, ...patch, id: existing.id });
+
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve();
+  });
+}
+
 export async function markAsSynced(id: string): Promise<void> {
   const database = await initDB();
   const observation = await getObservation(id);

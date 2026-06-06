@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     zoneId?: string;
   };
 
-  const { observationId, imageData, fieldId = 'field-1', zoneId } = body;
+  const { observationId, imageData, fieldId = 'field-sj-norte', zoneId } = body;
 
   let image = imageData;
   const service =

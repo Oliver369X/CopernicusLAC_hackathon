@@ -107,7 +107,7 @@ export default function History() {
         description={`${countLabel} en campo y laboratorio. Tocá una tarjeta para ver el diagnóstico.`}
       />
 
-      <div className="space-y-3 px-4">
+      <div className="space-y-3">
         {observations.length === 0 ? (
           <Card className="glass-card">
             <CardContent className="py-8 text-center">

@@ -1,6 +1,13 @@
 import type { DbClient } from '@/lib/db/adapter';
 import type { Field } from '@/lib/types/field';
-import { getSatelliteHistoryForZone } from '@/lib/data/zone-satellite-metrics';
+import {
+  getSatelliteHistoryForZone,
+  getSatelliteReadingForZoneOnDate,
+  getNearestReadingOnOrBefore,
+  listAvailableReadingDates,
+  getSatelliteReadingsForZoneRange,
+  type ZoneSatelliteSnapshot,
+} from '@/lib/data/zone-satellite-metrics';
 import { fetchS2ExtendedStatistics, fetchS1ExtendedStatistics } from '@/lib/services/copernicus/statistics';
 import { estimateS1Textures } from '@/lib/services/copernicus/process-textures';
 import { hasSatelliteCredentialsConfigured } from '@/lib/config/satellite';
@@ -14,20 +21,117 @@ import {
 } from './phenology/temporal-signature';
 import { detectParcelOutlier } from './phenology/outlier-detector';
 import { getScienceProfile, isScienceCrop } from './crops/registry';
-import type { MultisensorAnalysis, ScienceCropId } from './types';
+import type { AnalyzeOptions, MultisensorAnalysis, ScienceCropId } from './types';
 import { enrichWithMl } from './ml/predict';
 import { SCIENCE_ALGORITHM_VERSION } from './version';
 import { inferProductionClass } from './agroforestry/classifier';
+import { isGeodataEnabled } from '@/lib/integrations/geodata/registry';
+import { getParcelKeyForField } from '@/lib/integrations/geodata/registry';
+import { getParcelIntelligence } from '@/lib/integrations/geodata/client';
+import { enrichAnalysisWithGeodata } from '@/lib/integrations/geodata/mapper';
+
+function snapshotToOpticalRadar(
+  snapshot: ZoneSatelliteSnapshot,
+  meta?: Record<string, unknown>
+) {
+  const optical = opticalFromStats({
+    ndvi: snapshot.ndvi,
+    ndre: snapshot.ndre ?? snapshot.ndvi * 0.85,
+    ndmi: snapshot.ndmi,
+    evi: meta?.evi as number | undefined,
+    ...(meta?.optical as Record<string, number | undefined> | undefined),
+  });
+  let radar = radarFromStats({});
+  if (meta?.s1_vv != null && meta?.s1_vh != null) {
+    const vv = Number(meta.s1_vv);
+    const vh = Number(meta.s1_vh);
+    radar = radarFromStats({
+      vv,
+      vh,
+      dpRvi: (meta?.dpRvi as number) ?? computeDpRvi(vv, vh),
+      rvi: computeRvi(vv, vh),
+      ...(meta?.radar as Record<string, number | undefined> | undefined),
+    });
+  }
+  const lst = (meta?.lst as number) ?? snapshot.s3Lst ?? null;
+  return { optical, radar, lst };
+}
+
+function historyFromRows(
+  rows: Array<{
+    captured_at: string;
+    ndvi: number;
+    ndre?: number | null;
+    s1_vv?: number | null;
+    s1_vh?: number | null;
+    science_metadata?: { dpRvi?: number } | null;
+  }>
+): TimeSeriesPoint[] {
+  return rows.map((r) => ({
+    capturedAt: r.captured_at,
+    ndvi: r.ndvi,
+    ndre: r.ndre,
+    dpRvi:
+      r.science_metadata?.dpRvi ??
+      (r.s1_vv && r.s1_vh ? computeDpRvi(r.s1_vv, r.s1_vh) : null),
+  }));
+}
 
 export async function analyzeCropMultisensor(
   crop: ScienceCropId,
   field: Field,
   zoneId: string,
-  service: DbClient | null
+  service: DbClient | null,
+  options?: AnalyzeOptions
 ): Promise<MultisensorAnalysis> {
   const zone = field.zones.find((z) => z.id === zoneId) ?? field.zones[0];
   const profile = getScienceProfile(crop);
-  const capturedAt = new Date().toISOString();
+  const allowLiveFetch = options?.allowLiveFetch === true;
+  let liveFetchUsed = false;
+
+  let availableDates: string[] = [];
+  let readingDate = options?.asOfDate ?? '';
+  let snapshot: ZoneSatelliteSnapshot | null = null;
+  let sceneDate: string | null = null;
+  let capturedAt = new Date().toISOString();
+
+  if (service) {
+    availableDates = await listAvailableReadingDates(service, zone.id);
+
+    if (!readingDate && availableDates.length > 0) {
+      readingDate = availableDates[0];
+    }
+    if (!readingDate) {
+      readingDate = new Date().toISOString().split('T')[0];
+    }
+
+    if (options?.asOfDate) {
+      snapshot = await getSatelliteReadingForZoneOnDate(
+        service,
+        zone.id,
+        options.asOfDate
+      );
+      if (!snapshot) {
+        snapshot = await getNearestReadingOnOrBefore(
+          service,
+          zone.id,
+          options.asOfDate
+        );
+      }
+      if (snapshot?.readingDate) {
+        readingDate = snapshot.readingDate;
+      }
+    } else if (availableDates.length > 0) {
+      snapshot = await getSatelliteReadingForZoneOnDate(
+        service,
+        zone.id,
+        availableDates[0]
+      );
+      readingDate = availableDates[0];
+    }
+  } else if (!readingDate) {
+    readingDate = new Date().toISOString().split('T')[0];
+  }
 
   let history: TimeSeriesPoint[] = [];
   let optical = opticalFromStats({
@@ -37,48 +141,52 @@ export async function analyzeCropMultisensor(
   });
   let radar = radarFromStats({});
   let lst: number | null = null;
-  let source: MultisensorAnalysis['source'] = hasSatelliteCredentialsConfigured()
-    ? 'live'
-    : 'mock';
+  let source: MultisensorAnalysis['source'] = 'mock';
 
   if (service) {
-    const rows = await getSatelliteHistoryForZone(service, zone.id, 90);
-    history = rows.map((r) => ({
-      capturedAt: r.captured_at,
-      ndvi: r.ndvi,
-      ndre: r.ndre,
-      dpRvi:
-        r.science_metadata?.dpRvi ??
-        (r.s1_vv && r.s1_vh ? computeDpRvi(r.s1_vv, r.s1_vh) : null),
-    }));
+    const rangeEnd = readingDate;
+    const rangeStart = new Date(`${rangeEnd}T12:00:00Z`);
+    rangeStart.setUTCDate(rangeStart.getUTCDate() - 90);
+    const fromStr = rangeStart.toISOString().split('T')[0];
 
-    const latest = rows[0];
-    const meta = latest?.science_metadata as Record<string, unknown> | undefined;
-    if (latest) {
-      optical = opticalFromStats({
-        ndvi: latest.ndvi,
-        ndre: latest.ndre,
-        ndmi: latest.ndmi,
-        evi: meta?.evi as number | undefined,
-        ...(meta?.optical as Record<string, number | undefined> | undefined),
-      });
-      if (latest.s1_vv != null && latest.s1_vh != null) {
-        radar = radarFromStats({
-          vv: latest.s1_vv,
-          vh: latest.s1_vh,
-          dpRvi: (meta?.dpRvi as number) ?? computeDpRvi(latest.s1_vv, latest.s1_vh),
-          rvi: computeRvi(latest.s1_vv, latest.s1_vh),
-          ...(meta?.radar as Record<string, number | undefined> | undefined),
-        });
+    const rangeRows = await getSatelliteReadingsForZoneRange(
+      service,
+      zone.id,
+      fromStr,
+      rangeEnd
+    );
+    history =
+      rangeRows.length > 0
+        ? historyFromRows(rangeRows)
+        : historyFromRows(await getSatelliteHistoryForZone(service, zone.id, 90));
+
+    if (snapshot) {
+      const { data: metaRow } = await service
+        .from('satellite_readings')
+        .select('science_metadata, s1_vv, s1_vh')
+        .eq('zone_id', zone.id)
+        .eq('reading_date', readingDate)
+        .maybeSingle();
+
+      const meta = (metaRow?.science_metadata ?? {}) as Record<string, unknown>;
+      if (metaRow) {
+        meta.s1_vv = metaRow.s1_vv;
+        meta.s1_vh = metaRow.s1_vh;
       }
-      lst = (meta?.lst as number) ?? null;
+
+      const fromSnap = snapshotToOpticalRadar(snapshot, meta);
+      optical = fromSnap.optical;
+      radar = fromSnap.radar;
+      lst = fromSnap.lst;
+      sceneDate = snapshot.sceneDate;
+      capturedAt = snapshot.capturedAt;
       source = 'database';
-    } else if (hasSatelliteCredentialsConfigured()) {
-      source = 'live';
+    } else if (!allowLiveFetch) {
+      source = 'mock';
     }
   }
 
-  if (process.env.COPERNICUS_CLIENT_ID) {
+  if (allowLiveFetch && hasSatelliteCredentialsConfigured() && process.env.COPERNICUS_CLIENT_ID) {
     try {
       const copernicusTimeoutMs = 12_000;
       const withTimeout = <T>(promise: Promise<T>): Promise<T> =>
@@ -106,6 +214,8 @@ export async function analyzeCropMultisensor(
           redsi: s2.redsi,
         });
         source = 'live';
+        liveFetchUsed = true;
+        sceneDate = s2.sceneDate ?? sceneDate;
       }
       if (s1.vv != null && s1.vh != null) {
         radar = radarFromStats({
@@ -120,7 +230,7 @@ export async function analyzeCropMultisensor(
         if (tex) radar = { ...radar, sarContrast: tex.contrast, sarHomogeneity: tex.homogeneity };
       }
     } catch {
-      // keep DB values
+      if (!snapshot) source = 'mock';
     }
   }
 
@@ -159,6 +269,26 @@ export async function analyzeCropMultisensor(
   analysis = enrichWithMl(analysis, field);
   analysis.productionClass = productionClass;
   analysis.algorithmVersion = SCIENCE_ALGORITHM_VERSION;
+  analysis.provenance = {
+    readingDate,
+    sceneDate,
+    capturedAt,
+    dataSource: source,
+    availableDates,
+    liveFetchUsed,
+  };
+
+  if (isGeodataEnabled()) {
+    try {
+      const parcelKey = getParcelKeyForField(field.id);
+      if (parcelKey) {
+        const pkg = await getParcelIntelligence(parcelKey);
+        if (pkg) analysis = enrichAnalysisWithGeodata(analysis, pkg);
+      }
+    } catch {
+      // DB-first intacto
+    }
+  }
 
   return analysis;
 }

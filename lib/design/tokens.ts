@@ -5,24 +5,30 @@ import type { CSSProperties } from 'react';
  * Keep in sync with app/globals.css — update both when changing the palette.
  */
 
+/** @sync app/globals.css */
 export const brandColors = {
-  copernicusTeal: '#4a7c6f',
-  copernicusTealDim: '#3d6b5f',
+  auraGreen: '#16B57D',
+  auraOrange: '#F2A021',
+  auraNight: '#0A0A0F',
+  auraSlate: '#70757F',
+  /** @deprecated use auraGreen */
+  copernicusTeal: '#16B57D',
+  copernicusTealDim: '#12966A',
   earthGreen: '#3d7a57',
   earthGreenDim: '#2f6245',
-  soilAmber: '#b45309',
-  oceanDeep: '#0c1117',
+  soilAmber: '#F2A021',
+  oceanDeep: '#0A0A0F',
   surfaceElevated: '#141a22',
   mistSlate: '#94a3b8',
-  border: '#2a3544',
+  border: 'rgba(255, 255, 255, 0.07)',
   foregroundMuted: '#e2e8f0',
 } as const;
 
 /** Ordered palette for pie/bar series */
 export const chartColors = [
-  brandColors.copernicusTeal,
+  brandColors.auraGreen,
   brandColors.earthGreen,
-  brandColors.soilAmber,
+  brandColors.auraOrange,
   '#a78bfa',
   '#f472b6',
 ] as const;
@@ -35,6 +41,14 @@ export const healthColors = {
 } as const;
 
 export type HealthLevel = keyof typeof healthColors;
+
+/** Colores de polígonos por salud (mapa táctico) */
+export const zoneHealthMapColors: Record<HealthLevel, string> = {
+  excellent: '#22C55E',
+  good: '#22C55E',
+  warning: '#F59E0B',
+  critical: '#EF4444',
+};
 
 export const healthLabelEs: Record<HealthLevel, string> = {
   excellent: 'Excelente',
@@ -82,8 +96,10 @@ export const cropLabelEs: Record<string, string> = {
   rice: 'Arroz',
 };
 
-export function getCropLabelEs(crop: string): string {
-  return cropLabelEs[crop.toLowerCase()] ?? crop.charAt(0).toUpperCase() + crop.slice(1);
+export function getCropLabelEs(crop: string | undefined | null): string {
+  if (!crop?.trim()) return 'Cultivo';
+  const key = crop.toLowerCase().trim();
+  return cropLabelEs[key] ?? key.charAt(0).toUpperCase() + key.slice(1);
 }
 
 export const riskLevels = {
@@ -149,8 +165,9 @@ export const cropColorMap: Record<string, string> = {
   rice: chartColors[1],
 };
 
-export function getCropColor(crop: string): string {
-  return cropColorMap[crop.toLowerCase()] ?? brandColors.mistSlate;
+export function getCropColor(crop: string | undefined | null): string {
+  if (!crop?.trim()) return brandColors.mistSlate;
+  return cropColorMap[crop.toLowerCase().trim()] ?? brandColors.mistSlate;
 }
 
 export function getHealthColorByLabel(name: string): string {

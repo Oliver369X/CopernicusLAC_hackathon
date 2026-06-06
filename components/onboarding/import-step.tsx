@@ -1,12 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import { Upload, Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
+import { useOrgBilling } from '@/hooks/use-org-billing';
+import { getDefaultZoneSplit } from '@/lib/billing/plans';
+import type { ImportBillingPreview } from '@/lib/billing/types';
+import { formatDecimal } from '@/lib/i18n/format-number';
 
 interface PreviewField {
   tempId: string;
@@ -20,6 +25,8 @@ interface PreviewResponse {
   fields: PreviewField[];
   errors: Array<{ message: string }>;
   warnings: string[];
+  billing?: ImportBillingPreview;
+  effectiveZoneSplit?: number;
 }
 
 export function ImportStep({
@@ -27,26 +34,49 @@ export function ImportStep({
 }: {
   onComplete: (result: { zoneCount: number }) => void;
 }) {
+  const { billing, refresh: refreshBilling } = useOrgBilling();
   const [file, setFile] = useState<File | null>(null);
   const [zoneSplit, setZoneSplit] = useState(4);
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const isHectareModel = billing?.billingModel === 'hectare';
+  const effectiveZoneSplit = isHectareModel
+    ? 1
+    : zoneSplit;
+
+  const usagePercent = billing?.usagePercent ?? 0;
+  const progressClass =
+    usagePercent >= 100
+      ? '[&>div]:bg-health-critical'
+      : usagePercent >= 80
+        ? '[&>div]:bg-health-warning'
+        : '[&>div]:bg-[var(--aura-green)]';
+
+  const projectedBilling = preview?.billing;
+
   async function runDryRun(f: File) {
     setLoading(true);
     const fd = new FormData();
     fd.append('file', f);
-    const res = await fetch(`/api/fields/import?dryRun=1&zoneSplit=${zoneSplit}`, {
-      method: 'POST',
-      body: fd,
-    });
-    const { data, error } = await parseJsonResponse<PreviewResponse>(res);
+    const res = await fetch(
+      `/api/fields/import?dryRun=1&zoneSplit=${effectiveZoneSplit}`,
+      { method: 'POST', body: fd }
+    );
+    const { data, error } = await parseJsonResponse<PreviewResponse & { error?: string; code?: string }>(res);
     setLoading(false);
+    if (!res.ok) {
+      toast.error(data?.error ?? error ?? 'Error en la vista previa');
+      return;
+    }
     if (error) {
       toast.error(error);
       return;
     }
     setPreview(data ?? null);
+    if (data?.warnings?.length) {
+      data.warnings.forEach((w) => toast.message(w));
+    }
   }
 
   async function confirmImport() {
@@ -54,22 +84,34 @@ export function ImportStep({
     setLoading(true);
     const fd = new FormData();
     fd.append('file', file);
-    const res = await fetch(`/api/fields/import?zoneSplit=${zoneSplit}`, {
+    const res = await fetch(`/api/fields/import?zoneSplit=${effectiveZoneSplit}`, {
       method: 'POST',
       body: fd,
     });
     const { data, error } = await parseJsonResponse<{
       zoneCount: number;
       errors?: Array<{ message: string }>;
+      error?: string;
+      code?: string;
     }>(res);
     setLoading(false);
+    if (!res.ok) {
+      toast.error(data?.error ?? error ?? 'No se pudo importar');
+      return;
+    }
     if (error) {
       toast.error(error);
       return;
     }
     toast.success(`Importados ${data?.zoneCount ?? 0} zonas`);
+    await refreshBilling();
     onComplete({ zoneCount: data?.zoneCount ?? 0 });
   }
+
+  const usageLabel = useMemo(() => {
+    if (!billing) return null;
+    return `Usás ${formatDecimal(billing.totalHa)} de ${formatDecimal(billing.hectareLimit)} ha incluidas`;
+  }, [billing]);
 
   return (
     <div className="space-y-6">
@@ -77,9 +119,24 @@ export function ImportStep({
         <h2 className="text-xl font-semibold">Importar parcelas</h2>
         <p className="text-sm text-muted-foreground mt-1">
           GeoJSON, KML, Shapefile (.zip) o CSV. Columnas: nombre, cultivo (soybean/wheat/maize),
-          área ha. Ver plantilla CSV o video de capacitación piloto BID.
+          área ha.
         </p>
       </div>
+
+      {billing && (
+        <div className="space-y-2 rounded-lg border border-border p-4">
+          <p className="text-sm font-medium">{usageLabel}</p>
+          <Progress
+            value={Math.min(100, billing.usagePercent)}
+            className={`h-2 ${progressClass}`}
+          />
+          {billing.estimatedMonthlyUsd > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Estimado actual: ${formatDecimal(billing.estimatedMonthlyUsd)}/mes
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-3">
         <Button variant="outline" size="sm" asChild>
@@ -90,18 +147,23 @@ export function ImportStep({
         </Button>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="zone-split">Subzonas por lote (si el archivo no trae zonas)</Label>
-        <Input
-          id="zone-split"
-          type="number"
-          min={1}
-          max={8}
-          value={zoneSplit}
-          onChange={(e) => setZoneSplit(Number(e.target.value))}
-          className="max-w-[120px]"
-        />
-      </div>
+      {!isHectareModel && billing && (
+        <div className="space-y-2">
+          <Label htmlFor="zone-split">Subzonas por lote (si el archivo no trae zonas)</Label>
+          <Input
+            id="zone-split"
+            type="number"
+            min={1}
+            max={billing.maxZoneSplit}
+            value={zoneSplit}
+            onChange={(e) => setZoneSplit(Number(e.target.value))}
+            className="max-w-[120px]"
+          />
+          <p className="text-xs text-muted-foreground">
+            Default cooperativa: {getDefaultZoneSplit('zone')} zonas
+          </p>
+        </div>
+      )}
 
       <label className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border p-10 cursor-pointer hover:bg-muted/40">
         <Upload className="h-8 w-8 text-muted-foreground" />
@@ -131,6 +193,14 @@ export function ImportStep({
       {preview && (
         <div className="space-y-3">
           <p className="text-sm font-medium">{preview.fields.length} lotes listos</p>
+          {projectedBilling && (
+            <p className="text-sm text-muted-foreground">
+              Proyectado: {formatDecimal(projectedBilling.projectedTotalHa)} ha · Estimado:{' '}
+              {projectedBilling.estimatedMonthlyUsd > 0
+                ? `$${formatDecimal(projectedBilling.estimatedMonthlyUsd)}/mes`
+                : 'sin costo'}
+            </p>
+          )}
           {preview.errors.length > 0 && (
             <ul className="text-sm text-destructive space-y-1">
               {preview.errors.slice(0, 5).map((e, i) => (

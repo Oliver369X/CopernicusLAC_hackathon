@@ -1,0 +1,6 @@
+field_id,zone_id,crop,lat,lng,captured_at,disease_label,severity,health_label,notes
+field-sj-norte,zone-sj-n-1,soybean,-16.95,-62.85,2026-03-01,,none,good,sano
+field-sj-norte,zone-sj-n-2,soybean,-16.95,-62.85,2026-03-01,rust,low,warning,roya temprana
+field-sj-norte,zone-sj-n-4,soybean,-16.95,-62.85,2026-03-01,drought,medium,warning,estres hidrico
+field-sj-este,zone-sj-e-2,corn,-17.05,-62.55,2026-03-01,gray_leaf_spot,low,warning,mancha foliar
+field-sj-oeste,zone-sj-w-1,wheat,-16.75,-62.95,2026-03-01,stripe_rust,medium,warning,roya amarilla

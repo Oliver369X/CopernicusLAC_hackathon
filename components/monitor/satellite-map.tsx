@@ -3,9 +3,9 @@
 import { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Polygon, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import type { Field } from '@/lib/types/field';
+import type { Field, FieldZone } from '@/lib/types/field';
 import { boundsToBbox } from '@/lib/services/copernicus/bounds';
-import { chartColors } from '@/lib/design/tokens';
+import { zoneHealthMapColors } from '@/lib/design/tokens';
 import { cn } from '@/lib/utils';
 
 import 'leaflet/dist/leaflet.css';
@@ -16,6 +16,8 @@ interface SatelliteMapProps {
   field: Field;
   layer?: MapLayer;
   className?: string;
+  selectedZoneId?: string | null;
+  onZoneClick?: (zone: FieldZone) => void;
 }
 
 function FitBounds({ field }: { field: Field }) {
@@ -66,12 +68,13 @@ export default function SatelliteMap({
   field,
   layer = 'ndvi',
   className,
+  selectedZoneId,
+  onZoneClick,
 }: SatelliteMapProps) {
   const zonePolygons = useMemo(
     () =>
       field.zones.map((zone) => ({
-        id: zone.id,
-        name: zone.name,
+        zone,
         positions: zone.bounds.map((p) => [p.lat, p.lng] as [number, number]),
       })),
     [field.zones]
@@ -95,17 +98,27 @@ export default function SatelliteMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <SatelliteImageOverlay field={field} layer={layer} />
-        {zonePolygons.map((zone) => (
-          <Polygon
-            key={zone.id}
-            positions={zone.positions}
-            pathOptions={{
-              color: chartColors[0],
-              weight: 2,
-              fillOpacity: 0.08,
-            }}
-          />
-        ))}
+        {zonePolygons.map(({ zone, positions }) => {
+          const color = zoneHealthMapColors[zone.health];
+          const selected = zone.id === selectedZoneId;
+          return (
+            <Polygon
+              key={zone.id}
+              positions={positions}
+              pathOptions={{
+                color,
+                weight: selected ? 3 : 2,
+                fillOpacity: selected ? 0.22 : 0.1,
+              }}
+              eventHandlers={{
+                click: (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  onZoneClick?.(zone);
+                },
+              }}
+            />
+          );
+        })}
         <FitBounds field={field} />
       </MapContainer>
     </div>

@@ -30,7 +30,7 @@ const healthBadgeClass: Record<HealthLevel, string> = {
 
 export default function ScienceCompareClient() {
   const searchParams = useSearchParams();
-  const fieldId = searchParams.get('field') ?? 'field-1';
+  const fieldId = searchParams.get('field') ?? 'field-sj-norte';
   const compareParam = searchParams.get('compare');
   const crops = (compareParam?.split(',') ?? DEFAULT_CROPS).filter(Boolean) as ScienceCropId[];
   const { fields, getFieldById } = useFields();
@@ -93,8 +93,8 @@ export default function ScienceCompareClient() {
         <Card className="glass-card border-health-warning/30">
           <CardContent className="py-6 text-sm text-muted-foreground">
             Campo no encontrado. Prueba{' '}
-            <Link href="/science/compare?field=field-1" className="text-primary underline">
-              field-1 (soja)
+            <Link href="/science/compare?field=field-sj-norte" className="text-primary underline">
+              field-sj-norte (soja)
             </Link>
             .
           </CardContent>

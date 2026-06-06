@@ -61,5 +61,5 @@ export const CSV_HEADERS = [
 ] as const;
 
 export function csvTemplateForCrop(crop: ScienceCropId): string {
-  return `${CSV_HEADERS.join(',')}\n${crop},field-1,zone-1,2026-03-15,,none,good,,,manual_csv,`;
+  return `${CSV_HEADERS.join(',')}\n${crop},field-sj-norte,zone-sj-n-1,2026-03-15,,none,good,-16.95,-62.85,manual_csv,`;
 }

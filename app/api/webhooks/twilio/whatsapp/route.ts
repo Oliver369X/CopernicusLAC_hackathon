@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const service = await createServiceClient();
     await service.from('observations').insert({
       id: `wa-${Date.now()}`,
-      field_id: 'field-1',
+      field_id: 'field-sj-norte',
       notes: body,
       image_url: mediaUrl,
       vision_result: analysis,

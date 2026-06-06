@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server';
-import { isDatabaseConfigured } from '@/lib/db/config';
-import { createClient } from '@/lib/supabase/server';
 import { getFieldByIdFromDb } from '@/lib/data/fields';
 import { getFieldById } from '@/lib/mock-data/fields';
+import { getDbService } from '@/lib/db/get-service';
+import {
+  getSatelliteReadingForZoneOnDate,
+  getNearestReadingOnOrBefore,
+  listAvailableReadingDates,
+  getSatelliteReadingsForZoneRange,
+} from '@/lib/data/zone-satellite-metrics';
 import { hasSatelliteCredentialsConfigured } from '@/lib/config/satellite';
 
 interface SatelliteRow {
   captured_at: string;
+  reading_date?: string;
   ndvi: number;
   ndmi: number;
   ndre?: number | null;
@@ -33,6 +39,7 @@ export async function GET(
   const { id } = await params;
   const { searchParams } = new URL(request.url);
   const zoneId = searchParams.get('zoneId');
+  const asOf = searchParams.get('asOf') ?? undefined;
 
   const field =
     (await getFieldByIdFromDb(id)) ?? getFieldById(id);
@@ -65,34 +72,61 @@ export async function GET(
   let s3Lst: number | null = null;
   let dataSource = 'mock';
   let satellitePending = false;
+  let availableDates: string[] = [];
+  let readingDate: string | null = null;
 
-  if (isDatabaseConfigured()) {
-    const supabase = await createClient();
-    const zoneIds = zones.map((z) => z.id);
+  const service = await getDbService();
+  const primaryZone = zones[0];
 
-    const { data: sat } = await supabase
-      .from('satellite_readings')
-      .select(
-        'captured_at, ndvi, ndmi, ndre, zone_id, source, s1_moisture_index, s3_lst, cloud_cover, ndvi_grid, scene_date, raw_metadata'
-      )
-      .in('zone_id', zoneIds)
-      .order('captured_at', { ascending: false })
-      .limit(30);
+  if (service && primaryZone) {
+    availableDates = await listAvailableReadingDates(service, primaryZone.id);
 
-    if (sat?.length) {
-      satelliteHistory = sat as unknown as SatelliteRow[];
-      dataSource = 'database';
-
-      const latest = satelliteHistory[0];
-      latestGrid = latest.ndvi_grid ?? null;
-      cloudCover = latest.cloud_cover ?? null;
-      sceneDate = latest.scene_date ?? null;
-      s1MoistureIndex = latest.s1_moisture_index ?? null;
-      s3Lst = latest.s3_lst ?? null;
-      missions = latest.raw_metadata?.missions ?? [];
+    let snapshot = null;
+    if (asOf) {
+      snapshot = await getSatelliteReadingForZoneOnDate(service, primaryZone.id, asOf);
+      if (!snapshot) {
+        snapshot = await getNearestReadingOnOrBefore(service, primaryZone.id, asOf);
+      }
+    } else if (availableDates.length > 0) {
+      snapshot = await getSatelliteReadingForZoneOnDate(
+        service,
+        primaryZone.id,
+        availableDates[0]
+      );
     }
 
-    const { data: weather } = await supabase
+    if (snapshot) {
+      dataSource = 'database';
+      readingDate = snapshot.readingDate ?? availableDates[0] ?? null;
+      sceneDate = snapshot.sceneDate;
+      cloudCover = snapshot.cloudCover;
+      s1MoistureIndex = snapshot.s1MoistureIndex;
+      s3Lst = snapshot.s3Lst;
+      latestGrid = snapshot.ndviGrid;
+
+      const rangeEnd = readingDate ?? new Date().toISOString().split('T')[0];
+      const rangeStart = new Date(`${rangeEnd}T12:00:00Z`);
+      rangeStart.setUTCDate(rangeStart.getUTCDate() - 30);
+      const history = await getSatelliteReadingsForZoneRange(
+        service,
+        primaryZone.id,
+        rangeStart.toISOString().split('T')[0],
+        rangeEnd
+      );
+
+      satelliteHistory = history.map((h) => ({
+        captured_at: h.captured_at,
+        reading_date: h.reading_date,
+        ndvi: h.ndvi,
+        ndmi: h.ndmi,
+        ndre: h.ndre,
+        zone_id: primaryZone.id,
+        source: 'copernicus',
+        scene_date: sceneDate,
+      }));
+    }
+
+    const { data: weather } = await service
       .from('weather_readings')
       .select('captured_at, temp, humidity, soil_moisture')
       .eq('field_id', id)
@@ -104,7 +138,7 @@ export async function GET(
     }
   }
 
-  const latestSat = satelliteHistory[0];
+  const latestSat = satelliteHistory[satelliteHistory.length - 1] ?? satelliteHistory[0];
   const soilFromWeather = weatherHistory[0]?.soil_moisture;
   const hasCredentials = hasSatelliteCredentialsConfigured();
 
@@ -112,11 +146,13 @@ export async function GET(
     satellitePending = true;
   }
 
-  const useZoneFallback = !hasCredentials || !latestSat;
+  const useZoneFallback = !latestSat;
 
   return NextResponse.json({
     fieldId: id,
     zoneId: zoneId ?? null,
+    readingDate,
+    availableDates,
     metrics: {
       ndvi: latestSat?.ndvi ?? (useZoneFallback ? avgNdvi : null),
       ndmi: latestSat?.ndmi ?? (useZoneFallback ? avgNdmi : null),
@@ -143,6 +179,7 @@ export async function GET(
     satelliteHistory,
     weatherHistory,
     source: dataSource,
+    metricsSource: dataSource,
     satelliteSource: latestSat?.source ?? (hasCredentials ? 'pending' : 'mock'),
     satellitePending,
   });

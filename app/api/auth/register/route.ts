@@ -7,19 +7,29 @@ import {
 } from '@/lib/auth/session';
 import { isDatabaseConfigured } from '@/lib/db/config';
 import { seedFieldsForOrg } from '@/lib/data/fields';
+import {
+  billingProfileToOrgColumns,
+  isValidBillingProfile,
+} from '@/lib/billing/plans';
 
 export async function POST(request: Request) {
   if (!isDatabaseConfigured()) {
     return NextResponse.json({ error: 'Auth disabled' }, { status: 503 });
   }
 
-  const { email, password, orgName, inviteOnly, inviteToken } = (await request.json()) as {
-    email?: string;
-    password?: string;
-    orgName?: string;
-    inviteOnly?: boolean;
-    inviteToken?: string;
-  };
+  const { email, password, orgName, inviteOnly, inviteToken, billingProfile } =
+    (await request.json()) as {
+      email?: string;
+      password?: string;
+      orgName?: string;
+      inviteOnly?: boolean;
+      inviteToken?: string;
+      billingProfile?: string;
+    };
+
+  if (billingProfile != null && !isValidBillingProfile(billingProfile)) {
+    return NextResponse.json({ error: 'Perfil de plan inválido' }, { status: 400 });
+  }
 
   if (!email?.trim() || !password || password.length < 6) {
     return NextResponse.json(
@@ -51,9 +61,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: accepted.error }, { status: accepted.status });
     }
   } else if (!inviteOnly) {
+    const billingCols = billingProfileToOrgColumns(
+      isValidBillingProfile(billingProfile) ? billingProfile : 'small_farmer'
+    );
     const org = await dbQueryOne<{ id: string }>(
-      `INSERT INTO organizations (name) VALUES ($1) RETURNING id`,
-      [orgName?.trim() || 'Mi Finca']
+      `INSERT INTO organizations (name, billing_model, plan_tier, hectare_limit, max_zone_split)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
+      [
+        orgName?.trim() || 'Mi Finca',
+        billingCols.billing_model,
+        billingCols.plan_tier,
+        billingCols.hectare_limit,
+        billingCols.max_zone_split,
+      ]
     );
 
     if (org) {

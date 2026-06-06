@@ -3,19 +3,32 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Aura Agro — paleta sobria, producción agrícola */
+/* Doctor Soya — tokens Aura (sincronizar con lib/design/tokens.ts) */
 :root {
-  /* Brand primitives */
-  --copernicus-teal: #4a7c6f;
-  --copernicus-teal-dim: #3d6b5f;
+  /* Aura brand */
+  --aura-green: #16b57d;
+  --aura-orange: #f2a021;
+  --aura-night: #0a0a0f;
+  --aura-slate: #70757f;
+
+  /* Dashboard tokens */
+  --db-surface: #141a22;
+  --db-elevated: #1c2430;
+  --db-border: rgba(255, 255, 255, 0.07);
+  --db-accent: var(--aura-green);
+  --db-muted: #94a3b8;
+
+  /* Legacy aliases → Aura */
+  --copernicus-teal: var(--aura-green);
+  --copernicus-teal-dim: #12966a;
   --glow-teal: rgba(74, 124, 111, 0.18);
   --glow-green: rgba(56, 120, 90, 0.12);
   --mesh-line: rgba(148, 163, 184, 0.04);
   --earth-green: #3d7a57;
   --earth-green-dim: #2f6245;
   --soil-amber: #b45309;
-  --ocean-deep: #0c1117;
-  --surface-elevated: #141a22;
+  --ocean-deep: var(--aura-night);
+  --surface-elevated: var(--db-surface);
   --surface-muted: #1c2430;
   --mist-slate: #94a3b8;
 
@@ -26,17 +39,17 @@
   --card-foreground: #e2e8f0;
   --popover: var(--surface-elevated);
   --popover-foreground: #e2e8f0;
-  --primary: var(--copernicus-teal);
+  --primary: var(--aura-green);
   --primary-foreground: #f8fafc;
   --secondary: #243044;
   --secondary-foreground: #e2e8f0;
   --muted: #1a2332;
-  --muted-foreground: var(--mist-slate);
-  --accent: var(--soil-amber);
+  --muted-foreground: var(--db-muted);
+  --accent: var(--aura-orange);
   --accent-foreground: #fff7ed;
   --destructive: #dc2626;
   --destructive-foreground: #fecaca;
-  --border: #2a3544;
+  --border: var(--db-border);
   --input: var(--surface-muted);
   --ring: var(--copernicus-teal-dim);
 
@@ -79,17 +92,17 @@
   --card-foreground: #e2e8f0;
   --popover: var(--surface-elevated);
   --popover-foreground: #e2e8f0;
-  --primary: var(--copernicus-teal);
+  --primary: var(--aura-green);
   --primary-foreground: #f8fafc;
   --secondary: #243044;
   --secondary-foreground: #e2e8f0;
   --muted: #1a2332;
-  --muted-foreground: var(--mist-slate);
-  --accent: var(--soil-amber);
+  --muted-foreground: var(--db-muted);
+  --accent: var(--aura-orange);
   --accent-foreground: #fff7ed;
   --destructive: #dc2626;
   --destructive-foreground: #fecaca;
-  --border: #2a3544;
+  --border: var(--db-border);
   --input: var(--surface-muted);
   --ring: var(--copernicus-teal-dim);
   --chart-1: var(--copernicus-teal);

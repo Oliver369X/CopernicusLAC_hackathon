@@ -14,7 +14,7 @@ export function ReportPdfDocument(props: {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.title}>Informe Doctor Soya</Text>
+        <Text style={styles.title}>Informe Aura Agro</Text>
         <Text style={styles.row}>Organización: {props.orgName}</Text>
         <Text style={styles.row}>Fuentes: Copernicus CDSE · Open-Meteo</Text>
         <Text style={styles.row}>

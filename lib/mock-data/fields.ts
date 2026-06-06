@@ -5,6 +5,7 @@ import {
   generateZoneBounds,
   inferZoneHealth,
 } from '@/lib/types/field';
+import { DEMO_REGION_LABEL, getDemoCenter } from '@/lib/geo/demo-region';
 
 interface RawFieldInput {
   id: string;
@@ -72,12 +73,18 @@ function buildField(input: RawFieldInput): Field {
   };
 }
 
+function centerFor(id: string): GeoPoint {
+  const c = getDemoCenter(id);
+  if (!c) throw new Error(`Missing demo center for ${id}`);
+  return { lat: c.lat, lng: c.lng };
+}
+
 const RAW_FIELDS: RawFieldInput[] = [
   {
-    id: 'field-1',
-    name: 'North Sector 1',
-    locationLabel: 'Pampas Region',
-    center: { lat: -34.9, lng: -62.3 },
+    id: 'field-sj-norte',
+    name: 'Lote Norte San Julián',
+    locationLabel: DEMO_REGION_LABEL,
+    center: centerFor('field-sj-norte'),
     area: 150,
     crop: 'soybean',
     plantedDate: new Date('2024-09-15'),
@@ -86,19 +93,19 @@ const RAW_FIELDS: RawFieldInput[] = [
     notifications: 2,
     riskScore: 35,
     zones: [
-      { id: 'zone-1-a', name: 'Zone A1', area: 50, ndviAverage: 0.64, ndmiAverage: 0.47, temperatureAverage: 29.6, soilMoistureAverage: 73, observationCount: 12, diseaseRisks: [] },
-      { id: 'zone-1-b', name: 'Zone A2', area: 50, ndviAverage: 0.55, ndmiAverage: 0.38, temperatureAverage: 30.2, soilMoistureAverage: 68, observationCount: 10, diseaseRisks: ['Powdery Mildew Risk'] },
-      { id: 'zone-1-c', name: 'Zone A3', area: 50, ndviAverage: 0.58, ndmiAverage: 0.42, temperatureAverage: 28.9, soilMoistureAverage: 71, observationCount: 11, diseaseRisks: [] },
-      { id: 'zone-1-d', name: 'Zone A4 — Estrés hídrico', area: 40, ndviAverage: 0.38, ndmiAverage: 0.22, temperatureAverage: 31.5, soilMoistureAverage: 48, observationCount: 6, diseaseRisks: ['Drought Stress', 'Water Deficit'] },
-      { id: 'zone-1-e', name: 'Zone A5 — Recuperación', area: 40, ndviAverage: 0.62, ndmiAverage: 0.44, temperatureAverage: 28.5, soilMoistureAverage: 72, observationCount: 9, diseaseRisks: [] },
-      { id: 'zone-1-f', name: 'Zone A6 — Radar S1 bajo', area: 40, ndviAverage: 0.48, ndmiAverage: 0.30, temperatureAverage: 30.0, soilMoistureAverage: 55, observationCount: 7, diseaseRisks: ['Soil Moisture Anomaly'] },
+      { id: 'zone-sj-n-1', name: 'Zona N1 — Alta biomasa', area: 50, ndviAverage: 0.64, ndmiAverage: 0.47, temperatureAverage: 29.6, soilMoistureAverage: 73, observationCount: 12, diseaseRisks: [] },
+      { id: 'zone-sj-n-2', name: 'Zona N2 — Riesgo roya', area: 50, ndviAverage: 0.55, ndmiAverage: 0.38, temperatureAverage: 30.2, soilMoistureAverage: 68, observationCount: 10, diseaseRisks: ['Riesgo de roya'] },
+      { id: 'zone-sj-n-3', name: 'Zona N3 — Estable', area: 50, ndviAverage: 0.58, ndmiAverage: 0.42, temperatureAverage: 28.9, soilMoistureAverage: 71, observationCount: 11, diseaseRisks: [] },
+      { id: 'zone-sj-n-4', name: 'Zona N4 — Estrés hídrico', area: 40, ndviAverage: 0.38, ndmiAverage: 0.22, temperatureAverage: 31.5, soilMoistureAverage: 48, observationCount: 6, diseaseRisks: ['Estrés hídrico', 'Déficit de agua'] },
+      { id: 'zone-sj-n-5', name: 'Zona N5 — Recuperación', area: 40, ndviAverage: 0.62, ndmiAverage: 0.44, temperatureAverage: 28.5, soilMoistureAverage: 72, observationCount: 9, diseaseRisks: [] },
+      { id: 'zone-sj-n-6', name: 'Zona N6 — Radar S1 bajo', area: 40, ndviAverage: 0.48, ndmiAverage: 0.30, temperatureAverage: 30.0, soilMoistureAverage: 55, observationCount: 7, diseaseRisks: ['Anomalía de humedad del suelo'] },
     ],
   },
   {
-    id: 'field-2',
-    name: 'East Field',
-    locationLabel: 'Valley Region',
-    center: { lat: -35.1, lng: -62.25 },
+    id: 'field-sj-este',
+    name: 'Parcela Este San Ramón',
+    locationLabel: 'San Ramón, Santa Cruz — Bolivia',
+    center: centerFor('field-sj-este'),
     area: 200,
     crop: 'corn',
     plantedDate: new Date('2024-08-20'),
@@ -107,15 +114,15 @@ const RAW_FIELDS: RawFieldInput[] = [
     notifications: 1,
     riskScore: 22,
     zones: [
-      { id: 'zone-2-a', name: 'Zone B1', area: 100, ndviAverage: 0.72, ndmiAverage: 0.52, temperatureAverage: 28.5, soilMoistureAverage: 75, observationCount: 15, diseaseRisks: [] },
-      { id: 'zone-2-b', name: 'Zone B2', area: 100, ndviAverage: 0.65, ndmiAverage: 0.44, temperatureAverage: 29.1, soilMoistureAverage: 72, observationCount: 14, diseaseRisks: ['Gray Leaf Spot'] },
+      { id: 'zone-sj-e-1', name: 'Zona E1 — Dosel alto', area: 100, ndviAverage: 0.72, ndmiAverage: 0.52, temperatureAverage: 28.5, soilMoistureAverage: 75, observationCount: 15, diseaseRisks: [] },
+      { id: 'zone-sj-e-2', name: 'Zona E2 — Mancha foliar', area: 100, ndviAverage: 0.65, ndmiAverage: 0.44, temperatureAverage: 29.1, soilMoistureAverage: 72, observationCount: 14, diseaseRisks: ['Mancha foliar gris'] },
     ],
   },
   {
-    id: 'field-3',
-    name: 'West Plot',
-    locationLabel: 'Plateau Region',
-    center: { lat: -34.85, lng: -62.4 },
+    id: 'field-sj-oeste',
+    name: 'Chacra Oeste Pailón',
+    locationLabel: 'Pailón, Santa Cruz — Bolivia',
+    center: centerFor('field-sj-oeste'),
     area: 120,
     crop: 'wheat',
     plantedDate: new Date('2024-03-10'),
@@ -124,57 +131,24 @@ const RAW_FIELDS: RawFieldInput[] = [
     notifications: 3,
     riskScore: 62,
     zones: [
-      { id: 'zone-3-a', name: 'Zone C1', area: 120, ndviAverage: 0.52, ndmiAverage: 0.35, temperatureAverage: 22.8, soilMoistureAverage: 65, observationCount: 18, diseaseRisks: ['Septoria Tritici', 'Stripe Rust'] },
+      { id: 'zone-sj-w-1', name: 'Zona W1 — Roya y septoria', area: 120, ndviAverage: 0.52, ndmiAverage: 0.35, temperatureAverage: 22.8, soilMoistureAverage: 65, observationCount: 18, diseaseRisks: ['Septoria', 'Roya amarilla'] },
     ],
   },
   {
-    id: 'field-4',
-    name: 'South Section',
-    locationLabel: 'Lowlands',
-    center: { lat: -35.2, lng: -62.35 },
+    id: 'field-sj-sur',
+    name: 'Sector Sur Tres Cruces',
+    locationLabel: 'Tres Cruces, Santa Cruz — Bolivia',
+    center: centerFor('field-sj-sur'),
     area: 180,
-    crop: 'cotton',
+    crop: 'soybean',
     plantedDate: new Date('2024-10-01'),
     daysFromPlanting: 30,
     overallHealth: 'good',
     notifications: 1,
     riskScore: 45,
     zones: [
-      { id: 'zone-4-a', name: 'Zone D1', area: 90, ndviAverage: 0.42, ndmiAverage: 0.28, temperatureAverage: 31.2, soilMoistureAverage: 68, observationCount: 8, diseaseRisks: [] },
-      { id: 'zone-4-b', name: 'Zone D2', area: 90, ndviAverage: 0.38, ndmiAverage: 0.24, temperatureAverage: 32.1, soilMoistureAverage: 62, observationCount: 7, diseaseRisks: ['Bacterial Blight Risk'] },
-    ],
-  },
-  {
-    id: 'field-5',
-    name: 'North 2',
-    locationLabel: 'Pampas North',
-    center: { lat: -34.8, lng: -62.28 },
-    area: 160,
-    crop: 'sunflower',
-    plantedDate: new Date('2024-08-05'),
-    daysFromPlanting: 85,
-    overallHealth: 'excellent',
-    notifications: 0,
-    riskScore: 18,
-    zones: [
-      { id: 'zone-5-a', name: 'Zone E1', area: 160, ndviAverage: 0.68, ndmiAverage: 0.48, temperatureAverage: 27.4, soilMoistureAverage: 70, observationCount: 13, diseaseRisks: [] },
-    ],
-  },
-  {
-    id: 'field-6',
-    name: 'Canola North',
-    locationLabel: 'Northern Plains',
-    center: { lat: -34.75, lng: -62.32 },
-    area: 140,
-    crop: 'canola',
-    plantedDate: new Date('2024-02-15'),
-    daysFromPlanting: 145,
-    overallHealth: 'warning',
-    notifications: 2,
-    riskScore: 58,
-    zones: [
-      { id: 'zone-6-a', name: 'Zone F1', area: 70, ndviAverage: 0.58, ndmiAverage: 0.4, temperatureAverage: 20.5, soilMoistureAverage: 72, observationCount: 16, diseaseRisks: ['Blackleg Risk'] },
-      { id: 'zone-6-b', name: 'Zone F2', area: 70, ndviAverage: 0.55, ndmiAverage: 0.38, temperatureAverage: 21.2, soilMoistureAverage: 68, observationCount: 14, diseaseRisks: ['Sclerotinia'] },
+      { id: 'zone-sj-s-1', name: 'Zona S1 — Emergencia', area: 90, ndviAverage: 0.42, ndmiAverage: 0.28, temperatureAverage: 31.2, soilMoistureAverage: 68, observationCount: 8, diseaseRisks: [] },
+      { id: 'zone-sj-s-2', name: 'Zona S2 — Riesgo bacteriano', area: 90, ndviAverage: 0.38, ndmiAverage: 0.24, temperatureAverage: 32.1, soilMoistureAverage: 62, observationCount: 7, diseaseRisks: ['Riesgo de tizón bacteriano'] },
     ],
   },
 ];
