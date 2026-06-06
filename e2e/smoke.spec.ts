@@ -6,7 +6,7 @@ test.describe('smoke', () => {
     await expect(page.getByRole('heading', { name: /Monitoreo agrícola profesional/i })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText(/Próximamente/i)).toBeVisible();
+    await expect(page.getByText('Próximamente', { exact: true })).toBeVisible();
   });
 
   test('health endpoint returns ok', async ({ request }) => {

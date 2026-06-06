@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
 import { getSessionOrg, canManageFields } from '@/lib/auth/org';
-import { dbQuery } from '@/lib/db/pool';
+import { dbQuery, dbQueryOne } from '@/lib/db/pool';
+
+export async function GET() {
+  const org = await getSessionOrg();
+  if (!org) return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+
+  const row = await dbQueryOne<{ name: string; country: string | null; area_unit: string | null }>(
+    `SELECT name, country, area_unit FROM organizations WHERE id = $1`,
+    [org.orgId]
+  );
+
+  return NextResponse.json({
+    name: row?.name ?? '',
+    country: row?.country ?? 'BO',
+    areaUnit: row?.area_unit ?? 'ha',
+  });
+}
 
 export async function PATCH(request: Request) {
   const org = await getSessionOrg();

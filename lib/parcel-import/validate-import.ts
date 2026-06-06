@@ -5,7 +5,8 @@ import { MAX_IMPORT_FEATURES, MIN_AREA_HA } from './types';
 
 export function validateImportParcels(
   parcels: ImportParcel[],
-  errors: ImportError[]
+  errors: ImportError[],
+  effectiveZoneSplit = 4
 ): ImportPreview {
   const allErrors = [...errors];
 
@@ -56,7 +57,7 @@ export function validateImportParcels(
     name: p.name,
     crop: p.crop as CropType,
     areaHa: p.areaHa,
-    zoneCount: p.zoneName ? 1 : 4,
+    zoneCount: p.zoneName ? 1 : effectiveZoneSplit,
     warnings: [],
   }));
 

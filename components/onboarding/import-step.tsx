@@ -12,6 +12,8 @@ import { useOrgBilling } from '@/hooks/use-org-billing';
 import { getDefaultZoneSplit } from '@/lib/billing/plans';
 import type { ImportBillingPreview } from '@/lib/billing/types';
 import { formatDecimal } from '@/lib/i18n/format-number';
+import { IMPORT_ACCEPT } from '@/lib/parcel-import/supported-formats';
+import { ImportMigrationGuide } from '@/components/onboarding/import-migration-guide';
 
 interface PreviewField {
   tempId: string;
@@ -31,8 +33,10 @@ interface PreviewResponse {
 
 export function ImportStep({
   onComplete,
+  showGuide = true,
 }: {
   onComplete: (result: { zoneCount: number }) => void;
+  showGuide?: boolean;
 }) {
   const { billing, refresh: refreshBilling } = useOrgBilling();
   const [file, setFile] = useState<File | null>(null);
@@ -118,10 +122,11 @@ export function ImportStep({
       <div>
         <h2 className="text-xl font-semibold">Importar parcelas</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          GeoJSON, KML, Shapefile (.zip) o CSV. Columnas: nombre, cultivo (soybean/wheat/maize),
-          área ha.
+          GeoJSON, KML/KMZ, Shapefile (.zip) o CSV — ideal si ya exportaste desde QGIS o ArcGIS.
         </p>
       </div>
+
+      {showGuide && <ImportMigrationGuide compact />}
 
       {billing && (
         <div className="space-y-2 rounded-lg border border-border p-4">
@@ -172,7 +177,7 @@ export function ImportStep({
         </span>
         <input
           type="file"
-          accept=".geojson,.json,.kml,.csv,.zip"
+          accept={IMPORT_ACCEPT}
           className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];

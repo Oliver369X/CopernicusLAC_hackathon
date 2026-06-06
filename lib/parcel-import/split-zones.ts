@@ -42,7 +42,9 @@ export function buildFieldAndZones(
   zoneSplitCount: number
 ): { field: PersistFieldRow; zones: PersistZoneRow[] } {
   const fieldId = randomUUID();
-  const fieldBoundsStorage = geoBoundsToStorage(parcel.bounds);
+  const fieldBoundsStorage = parcel.polygonRing
+    ? { type: 'Polygon' as const, coordinates: [parcel.polygonRing] }
+    : geoBoundsToStorage(parcel.bounds);
   const planted = parcel.plantingDate ?? new Date().toISOString().slice(0, 10);
   const plantedDate = new Date(planted);
   const days = Math.max(
@@ -73,12 +75,16 @@ export function buildFieldAndZones(
   for (let i = 0; i < count; i++) {
     const zb = generateZoneBounds(parcel.bounds, i, count);
     const areaSlice = parcel.areaHa / count;
+    const zoneBoundsStorage =
+      count === 1 && parcel.polygonRing
+        ? { type: 'Polygon' as const, coordinates: [parcel.polygonRing] }
+        : geoBoundsToStorage(zb);
     zones.push({
       id: randomUUID(),
       field_id: fieldId,
-      name: parcel.zoneName ?? `${parcel.name} — Zona ${i + 1}`,
+      name: parcel.zoneName ?? (count === 1 ? `Parcela completa — ${parcel.name}` : `${parcel.name} — Zona ${i + 1}`),
       area_ha: areaSlice,
-      bounds: geoBoundsToStorage(zb),
+      bounds: zoneBoundsStorage,
       health: inferZoneHealth(0.55, 65),
       ndvi_average: 0.55,
       ndmi_average: 0.4,

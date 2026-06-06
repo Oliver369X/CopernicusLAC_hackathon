@@ -6,7 +6,8 @@ URL pública: **https://hackathon.aura.ia.bo**
 
 | Email | Rol | Contraseña |
 |-------|-----|------------|
-| admin@doctorsoya.app | owner | demo123456 |
+| admin@doctorsoya.app | owner (cooperativa / zonas) | demo123456 |
+| maria@doctorsoya.app | owner (pequeña agricultora, 19 ha) | demo123456 |
 | analista@doctorsoya.app | admin | demo123456 |
 | campo@doctorsoya.app | viewer | demo123456 |
 
@@ -14,12 +15,13 @@ Variable: `NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS=true`
 
 ## Guion demo 3 min (con agente Mistral)
 
-1. Login con credenciales visibles
-2. `/monitor` — capas NDRE, grilla Copernicus S2, badges S1/S2/S3
-3. `/insights` — KPIs desde `satellite_readings` + panel agente
-4. Preguntar al agente: **"Resumen satelital hoy"** o **"Zona con más estrés"**
-5. `/science/soybean` — fusión óptico + radar + LST
-6. `/field` — captura offline
+1. Login con credenciales visibles (`maria@` = modelo hectáreas; `admin@` = cooperativa)
+2. Opcional: `/setup/parcel` — dibujar una parcela en mapa satelital (onboarding Aura)
+3. `/monitor` — capas NDRE, grilla Copernicus S2, badges S1/S2/S3
+4. `/insights` — KPIs desde `satellite_readings` + panel agente
+5. Preguntar al agente: **"Resumen satelital hoy"** o **"Zona con más estrés"**
+6. `/science/soybean` — fusión óptico + radar + LST
+7. `/field` — captura offline
 
 ## Deploy VPS (`/opt/aura-agro`)
 

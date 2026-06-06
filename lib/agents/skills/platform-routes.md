@@ -28,6 +28,16 @@
 | `/field` | Modo campo offline + captura |
 | `/alerts` | Alertas activas |
 | `/login` | Autenticación con cuentas demo |
+| `/onboarding` | Alta de finca: marcar parcela en mapa o importar archivo |
+| `/setup/parcel` | Dibujar polígono de parcela (MapLibre + satélite Esri) |
+| `/gestion` | Parcelas, equipo; botón **Agregar parcela** |
+
+## Cuentas demo
+
+| Email | Modelo |
+|-------|--------|
+| `admin@doctorsoya.app` | Cooperativa — 4 campos, múltiples zonas |
+| `maria@doctorsoya.app` | Pequeña agricultora — 3 parcelas, 1 zona c/u |
 
 ## Flujo recomendado demo
 

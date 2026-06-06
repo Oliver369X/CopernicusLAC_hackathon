@@ -1,18 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { TeamPanel } from '@/components/gestion/team-panel';
 import Link from 'next/link';
 import { useFields } from '@/hooks/use-fields';
 import { PageContainer, PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getCropLabelEs, getCropColor } from '@/lib/design/tokens';
 import { CROP_PROFILES } from '@/lib/mock-data/crops';
 import type { CropType } from '@/lib/mock-data/crops';
-import { toast } from 'sonner';
-import { TeamZoneAssignments } from '@/components/gestion/team-zone-assignments';
 import { FieldDetailSheet } from '@/components/fields/field-detail-sheet';
 import { ZoneDetailSheet } from '@/components/fields/zone-detail-sheet';
 import type { Field, FieldZone } from '@/lib/types/field';
@@ -23,33 +21,6 @@ export default function GestionPage() {
   const [fieldSheetOpen, setFieldSheetOpen] = useState(false);
   const [detailZone, setDetailZone] = useState<FieldZone | null>(null);
   const [zoneSheetOpen, setZoneSheetOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('viewer');
-
-  async function inviteMember() {
-    const res = await fetch('/api/team/invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-    });
-    const data = (await res.json()) as { inviteUrl?: string; error?: string };
-    if (!res.ok) {
-      toast.error(data.error ?? 'No se pudo invitar');
-      return;
-    }
-    if (data.inviteUrl) {
-      try {
-        await navigator.clipboard.writeText(data.inviteUrl);
-        toast.success('Enlace copiado al portapapeles');
-      } catch {
-        toast.success(`Invitación: ${data.inviteUrl}`);
-      }
-    } else {
-      toast.success('Invitación creada');
-    }
-    setInviteEmail('');
-  }
-
   const byCrop = fields.reduce<Record<string, typeof fields>>((acc, f) => {
     (acc[f.crop] ??= []).push(f);
     return acc;
@@ -61,9 +32,14 @@ export default function GestionPage() {
         title="Gestión de finca"
         description="Parcelas, cultivos, equipo y comunicaciones."
         actions={
-          <Button asChild variant="outline">
-            <Link href="/onboarding">Importar parcelas</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild className="min-h-[44px]">
+              <Link href="/setup/parcel?from=gestion">Agregar parcela</Link>
+            </Button>
+            <Button asChild variant="outline" className="min-h-[44px]">
+              <Link href="/setup/import?from=gestion">Migrar desde QGIS/GIS</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -112,9 +88,21 @@ export default function GestionPage() {
             </Card>
           ))}
           {!fields.length && (
-            <p className="text-muted-foreground text-sm">
-              Sin parcelas. <Link href="/onboarding" className="text-primary underline">Importar</Link>
-            </p>
+            <Card className="border-dashed">
+              <CardContent className="py-10 text-center space-y-4">
+                <p className="text-muted-foreground text-sm">
+                  Todavía no tenés parcelas registradas.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button asChild className="min-h-[44px]">
+                    <Link href="/setup/parcel?from=gestion">Marcar en el mapa</Link>
+                  </Button>
+                  <Button asChild variant="outline" className="min-h-[44px]">
+                    <Link href="/setup/import?from=gestion">Migrar desde QGIS/GIS</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
@@ -149,38 +137,8 @@ export default function GestionPage() {
           })}
         </TabsContent>
 
-        <TabsContent value="equipo" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Invitar miembro</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              <Input
-                placeholder="email@finca.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="max-w-xs"
-              />
-              <select
-                className="rounded-md border bg-background px-3 text-sm"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value)}
-              >
-                <option value="admin">Admin</option>
-                <option value="viewer">Viewer</option>
-                <option value="field_worker">Campo</option>
-              </select>
-              <Button onClick={() => void inviteMember()}>Invitar</Button>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Zonas por técnico</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TeamZoneAssignments />
-            </CardContent>
-          </Card>
+        <TabsContent value="equipo" className="mt-4">
+          <TeamPanel />
         </TabsContent>
 
         <TabsContent value="comms" className="mt-4">

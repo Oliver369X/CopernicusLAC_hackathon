@@ -49,5 +49,23 @@ INSERT INTO climate_readings (field_id, soil_moisture_anomaly, temp_anomaly, dro
 ('field-sj-norte', -0.05, 0.2, 0.35, 72, 2030, now() - interval '1 day'),
 ('field-sj-este', 0.02, -0.1, 0.15, 85, 2030, now() - interval '1 day'),
 ('field-sj-oeste', -0.12, 0.4, 0.55, 58, 2030, now() - interval '1 day'),
-('field-sj-sur', -0.08, 0.5, 0.48, 62, 2030, now() - interval '1 day')
+('field-sj-sur', -0.08, 0.5, 0.48, 62, 2030, now() - interval '1 day'),
+('field-pf-soja', -0.03, 0.15, 0.28, 76, 2030, now() - interval '1 day'),
+('field-pf-maiz', 0.04, -0.05, 0.12, 88, 2030, now() - interval '1 day'),
+('field-pf-trigo', -0.09, 0.25, 0.42, 64, 2030, now() - interval '1 day')
 ON CONFLICT DO NOTHING;
+
+-- PF_SATELLITE_START
+INSERT INTO satellite_readings (zone_id, ndvi, ndmi, ndre, source, reading_date, scene_date, captured_at) VALUES
+('zone-pf-soja', 0.61, 0.43, 0.35, 'copernicus', CURRENT_DATE, CURRENT_DATE - 1, now()),
+('zone-pf-soja', 0.60, 0.42, 0.34, 'copernicus', CURRENT_DATE - 1, CURRENT_DATE - 2, now() - interval '1 day'),
+('zone-pf-soja', 0.59, 0.41, 0.33, 'copernicus', CURRENT_DATE - 2, CURRENT_DATE - 3, now() - interval '2 days'),
+('zone-pf-soja', 0.58, 0.40, 0.32, 'copernicus', CURRENT_DATE - 3, CURRENT_DATE - 4, now() - interval '3 days'),
+('zone-pf-soja', 0.57, 0.39, 0.31, 'copernicus', CURRENT_DATE - 4, CURRENT_DATE - 5, now() - interval '4 days'),
+('zone-pf-soja', 0.56, 0.38, 0.30, 'copernicus', CURRENT_DATE - 5, CURRENT_DATE - 6, now() - interval '5 days'),
+('zone-pf-soja', 0.55, 0.37, 0.29, 'copernicus', CURRENT_DATE - 6, CURRENT_DATE - 7, now() - interval '6 days'),
+('zone-pf-maiz', 0.68, 0.48, 0.39, 'copernicus', CURRENT_DATE, CURRENT_DATE - 1, now()),
+('zone-pf-maiz', 0.66, 0.46, 0.37, 'copernicus', CURRENT_DATE - 7, CURRENT_DATE - 8, now() - interval '7 days'),
+('zone-pf-trigo', 0.49, 0.33, 0.27, 'copernicus', CURRENT_DATE, CURRENT_DATE - 1, now()),
+('zone-pf-trigo', 0.47, 0.31, 0.25, 'copernicus', CURRENT_DATE - 7, CURRENT_DATE - 8, now() - interval '7 days')
+ON CONFLICT (zone_id, reading_date) DO NOTHING;

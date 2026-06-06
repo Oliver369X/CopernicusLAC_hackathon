@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { getRoleLabel } from '@/lib/team/roles';
 
 interface InviteInfo {
   email: string;
@@ -123,7 +124,8 @@ export default function InviteAcceptPage() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <p>
-            Rol: <strong>{invite.role}</strong> · Email: <strong>{invite.email}</strong>
+            Rol: <strong>{getRoleLabel(invite.role)}</strong> · Email:{' '}
+            <strong>{invite.email}</strong>
           </p>
           <div className="flex gap-2">
             <Button

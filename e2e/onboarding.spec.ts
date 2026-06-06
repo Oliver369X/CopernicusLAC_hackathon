@@ -20,6 +20,24 @@ test.describe('onboarding flow', () => {
     expect(text).toMatch(/nombre|name|crop/i);
   });
 
+  test('setup import migration page loads', async ({ page }) => {
+    await page.goto('/setup/import');
+    const url = page.url();
+    if (url.includes('/login')) return;
+    await expect(
+      page.getByText(/Migrar parcelas|QGIS|GeoJSON/i).first()
+    ).toBeVisible({ timeout: 10000 });
+  });
+
+  test('setup parcel drawing page loads', async ({ page }) => {
+    await page.goto('/setup/parcel');
+    const url = page.url();
+    if (url.includes('/login')) return;
+    await expect(
+      page.getByText(/parcela|mapa|marcar/i).first()
+    ).toBeVisible({ timeout: 10000 });
+  });
+
   test('monitor accepts crop query param', async ({ page }) => {
     await page.goto('/monitor?crop=soybean');
     const url = page.url();

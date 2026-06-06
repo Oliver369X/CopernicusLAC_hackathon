@@ -47,6 +47,7 @@ import {
 } from '@/lib/design/tokens';
 import { useOrgBilling } from '@/hooks/use-org-billing';
 import { PlanUsageBanner } from '@/components/billing/plan-usage-banner';
+import { WelcomeModal } from '@/components/onboarding/welcome-modal';
 
 export default function EnhancedDashboard() {
   const { fields, source: fieldsSource } = useFields();
@@ -125,6 +126,7 @@ export default function EnhancedDashboard() {
 
   return (
     <PageContainer>
+      <WelcomeModal />
       <PageHeader
         title="Panel de control"
         description="Vista general de salud, riesgo y alertas de tus campos monitoreados."

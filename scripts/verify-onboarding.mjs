@@ -34,10 +34,34 @@ for (const [path, label] of checks) {
       failed += 1;
     } else {
       console.log(`✓ ${label}`);
+      if (path.includes('template')) {
+        const text = await res.text();
+        if (!text.includes('Chacra Norte') || !text.includes('soybean')) {
+          console.error('✗ csv template: faltan filas demo pequeña agricultora');
+          failed += 1;
+        } else {
+          console.log('✓ csv template pequeña agricultora (5–8 ha)');
+        }
+      }
     }
   } catch (e) {
     console.error(`✗ ${label}: ${e instanceof Error ? e.message : e}`);
     failed += 1;
+  }
+}
+
+const pages = ['/setup/parcel', '/setup/import', '/onboarding'];
+for (const path of pages) {
+  try {
+    const res = await fetch(`${base}${path}`);
+    if (res.ok || res.status === 307 || res.status === 308) {
+      console.log(`✓ página ${path} responde`);
+    } else {
+      console.error(`✗ página ${path}: HTTP ${res.status}`);
+      failed += 1;
+    }
+  } catch (e) {
+    console.warn(`⚠ página ${path}: servidor no disponible (${e instanceof Error ? e.message : e})`);
   }
 }
 

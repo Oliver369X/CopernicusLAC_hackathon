@@ -23,6 +23,8 @@ export interface ImportParcel {
   plantingDate?: string;
   locationLabel?: string;
   bounds: GeoBounds;
+  /** Anillo GeoJSON [lng,lat] cerrado cuando proviene de dibujo en mapa */
+  polygonRing?: number[][];
   zoneName?: string;
   center: { lat: number; lng: number };
 }

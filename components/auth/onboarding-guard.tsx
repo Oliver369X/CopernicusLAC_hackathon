@@ -7,6 +7,7 @@ const SKIP_PREFIXES = [
   '/login',
   '/register',
   '/onboarding',
+  '/setup',
   '/api',
   '/auth',
 ];

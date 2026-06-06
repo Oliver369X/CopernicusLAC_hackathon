@@ -34,7 +34,7 @@ Copia manual de variables: `cp .env.local.example .env`
 
 1. `pnpm setup` — Postgres, seed con bounds de zonas y lecturas satélite demo.
 2. Opcional: `COPERNICUS_CLIENT_ID` + `SECRET` en `.env` → el setup intenta `cron:satellite` y backfill.
-3. `pnpm dev` → login demo o registro nuevo → `/onboarding` para importar GeoJSON/KML/Shapefile/CSV.
+3. `pnpm dev` → login demo o registro nuevo → `/onboarding` o `/setup/parcel` para **marcar parcelas en el mapa** o importar GeoJSON/KML/Shapefile/CSV.
 4. `pnpm cron:satellite` y `pnpm cron:backfill` si no hay credenciales en setup.
 5. `GET /api/health/data-pipeline` — estado de zonas con geometría y satélite.
 
@@ -44,7 +44,8 @@ Al ejecutar `pnpm setup` o `pnpm docker:infra` por primera vez, Postgres carga e
 
 | Email | Rol | Uso |
 |-------|-----|-----|
-| `admin@doctorsoya.app` | owner | Acceso completo |
+| `admin@doctorsoya.app` | owner | Cooperativa / piloto BID (zonas) |
+| `maria@doctorsoya.app` | owner | Pequeña agricultora (19 ha, 1 parcela = 1 zona) |
 | `analista@doctorsoya.app` | admin | Gestión y análisis |
 | `campo@doctorsoya.app` | viewer | Solo lectura |
 

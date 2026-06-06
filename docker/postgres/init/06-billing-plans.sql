@@ -58,3 +58,12 @@ WHERE (
   FROM fields f
   WHERE f.org_id = o.id
 ) >= 50;
+
+-- PF_BILLING_START
+UPDATE organizations
+SET
+  billing_model = 'hectare',
+  plan_tier = 'growth',
+  hectare_limit = 20,
+  max_zone_split = 1
+WHERE id = 'a0000000-0000-4000-8000-000000000002';
