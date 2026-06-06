@@ -55,6 +55,10 @@ export function ParcelDrawingMode({ onNext, onCancel }: ParcelDrawingModeProps) 
           <Lightbulb className="h-4 w-4 text-primary" />
           Cómo marcar tu parcela
         </div>
+        <p className="text-xs text-muted-foreground mb-2">
+          Necesitás internet para cargar el mapa satelital. El polígono se verá en verde al marcar
+          cada esquina.
+        </p>
         <ol className="space-y-2 text-muted-foreground">
           <li className="flex gap-2">
             <MousePointerClick className="h-4 w-4 shrink-0 text-primary mt-0.5" />

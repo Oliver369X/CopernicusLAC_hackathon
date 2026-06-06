@@ -106,7 +106,7 @@ export default function FieldMonitoring() {
 
       <FieldPageIntro
         title={selectedField.name}
-        description={`${getCropLabelEs(selectedField.crop)} · ${selectedZone.name} · índices y acciones rápidas`}
+        description={`${getCropLabelEs(selectedField.crop)} · ${selectedZone.name} · índices y acciones rápidas. Sin señal: capturá fotos, revisá historial y usá mapas precargados abajo.`}
       />
 
       <div className="space-y-3">

@@ -66,6 +66,7 @@ export function useMapDrawing({ mapRef, onPolygonComplete }: UseMapDrawingProps)
 
     map.on('draw.create', updateMetrics);
     map.on('draw.update', updateMetrics);
+    map.on('draw.render', updateMetrics);
     map.on('draw.delete', () => {
       updateMetrics();
       onPolygonComplete(false);

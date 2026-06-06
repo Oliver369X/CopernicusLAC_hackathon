@@ -77,8 +77,9 @@ export function PWAInstallPrompt() {
                 Instalar {APP_NAME}
               </h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Acceso rápido desde tu pantalla de inicio y trabajo sin conexión
-                en el campo.
+                Agregá la app a tu pantalla de inicio (como un acceso directo). El modo sin
+                conexión hoy está en <strong className="font-medium text-foreground">Campo</strong>:
+                capturas, historial y mapas precargados.
               </p>
             </div>
             <button
