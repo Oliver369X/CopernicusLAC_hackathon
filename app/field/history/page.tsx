@@ -14,16 +14,16 @@ import {
 } from '@/components/field/observation-history-card';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 import { normalizeDiagnosis } from '@/lib/field/normalize-diagnosis';
+import { mergeHistoryObservations } from '@/lib/field/merge-history-observations';
 
 function mapStored(obs: StoredObservation): ObservationCardData {
-  const vision = obs.visionAnalysis as ObservationCardData['diagnosis'] | undefined;
   return {
     id: obs.id,
     timestamp: obs.timestamp,
     notes: obs.notes,
     imageUrl: obs.imageData,
     gps: obs.location,
-    diagnosis: vision,
+    diagnosis: normalizeDiagnosis(obs.visionAnalysis),
     photographerName: 'Tú',
     source: 'local',
   };
@@ -39,23 +39,36 @@ export default function History() {
       let apiObs: ObservationCardData[] = [];
 
       try {
-        const res = await fetch('/api/observations');
-        const { data } = await parseJsonResponse<{ observations?: Record<string, unknown>[] }>(
-          res
-        );
-        apiObs = (data?.observations ?? []).map((obs) => ({
-          id: String(obs.id),
-          timestamp: new Date(String(obs.created_at)).getTime(),
-          notes: String(obs.notes ?? ''),
-          imageUrl: obs.image_path ? `/api/observations/${obs.id}/image` : undefined,
-          gps:
-            obs.lat != null && obs.lng != null
-              ? { lat: Number(obs.lat), lng: Number(obs.lng) }
-              : undefined,
-          diagnosis: normalizeDiagnosis(obs.vision_result),
-          photographerName: 'Usuario de campo',
-          source: 'api' as const,
-        }));
+        const res = await fetch('/api/observations', { credentials: 'include' });
+        const { data, error } = await parseJsonResponse<{
+          observations?: Record<string, unknown>[];
+        }>(res, { observations: [] });
+
+        if (!error && data?.observations) {
+          apiObs = data.observations.map((obs) => {
+            const created = obs.created_at ?? obs.synced_at;
+            const ts = created ? new Date(String(created)).getTime() : Date.now();
+            const imagePath = obs.image_path ?? obs.image_url;
+            return {
+              id: String(obs.id),
+              timestamp: Number.isFinite(ts) ? ts : Date.now(),
+              notes: String(obs.notes ?? ''),
+              imageUrl:
+                imagePath && String(imagePath).startsWith('http')
+                  ? String(imagePath)
+                  : imagePath
+                    ? `/api/observations/${obs.id}/image`
+                    : undefined,
+              gps:
+                obs.lat != null && obs.lng != null
+                  ? { lat: Number(obs.lat), lng: Number(obs.lng) }
+                  : undefined,
+              diagnosis: normalizeDiagnosis(obs.vision_result),
+              photographerName: 'Usuario de campo',
+              source: 'api' as const,
+            };
+          });
+        }
       } catch {
         // sin red: solo local + demo
       }
@@ -80,8 +93,10 @@ export default function History() {
         source: 'mock' as const,
       }));
 
-      const merged = [...local.map(mapStored), ...apiObs, ...mock].sort(
-        (a, b) => b.timestamp - a.timestamp
+      const merged = mergeHistoryObservations(
+        apiObs,
+        local.map(mapStored),
+        apiObs.length === 0 && local.length === 0 ? mock : []
       );
       setObservations(merged);
       setLoading(false);

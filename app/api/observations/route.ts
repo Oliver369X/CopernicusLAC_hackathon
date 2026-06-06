@@ -98,14 +98,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ observations: [] });
   }
 
-  const db = await createClient();
+  const db = await createServiceClient();
   let query = db.from('observations').select('*').order('created_at', { ascending: false });
 
   if (fieldId) query = query.eq('field_id', fieldId);
 
   const { data, error } = await query.limit(50);
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message, observations: [] }, { status: 500 });
   }
 
   return NextResponse.json({ observations: data ?? [] });

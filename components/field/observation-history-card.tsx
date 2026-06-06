@@ -45,7 +45,7 @@ function cardTone(diagnosis: ObservationCardData['diagnosis']) {
 
 export function ObservationHistoryCard({ obs }: { obs: ObservationCardData }) {
   const [imgError, setImgError] = useState(false);
-  const primary = obs.diagnosis?.diseases[0];
+  const primary = obs.diagnosis?.diseases?.[0];
   const title = primary ? labelDiseaseName(primary.name) : 'Observación de campo';
   const healthy = isHealthyDiagnosis(primary?.name, primary?.probability);
 
