@@ -46,12 +46,14 @@ import {
   chartGridStroke,
 } from '@/lib/design/tokens';
 import { useOrgBilling } from '@/hooks/use-org-billing';
+import { isSmallFarmerExperience } from '@/lib/navigation/experience';
 import { PlanUsageBanner } from '@/components/billing/plan-usage-banner';
 import { WelcomeModal } from '@/components/onboarding/welcome-modal';
 
 export default function EnhancedDashboard() {
   const { fields, source: fieldsSource } = useFields();
   const { billing } = useOrgBilling();
+  const simpleMode = isSmallFarmerExperience(billing);
   const { alerts: engineAlerts } = useAlerts();
   const { summary } = useAnalyticsSummary();
   const [trendData, setTrendData] = useState<
@@ -128,11 +130,15 @@ export default function EnhancedDashboard() {
     <PageContainer>
       <WelcomeModal />
       <PageHeader
-        title="Panel de control"
-        description="Vista general de salud, riesgo y alertas de tus campos monitoreados."
+        title={simpleMode ? 'Tu finca' : 'Panel de control'}
+        description={
+          simpleMode
+            ? 'Resumen simple: cómo están tus parcelas y si hay algo que revisar.'
+            : 'Vista general de salud, riesgo y alertas de tus campos monitoreados.'
+        }
         badge={
           <Badge variant="outline" className="text-xs capitalize">
-            {fieldsSource} · {fields.length} campos
+            {fieldsSource} · {fields.length} {simpleMode ? 'parcelas' : 'campos'}
           </Badge>
         }
         actions={
@@ -154,7 +160,12 @@ export default function EnhancedDashboard() {
 
       <StaggerList className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <li className="min-w-0">
-          <KpiStat label="Campos" value={fields.length} hint="Monitoreados" icon={Briefcase} />
+          <KpiStat
+            label={simpleMode ? 'Parcelas' : 'Campos'}
+            value={fields.length}
+            hint="Monitoreados"
+            icon={Briefcase}
+          />
         </li>
         <li className="min-w-0">
           <KpiStat
@@ -196,7 +207,7 @@ export default function EnhancedDashboard() {
 
       <FadeIn className="space-y-4">
         <SatelliteSyncProgress />
-        <PilotOverviewCard alerts={engineAlerts} />
+        {!simpleMode && <PilotOverviewCard alerts={engineAlerts} />}
       </FadeIn>
 
       <FadeIn className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
@@ -305,15 +316,33 @@ export default function EnhancedDashboard() {
         </Card>
       </FadeIn>
 
-      <FadeIn className="flex justify-end">
-        <Link
-          href="/analytics"
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-        >
-          Ver analítica completa
-          <ArrowRight className="h-3.5 w-3.5" />
-        </Link>
-      </FadeIn>
+      {!simpleMode && (
+        <FadeIn className="flex justify-end">
+          <Link
+            href="/analytics"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            Ver analítica completa
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </FadeIn>
+      )}
+      {simpleMode && (
+        <FadeIn className="flex flex-wrap gap-3 justify-end">
+          <Link href="/monitor">
+            <Button variant="outline" className="gap-2">
+              Ver mapa satelital
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+          <Link href="/field">
+            <Button className="gap-2">
+              Ir a Campo
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Button>
+          </Link>
+        </FadeIn>
+      )}
     </PageContainer>
   );
 }

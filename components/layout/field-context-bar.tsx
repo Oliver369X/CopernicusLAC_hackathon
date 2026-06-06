@@ -11,6 +11,8 @@ import {
 } from '@/lib/navigation/context-links';
 import { getCropLabelEs } from '@/lib/design/tokens';
 import { useFields } from '@/hooks/use-fields';
+import { useOrgBilling } from '@/hooks/use-org-billing';
+import { isSmallFarmerExperience } from '@/lib/navigation/experience';
 import type { ScienceCropId } from '@/lib/science/types';
 import { isScienceCrop } from '@/lib/science/crops/registry';
 
@@ -28,6 +30,8 @@ export function FieldContextBar({
   currentPage,
 }: FieldContextBarProps) {
   const { getFieldById } = useFields();
+  const { billing } = useOrgBilling();
+  const simpleMode = isSmallFarmerExperience(billing);
   const field = getFieldById(fieldId);
   if (!field) return null;
 
@@ -45,32 +49,40 @@ export function FieldContextBar({
     crop: resolvedCrop ?? field.crop,
   };
 
-  const links = [
-    {
-      key: 'monitor' as const,
-      label: 'Monitoreo',
-      href: buildMonitorUrl(ctx),
-    },
-    ...(resolvedCrop
-      ? [
-          {
-            key: 'science' as const,
-            label: 'Lab',
-            href: buildScienceUrl({ ...ctx, crop: resolvedCrop, tab: 'lab' }),
-          },
-          {
-            key: 'studies' as const,
-            label: 'Estudios',
-            href: buildStudiesUrl({ ...ctx, crop: resolvedCrop }),
-          },
-        ]
-      : []),
-    {
-      key: 'insights' as const,
-      label: 'Perspectivas',
-      href: buildInsightsUrl({ fieldId: field.id, zoneId: zone?.id }),
-    },
-  ];
+  const links = simpleMode
+    ? [
+        {
+          key: 'monitor' as const,
+          label: 'Mapa',
+          href: buildMonitorUrl(ctx),
+        },
+      ]
+    : [
+        {
+          key: 'monitor' as const,
+          label: 'Monitoreo',
+          href: buildMonitorUrl(ctx),
+        },
+        ...(resolvedCrop
+          ? [
+              {
+                key: 'science' as const,
+                label: 'Lab',
+                href: buildScienceUrl({ ...ctx, crop: resolvedCrop, tab: 'lab' }),
+              },
+              {
+                key: 'studies' as const,
+                label: 'Estudios',
+                href: buildStudiesUrl({ ...ctx, crop: resolvedCrop }),
+              },
+            ]
+          : []),
+        {
+          key: 'insights' as const,
+          label: 'Perspectivas',
+          href: buildInsightsUrl({ fieldId: field.id, zoneId: zone?.id }),
+        },
+      ];
 
   return (
     <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 space-y-2">

@@ -35,6 +35,11 @@ $COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya < docker/postgres/ini
 $COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya -c \
   "SELECT COUNT(*) FILTER (WHERE bounds IS NOT NULL AND bounds::text <> '{}') AS ok, COUNT(*) AS total FROM zones;"
 
+echo "=== V4b Seed pequeña agricultora (maria@) ==="
+$COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya < scripts/seed-small-farmer-prod.sql
+$COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya -t -c \
+  "SELECT email FROM users WHERE email = 'maria@doctorsoya.app';"
+
 echo "=== V5 Git pull ==="
 git fetch origin
 git pull origin main
