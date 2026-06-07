@@ -21,7 +21,7 @@ UPDATE organizations SET
 WHERE id = 'a0000000-0000-4000-8000-000000000003';
 
 UPDATE organizations SET
-  billing_model = 'cooperative', plan_tier = 'enterprise', hectare_limit = 2000, max_zone_split = 12
+  billing_model = 'zone', plan_tier = 'cooperative', hectare_limit = 500, max_zone_split = 5
 WHERE id = 'a0000000-0000-4000-8000-000000000004';
 
 INSERT INTO fields (id, org_id, name, crop_type, area_ha, center_lat, center_lng, bounds, location_label, planting_date, days_from_planting, overall_health, risk_score, notifications) VALUES
