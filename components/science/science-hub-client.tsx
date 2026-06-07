@@ -60,7 +60,7 @@ export function ScienceHubClient() {
         title={simpleMode ? 'Historial satelital' : undefined}
         description={
           simpleMode
-            ? 'Mirá cómo evolucionó tu parcela con datos Sentinel y compará con la cooperativa del pueblo.'
+            ? 'Mirá cómo evolucionó tu parcela con datos Sentinel. Cada lectura ayuda a cuidar la soberanía alimentaria de tu familia y comunidad.'
             : 'Firma temporal multisensor (Sentinel-2 + Sentinel-1 + LST). Soja, trigo, maíz, café y cacao con fusión por reglas y ML baseline en paralelo.'
         }
         badge={
@@ -71,6 +71,16 @@ export function ScienceHubClient() {
         }
         actions={<ScienceLabTourTrigger simpleMode={simpleMode} />}
       />
+
+      {simpleMode && (
+        <Card className="glass-card border-emerald-500/25 bg-emerald-500/5 mb-4">
+          <CardContent className="py-3 text-sm text-muted-foreground">
+            <strong className="text-foreground">Seguridad alimentaria:</strong> monitorear tu parcela
+            desde el satélite permite detectar estrés del cultivo antes de perder cosecha — clave para
+            familias y cooperativas en San Julián.
+          </CardContent>
+        </Card>
+      )}
 
       {simpleMode && (
         <Card className="glass-card border-amber-500/25 bg-gradient-to-br from-amber-500/5 to-transparent mb-4">

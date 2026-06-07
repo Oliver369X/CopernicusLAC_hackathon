@@ -428,7 +428,7 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
     ? 'Tu historial satelital'
     : 'Lab analítico · Data-Historica';
   const panelBlurb = isProducerView
-    ? 'Serie NDVI de tu parcela PF en San Julián. Podés comparar con la cooperativa del municipio.'
+    ? 'Serie de verdor de tu parcela en San Julián. Detectar estrés a tiempo protege la cosecha y la seguridad alimentaria de tu familia.'
     : 'Misma región SC-BO, dos escalas productivas: cooperativa con zonas vs finca familiar. Datos históricos Sentinel (~300 escenas demo).';
   const compareLabel = isProducerView ? 'Vs cooperativa' : 'Comparar escala';
 

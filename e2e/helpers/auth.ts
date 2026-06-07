@@ -4,12 +4,14 @@ const DEMO_EMAIL = process.env.PLAYWRIGHT_DEMO_EMAIL ?? 'admin@doctorsoya.app';
 const DEMO_PASSWORD = process.env.PLAYWRIGHT_DEMO_PASSWORD ?? 'demo123456';
 
 /** Inicia sesión demo si la app redirige a /login. */
-export async function loginAsDemo(page: Page): Promise<void> {
+export async function loginAsDemo(page: Page, email?: string, password?: string): Promise<void> {
+  const demoEmail = email ?? process.env.PLAYWRIGHT_DEMO_EMAIL ?? 'admin@doctorsoya.app';
+  const demoPassword = password ?? process.env.PLAYWRIGHT_DEMO_PASSWORD ?? 'demo123456';
   await page.goto('/login');
   if (!page.url().includes('/login')) return;
 
-  await page.locator('#email').fill(DEMO_EMAIL);
-  await page.locator('#password').fill(DEMO_PASSWORD);
+  await page.locator('#email').fill(demoEmail);
+  await page.locator('#password').fill(demoPassword);
   await page.getByRole('button', { name: /Iniciar sesión/i }).click();
   await page.waitForURL(/\/(dashboard|monitor|onboarding)/, { timeout: 30_000 });
 }
