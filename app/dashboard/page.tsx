@@ -207,6 +207,21 @@ export default function EnhancedDashboard() {
 
       <FadeIn className="space-y-4">
         <SatelliteSyncProgress />
+        {simpleMode && (
+          <Card className="glass-card border-amber-500/25">
+            <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium text-sm">Historial satelital de tus parcelas</p>
+                <p className="text-xs text-muted-foreground">
+                  Mirá la serie NDVI y compará con la cooperativa del pueblo.
+                </p>
+              </div>
+              <Button asChild size="sm" className="shrink-0">
+                <Link href="/science/soybean?field=field-pf-soja&tab=lab">Abrir Lab</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         {!simpleMode && <PilotOverviewCard alerts={engineAlerts} />}
       </FadeIn>
 

@@ -65,13 +65,10 @@ import type { ScienceSeriesPoint } from '@/components/charts/science-timeseries-
 
 
 interface GeodataLabPanelProps {
-
   fieldId: string;
-
   crop: ScienceCropId;
-
   localSeries?: ScienceSeriesPoint[];
-
+  audience?: 'cooperative' | 'smallholder';
 }
 
 
@@ -290,7 +287,7 @@ function PersonaSnapshot({
 
 
 
-export function GeodataLabPanel({ fieldId, crop, localSeries }: GeodataLabPanelProps) {
+export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooperative' }: GeodataLabPanelProps) {
 
   const router = useRouter();
 
@@ -407,11 +404,17 @@ export function GeodataLabPanel({ fieldId, crop, localSeries }: GeodataLabPanelP
   const trend = series?.historySummary?.trend ?? intel?.historySummary?.trend;
 
   const isDemoField = fieldId.startsWith('field-sj-') || fieldId.startsWith('field-pf-');
+  const isProducerView = audience === 'smallholder';
 
-
+  const panelTitle = isProducerView
+    ? 'Tu historial satelital'
+    : 'Lab analítico · Data-Historica';
+  const panelBlurb = isProducerView
+    ? 'Serie NDVI de tu parcela PF en San Julián. Podés comparar con la cooperativa del municipio.'
+    : 'Misma región SC-BO, dos escalas productivas: cooperativa con zonas vs finca familiar. Datos históricos Sentinel (~300 escenas demo).';
+  const compareLabel = isProducerView ? 'Vs cooperativa' : 'Comparar escala';
 
   return (
-
     <Card className="glass-card border-violet-500/20 overflow-hidden">
 
       <CardHeader className="pb-3 space-y-3">
@@ -430,15 +433,13 @@ export function GeodataLabPanel({ fieldId, crop, localSeries }: GeodataLabPanelP
 
               <Satellite className="h-4 w-4 text-violet-600" />
 
-              Lab analítico · Data-Historica
+              {panelTitle}
 
             </CardTitle>
 
             <p className="text-xs text-muted-foreground max-w-2xl">
 
-              Misma región SC-BO, dos escalas productivas: cooperativa con zonas vs finca familiar.
-
-              Datos históricos Sentinel en prod (~300 escenas demo).
+              {panelBlurb}
 
             </p>
 
@@ -458,7 +459,7 @@ export function GeodataLabPanel({ fieldId, crop, localSeries }: GeodataLabPanelP
 
               <GitCompareArrows className="h-3.5 w-3.5 mr-1" />
 
-              Comparar escala
+              {compareLabel}
 
             </Button>
 
@@ -483,43 +484,47 @@ export function GeodataLabPanel({ fieldId, crop, localSeries }: GeodataLabPanelP
 
 
         {!compareMode && (
-
           <div className="flex flex-wrap gap-2">
-
-            <Button
-
-              variant={persona === 'cooperative' || !persona ? 'secondary' : 'outline'}
-
-              size="sm"
-
-              onClick={() => switchPersona(tour.cooperative)}
-
-            >
-
-              <Building2 className="h-3.5 w-3.5 mr-1" />
-
-              Cooperativa SJ
-
-            </Button>
-
-            <Button
-
-              variant={persona === 'smallholder' ? 'secondary' : 'outline'}
-
-              size="sm"
-
-              onClick={() => switchPersona(tour.smallholder)}
-
-            >
-
-              <Sprout className="h-3.5 w-3.5 mr-1" />
-
-              Finca María PF
-
-            </Button>
-
+            {isProducerView ? (
+              <>
+                <Button
+                  variant={persona === 'smallholder' || !persona ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => switchPersona(tour.smallholder)}
+                >
+                  <Sprout className="h-3.5 w-3.5 mr-1" />
+                  Mi parcela
+                </Button>
+                <Button
+                  variant={persona === 'cooperative' ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => switchPersona(tour.cooperative)}
+                >
+                  <Building2 className="h-3.5 w-3.5 mr-1" />
+                  Ver cooperativa
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  variant={persona === 'cooperative' || !persona ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => switchPersona(tour.cooperative)}
+                >
+                  <Building2 className="h-3.5 w-3.5 mr-1" />
+                  Cooperativa SJ
+                </Button>
+                <Button
+                  variant={persona === 'smallholder' ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => switchPersona(tour.smallholder)}
+                >
+                  <Sprout className="h-3.5 w-3.5 mr-1" />
+                  Finca María PF
+                </Button>
+              </>
+            )}
           </div>
-
         )}
 
 

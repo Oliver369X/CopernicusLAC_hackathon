@@ -63,3 +63,12 @@ INSERT INTO satellite_readings (zone_id, ndvi, ndmi, ndre, source, reading_date,
 ('zone-pf-maiz', 0.68, 0.48, 0.39, 'copernicus', CURRENT_DATE, CURRENT_DATE - 1, now()),
 ('zone-pf-trigo', 0.49, 0.33, 0.27, 'copernicus', CURRENT_DATE, CURRENT_DATE - 1, now())
 ON CONFLICT (zone_id, reading_date) DO NOTHING;
+
+INSERT INTO field_external_ids (field_id, parcel_key, geodata_region_code) VALUES
+  ('field-pf-soja', 'PF-SOJA-001', 'SC-BO'),
+  ('field-pf-maiz', 'PF-MAIZ-001', 'SC-BO'),
+  ('field-pf-trigo', 'PF-TRIGO-001', 'SC-BO')
+ON CONFLICT (field_id) DO UPDATE SET
+  parcel_key = EXCLUDED.parcel_key,
+  geodata_region_code = EXCLUDED.geodata_region_code,
+  updated_at = now();

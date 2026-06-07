@@ -13,6 +13,20 @@ En `/science/{crop}?tab=lab` — pestaña **Experimentos**:
 - API: `GET /api/integrations/geodata/lab?fieldId=...`
 - Compare: `GET /api/integrations/geodata/lab/compare?crop=soybean`
 
+### Pequeña agricultora (maria@doctorsoya.app)
+
+- `/science` abierto con hub **Historial satelital** (modelo `hectare`)
+- Nav lateral incluye Lab; compare/studies solo cooperativa
+- Campos PF en DB + `field_external_ids` → parcel keys geo-data
+
+### Deploy Vercel / prod
+
+```env
+GEODATA_ENABLED=true
+GEODATA_BASE_URL=http://34.63.197.152:8002
+GEODATA_API_KEY=<API_KEYS del servidor>
+```
+
 ## Cuándo activar
 
 Por defecto **desactivado** en el repo (`GEODATA_ENABLED=false`). Para demo/producción, configurar en `.env.local`:

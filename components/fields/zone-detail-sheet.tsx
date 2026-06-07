@@ -11,10 +11,12 @@ import {
   SheetFooter,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { FieldPolygonPreview } from '@/components/fields/field-polygon-preview';
+import { ZoneInteractiveMap } from '@/components/fields/zone-interactive-map';
 import { ZoneInsightCard } from '@/components/monitor/zone-insight-card';
 import { healthLabelEs, type HealthLevel } from '@/lib/design/tokens';
 import { formatDecimal } from '@/lib/i18n/format-number';
+import { useOrgBilling } from '@/hooks/use-org-billing';
+import { isSmallFarmerExperience } from '@/lib/navigation/experience';
 
 interface ZoneDetailSheetProps {
   zone: FieldZone | null;
@@ -29,6 +31,9 @@ export function ZoneDetailSheet({
   open,
   onOpenChange,
 }: ZoneDetailSheetProps) {
+  const { billing } = useOrgBilling();
+  const simpleMode = isSmallFarmerExperience(billing);
+
   if (!zone || !field) return null;
 
   return (
@@ -39,17 +44,14 @@ export function ZoneDetailSheet({
             {field.name} → {zone.name}
           </SheetTitle>
           <SheetDescription>
-            Detalle granular por zona de manejo
+            {simpleMode
+              ? 'Mapa satelital de la parcela — tocá un punto para ver el análisis de esa zona pequeña'
+              : 'Imagen Copernicus + grilla NDVI — seleccioná un sublote para análisis puntual'}
           </SheetDescription>
         </SheetHeader>
 
         <div className="space-y-4 py-4">
-          <FieldPolygonPreview
-            bounds={field.bounds}
-            zones={field.zones}
-            highlightZoneId={zone.id}
-            height={160}
-          />
+          <ZoneInteractiveMap field={field} zone={zone} height={220} />
 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-md border border-border p-3">

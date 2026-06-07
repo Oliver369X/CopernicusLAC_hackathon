@@ -60,6 +60,7 @@ const smallFarmerNavGroups: NavGroup[] = [
     items: [
       { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
       { href: '/monitor', label: 'Mapa satelital', icon: Satellite },
+      { href: '/science', label: 'Historial satelital', icon: FlaskConical },
       { href: '/alerts', label: 'Alertas', icon: Bell },
     ],
   },
@@ -79,7 +80,7 @@ export function getNavGroupsForBilling(
 }
 
 /** Rutas solo para cooperativas / modelo por zonas. */
-export const COOPERATIVE_ONLY_PREFIXES = ['/science', '/analytics', '/insights'];
+export const COOPERATIVE_ONLY_PREFIXES = ['/analytics', '/insights'];
 
 export function isCooperativeOnlyRoute(pathname: string): boolean {
   return COOPERATIVE_ONLY_PREFIXES.some(

@@ -51,6 +51,8 @@ import {
 } from '@/lib/science/experiments-local';
 import type { ScienceCropId } from '@/lib/science/types';
 import { mergeLabDemoFields } from '@/lib/integrations/geodata/demo-fields';
+import { useOrgBilling } from '@/hooks/use-org-billing';
+import { isSmallFarmerExperience } from '@/lib/navigation/experience';
 
 const HYPOTHESIS_TEMPLATES: Partial<Record<ScienceCropId, string[]>> = {
   soybean: [
@@ -78,10 +80,12 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fields } = useFields();
-  const cropFields = mergeLabDemoFields(
-    fields.filter((f) => f.crop === profile.crop),
-    profile.crop
-  );
+  const { billing } = useOrgBilling();
+  const simpleMode = isSmallFarmerExperience(billing);
+  const baseCropFields = fields.filter((f) => f.crop === profile.crop);
+  const cropFields = simpleMode
+    ? baseCropFields
+    : mergeLabDemoFields(baseCropFields, profile.crop);
   const [fieldId, setFieldId] = useState('');
   const [zoneId, setZoneId] = useState('');
   const [analysis, setAnalysis] = useState<MultisensorAnalysis | null>(null);
@@ -505,6 +509,7 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
           fieldId={selectedField.id}
           crop={profile.crop}
           localSeries={series}
+          audience={simpleMode ? 'smallholder' : 'cooperative'}
         />
       )}
 
