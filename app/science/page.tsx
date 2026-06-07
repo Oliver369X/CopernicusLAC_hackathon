@@ -15,7 +15,9 @@ import {
   Microscope,
   ArrowRight,
   GitCompareArrows,
+  Building2,
 } from 'lucide-react';
+import { getDemoTourLinks } from '@/lib/integrations/geodata/demo-scenarios';
 import type { ScienceCropId } from '@/lib/science/types';
 import type { LucideIcon } from 'lucide-react';
 
@@ -89,7 +91,47 @@ export default function ScienceHubPage() {
         })}
       </StaggerList>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="glass-card md:col-span-2 lg:col-span-3 border-violet-500/25 bg-gradient-to-br from-violet-500/5 to-transparent">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Building2 className="h-4 w-4 text-violet-600" />
+              Demo San Julián · pequeño vs grande productor
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-4">
+            <p className="text-muted-foreground leading-relaxed">
+              Compará el Lab con inteligencia histórica de Data-Historica: cooperativa Aura Agro
+              (~650 ha, gestión por zonas) vs Finca María (19 ha, parcela única). Activá{' '}
+              <code className="text-xs bg-muted px-1.5 py-0.5 rounded">GEODATA_ENABLED=true</code>{' '}
+              apuntando al servidor prod.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {(['soybean', 'corn', 'wheat'] as const).map((crop) => {
+                const tour = getDemoTourLinks(crop);
+                const label = crop === 'soybean' ? 'Soja' : crop === 'corn' ? 'Maíz' : 'Trigo';
+                return (
+                  <div key={crop} className="rounded-lg border p-3 space-y-2">
+                    <p className="font-medium">{label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <Link href={tour.cooperative}>
+                        <Badge variant="outline" className="cursor-pointer hover:bg-sky-500/10">
+                          Cooperativa
+                        </Badge>
+                      </Link>
+                      <Link href={tour.smallholder}>
+                        <Badge variant="outline" className="cursor-pointer hover:bg-amber-500/10">
+                          Finca María
+                        </Badge>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         <Card className="glass-card group hover:border-primary/30 transition-colors">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">

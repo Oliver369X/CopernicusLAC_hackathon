@@ -111,6 +111,33 @@ export const STUDY_SITES: readonly StudySite[] = [
     sentinelTile: DEMO_SENTINEL_TILE,
     groundTruthFocus: ['tizon_bacteriano'],
   },
+  {
+    fieldId: 'field-pf-soja',
+    zoneId: 'zone-pf-soja',
+    crop: 'soybean',
+    cohort: 'PF-2025-A',
+    phenologyNote: 'R3–R4, chacra familiar 8 ha',
+    sentinelTile: DEMO_SENTINEL_TILE,
+    groundTruthFocus: ['vigor_estable'],
+  },
+  {
+    fieldId: 'field-pf-maiz',
+    zoneId: 'zone-pf-maiz',
+    crop: 'corn',
+    cohort: 'PF-2025-B',
+    phenologyNote: 'V8–VT, parcela 6 ha',
+    sentinelTile: DEMO_SENTINEL_TILE,
+    groundTruthFocus: ['sano'],
+  },
+  {
+    fieldId: 'field-pf-trigo',
+    zoneId: 'zone-pf-trigo',
+    crop: 'wheat',
+    cohort: 'PF-2025-C',
+    phenologyNote: 'Espigado temprano, alerta roya',
+    sentinelTile: DEMO_SENTINEL_TILE,
+    groundTruthFocus: ['roya_temprana'],
+  },
 ] as const;
 
 export function getStudySite(

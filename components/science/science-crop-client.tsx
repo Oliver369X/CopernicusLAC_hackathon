@@ -32,6 +32,7 @@ import type { MultisensorAnalysis } from '@/lib/science/types';
 import { analysisToCsvRow, downloadBlob, experimentToJson } from '@/lib/science/export';
 import { FlaskConical, BookOpen, Loader2, Download, GitCompare, Satellite } from 'lucide-react';
 import { DataProvenanceBanner } from '@/components/science/data-provenance-banner';
+import { GeodataLabPanel } from '@/components/science/geodata-lab-panel';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
@@ -376,6 +377,10 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
       )}
 
       <DataProvenanceBanner provenance={analysis?.provenance} />
+
+      {selectedField && (
+        <GeodataLabPanel fieldId={selectedField.id} crop={profile.crop} />
+      )}
 
       <Card className="glass-card">
         <CardContent className="pt-6">

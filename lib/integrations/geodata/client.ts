@@ -1,9 +1,12 @@
 import { getGeodataApiKey, getGeodataBaseUrl, isGeodataEnabled } from './registry';
 import type {
   FireFeatures,
+  GeodataHistorySummary,
   GeodataResolutionSource,
+  GeodataSeriesPoint,
   IntelligencePackage,
   OpticalFeatures,
+  ParcelSeriesResponse,
   SarFeatures,
 } from './types';
 
@@ -88,6 +91,7 @@ export function mapIntelligencePackage(
   const optical = mapOptical(asRecord(raw.optical));
   const sar = mapSar(asRecord(raw.sar));
   const fire = mapFire(asRecord(raw.fire));
+  const hist = asRecord(raw.history_summary);
   return {
     parcelKey: String(raw.unit_key ?? raw.parcelKey ?? ''),
     regionCode: String(raw.region_code ?? 'SC-BO'),
@@ -99,6 +103,16 @@ export function mapIntelligencePackage(
     fetchedAt: String(raw.computed_at ?? new Date().toISOString()),
     source: 'data-historica',
     resolutionSource,
+    historySummary: hist
+      ? {
+          windowDays: hist.window_days as number | undefined,
+          observations: hist.observations as number | undefined,
+          ndviMin: hist.ndvi_min as number | null | undefined,
+          ndviMax: hist.ndvi_max as number | null | undefined,
+          ndviLatest: hist.ndvi_latest as number | null | undefined,
+          trend: hist.trend as string | undefined,
+        }
+      : undefined,
   };
 }
 
@@ -136,6 +150,51 @@ export async function getRegionIntelligence(
     `/v1/features/region/${encodeURIComponent(regionCode)}`
   );
   return raw ? mapIntelligencePackage(raw, 'region') : null;
+}
+
+export function mapParcelSeries(raw: Record<string, unknown>): ParcelSeriesResponse {
+  const seriesRaw = Array.isArray(raw.series) ? raw.series : [];
+  const series: GeodataSeriesPoint[] = seriesRaw.map((row) => {
+    const r = row as Record<string, unknown>;
+    const date = String(r.sensing_date ?? r.obs_time ?? '').slice(0, 10);
+    return {
+      date,
+      ndvi: Number(r.ndvi_mean ?? 0),
+      ndwi: r.ndwi_mean != null ? Number(r.ndwi_mean) : null,
+      evi: r.evi_mean != null ? Number(r.evi_mean) : null,
+      cloudFreePct: r.cloud_free_pct != null ? Number(r.cloud_free_pct) : null,
+    };
+  });
+  const hist = asRecord(raw.history_summary);
+  return {
+    parcelKey: String(raw.parcel_key ?? raw.unit_key ?? ''),
+    featureSet: (raw.feature_set as 'optical' | 'sar') ?? 'optical',
+    days: Number(raw.days ?? 365),
+    count: Number(raw.count ?? series.length),
+    series,
+    historySummary: hist
+      ? {
+          windowDays: hist.window_days as number | undefined,
+          observations: hist.observations as number | undefined,
+          ndviMin: hist.ndvi_min as number | null | undefined,
+          ndviMax: hist.ndvi_max as number | null | undefined,
+          ndviLatest: hist.ndvi_latest as number | null | undefined,
+          trend: hist.trend as string | undefined,
+        }
+      : null,
+  };
+}
+
+export async function getParcelSeries(
+  parcelKey: string,
+  days = 365,
+  featureSet: 'optical' | 'sar' = 'optical'
+): Promise<ParcelSeriesResponse | null> {
+  const raw = await fetchJson<Record<string, unknown>>(
+    `/v1/features/parcel/${encodeURIComponent(parcelKey)}/series`,
+    { feature_set: featureSet, days: String(days) }
+  );
+  return raw ? mapParcelSeries(raw) : null;
 }
 
 export async function checkGeodataHealth(): Promise<{

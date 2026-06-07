@@ -10,5 +10,8 @@ INSERT INTO field_external_ids (field_id, parcel_key, geodata_region_code) VALUE
   ('field-sj-norte', 'SJ-NORTE-001', 'SC-BO'),
   ('field-sj-este', 'SJ-ESTE-001', 'SC-BO'),
   ('field-sj-oeste', 'SJ-OESTE-001', 'SC-BO'),
-  ('field-sj-sur', 'SJ-SUR-001', 'SC-BO')
+  ('field-sj-sur', 'SJ-SUR-001', 'SC-BO'),
+  ('field-pf-soja', 'PF-SOJA-001', 'SC-BO'),
+  ('field-pf-maiz', 'PF-MAIZ-001', 'SC-BO'),
+  ('field-pf-trigo', 'PF-TRIGO-001', 'SC-BO')
 ON CONFLICT (field_id) DO NOTHING;

@@ -1,5 +1,7 @@
 /** Tipos alineados con Data-Historica-Microservicios IntelligencePackage. */
 
+import type { DemoPersonaId } from './demo-scenarios';
+
 export interface OpticalFeatures {
   ndviMean?: number | null;
   ndviStd?: number | null;
@@ -33,6 +35,45 @@ export interface IntelligencePackage {
   fetchedAt?: string;
   source?: string;
   resolutionSource?: GeodataResolutionSource;
+  historySummary?: GeodataHistorySummary;
+}
+
+export interface GeodataHistorySummary {
+  windowDays?: number;
+  observations?: number;
+  ndviMin?: number | null;
+  ndviMax?: number | null;
+  ndviLatest?: number | null;
+  trend?: 'stable' | 'improving' | 'declining' | string;
+}
+
+export interface GeodataSeriesPoint {
+  date: string;
+  ndvi: number;
+  ndwi: number | null;
+  evi: number | null;
+  cloudFreePct: number | null;
+}
+
+export interface ParcelSeriesResponse {
+  parcelKey: string;
+  featureSet: 'optical' | 'sar';
+  days: number;
+  count: number;
+  series: GeodataSeriesPoint[];
+  historySummary?: GeodataHistorySummary | null;
+}
+
+export interface GeodataLabPayload {
+  enabled: boolean;
+  fieldId: string;
+  parcelKey?: string;
+  persona?: DemoPersonaId;
+  personaLabel?: string;
+  highlight?: string;
+  intelligence?: IntelligencePackage | null;
+  series?: ParcelSeriesResponse | null;
+  region?: IntelligencePackage | null;
 }
 
 export interface GeodataHealthStatus {
