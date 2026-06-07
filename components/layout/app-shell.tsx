@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Menu,
-  Leaf,
   PanelLeftClose,
   PanelLeft,
   Bell,
@@ -32,18 +31,16 @@ import {
 import { APP_NAME } from '@/lib/constants/app-brand';
 import { OnboardingGuard } from '@/components/auth/onboarding-guard';
 import { AuraAssistantFab } from '@/components/agents/aura-assistant-fab';
+import { AuraLogo } from '@/components/brand/aura-logo';
 
 function BrandMark({ className }: { className?: string }) {
   return (
     <Link
       href="/dashboard"
-      className={cn(
-        'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform hover:scale-105 motion-reduce:hover:scale-100',
-        className
-      )}
+      className={cn('flex shrink-0 items-center justify-center', className)}
       aria-label={`${APP_NAME} — inicio`}
     >
-      <Leaf className="h-5 w-5" aria-hidden />
+      <AuraLogo variant="mark" size={36} className="rounded-lg" />
     </Link>
   );
 }
@@ -57,9 +54,11 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
         collapsed ? 'justify-center px-0' : 'px-1'
       )}
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100">
-        <Leaf className="h-5 w-5" aria-hidden />
-      </div>
+      <AuraLogo
+        variant="mark"
+        size={36}
+        className="shrink-0 transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100"
+      />
       {!collapsed && (
         <div className="min-w-0">
           <p className="truncate text-sm font-bold text-foreground">{APP_NAME}</p>

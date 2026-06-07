@@ -27,6 +27,8 @@ import { buildMonitorUrl, buildScienceUrl } from '@/lib/navigation/context-links
 import { isScienceCrop } from '@/lib/science/crops/registry';
 import type { ScienceCropId } from '@/lib/science/types';
 import { uniqueSources } from '@/lib/agents/unique-sources';
+import { resolveReportType } from '@/lib/agents/reports/templates';
+import { buildQuickReport } from '@/lib/agents/reports/build-report-draft';
 
 const SKILLS_DIR = join(process.cwd(), 'lib/agents/skills');
 
@@ -37,6 +39,10 @@ const AGENT_PROMPTS: Record<Exclude<AgentId, 'router'>, string> = {
   interpreter: `Eres FieldInterpreter de Aura. Explicá métricas en lenguaje claro para productores: qué significa cada número, si está bien o mal, y qué heurística aplicar. Usá explainZoneMetrics y getZoneSatelliteDetail.`,
   historian: `Eres HistorianAgent de Aura. Analizás tendencias multi-año (hasta 3 años): NDVI, sequías, recuperación, bitácora de campo. Citá fechas y compará campañas. Usá getFieldObservations y getZoneSatelliteDetail.`,
   foodSafety: `Eres FoodSafetyAgent de Aura. Enfocás sanidad vegetal, trazabilidad y calidad de grano. Relacioná alertas, riesgos y acciones para seguridad alimentaria. Usá getActiveAlerts y getFieldObservations.`,
+  reporter: `Eres ReportAgent de Aura. Generás informes usando PLANTILLAS fijas — nunca inventes formato.
+Flujo obligatorio: listReportTemplates → prepareReportDraft → redactá SOLO aiSections → assembleReport.
+Tipos: disease-situation, historical-3y, food-safety, field-summary, zone-status.
+Devolvé el markdown final del informe ensamblado.`,
 };
 
 function readSkill(name: string): string {
@@ -53,6 +59,9 @@ function classifyIntent(message: string, req: AgentChatRequest): AgentId {
     /demo|credencial|login|gu[ií]a|ruta|monitor|c[oó]mo|plataforma|hackathon/.test(m)
   ) {
     return 'guide';
+  }
+  if (/informe|reporte|pdf escrito|generar informe|documento/.test(m)) {
+    return 'reporter';
   }
   if (/seguridad alimentaria|trazabilidad|calidad del grano|sanidad|inocuidad|roya|plaga/.test(m)) {
     return 'foodSafety';
@@ -122,7 +131,45 @@ async function ruleBasedReply(
       reply: `Historial y tendencias (solo tu finca):\n\n${session.contextPackJson?.slice(0, 1200) ?? ''}\n\nBitácora reciente: ${JSON.stringify(obs).slice(0, 500)}`,
       agentUsed: 'historian',
       sources,
-      suggestedActions: ['Ver Lab histórico 3 años', 'Comparar con campaña anterior'],
+      suggestedActions: ['Generar informe histórico 3 años', 'Ver Lab histórico 3 años'],
+    };
+  }
+
+  if (agent === 'reporter') {
+    const reportType =
+      resolveReportType(req.message) ??
+      (/enfermedad|fitosanit|roya|plaga/.test(req.message.toLowerCase())
+        ? 'disease-situation'
+        : /3 a[nñ]os|historial|hist[oó]rico/.test(req.message.toLowerCase())
+          ? 'historical-3y'
+          : /seguridad|inocuidad|trazabilidad/.test(req.message.toLowerCase())
+            ? 'food-safety'
+            : req.zoneId
+              ? 'zone-status'
+              : 'field-summary');
+    const built = await buildQuickReport(
+      session.scope,
+      reportType,
+      req.fieldId,
+      req.zoneId
+    );
+    if (!built.ok) {
+      return {
+        reply: built.error,
+        agentUsed: 'reporter',
+        sources,
+        suggestedActions: ['Elegir tipo de informe', 'Abrir una zona con contexto'],
+      };
+    }
+    return {
+      reply: built.report.markdown,
+      agentUsed: 'reporter',
+      sources: uniqueSources([...sources, 'Plantilla Aura', 'Copernicus CDSE']),
+      suggestedActions: [
+        'Informe fitosanitario',
+        'Informe histórico 3 años',
+        'Informe seguridad alimentaria',
+      ],
     };
   }
 
@@ -305,7 +352,9 @@ export async function runAgentChat(
           ? readSkill('monitor-copernicus.md')
           : agent === 'foodSafety'
             ? readSkill('demo-narrative.md')
-            : '';
+            : agent === 'reporter'
+              ? readSkill('report-workflow.md')
+              : '';
 
     const systemPrompt = `${AGENT_PROMPTS[agent]}
 
@@ -341,7 +390,7 @@ ${skillContext}`;
           reply: content || 'Sin respuesta del modelo.',
           agentUsed: agent,
           sources: uniqueSources([...sources, 'Copernicus CDSE']),
-          suggestedActions: ['¿Qué significa este NDVI?', 'Historial de 3 años', 'Seguridad alimentaria'],
+          suggestedActions: ['¿Qué significa este NDVI?', 'Generar informe de zona', 'Historial de 3 años'],
         };
       }
 

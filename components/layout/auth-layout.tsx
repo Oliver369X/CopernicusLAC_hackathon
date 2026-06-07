@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { APP_NAME, APP_TAGLINE } from '@/lib/constants/app-brand';
-import { Leaf, Satellite, FlaskConical, Shield } from 'lucide-react';
+import { Satellite, FlaskConical, Shield } from 'lucide-react';
 import { FadeIn, StaggerList } from '@/components/ui/motion';
+import { AuraLogo } from '@/components/brand/aura-logo';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -31,13 +32,11 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
   return (
     <div className="relative flex min-h-screen">
       <div className="auth-panel hidden flex-col justify-between p-10 lg:flex lg:w-[52%] xl:w-[55%] xl:p-14">
-        <FadeIn className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/20 ring-1 ring-primary/40">
-            <Leaf className="h-6 w-6 text-primary" aria-hidden />
-          </div>
-          <div>
-            <p className="text-lg font-bold text-foreground">{APP_NAME}</p>
-            <p className="text-xs text-muted-foreground">{APP_TAGLINE}</p>
+        <FadeIn className="flex items-center gap-4">
+          <AuraLogo variant="full" size={148} priority className="max-h-24 w-auto" />
+          <div className="sr-only">
+            <p>{APP_NAME}</p>
+            <p>{APP_TAGLINE}</p>
           </div>
         </FadeIn>
 
@@ -73,10 +72,8 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center p-6 sm:p-10">
-        <div className="mb-8 flex items-center gap-3 lg:hidden">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-secondary font-bold text-primary-foreground">
-            DS
-          </div>
+        <div className="mb-8 flex flex-col items-center gap-2 lg:hidden">
+          <AuraLogo variant="mark" size={44} priority />
           <span className="text-lg font-bold">{APP_NAME}</span>
         </div>
 

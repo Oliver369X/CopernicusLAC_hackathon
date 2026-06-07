@@ -10,7 +10,7 @@ import { Toaster } from '@/components/ui/sonner'
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist-sans' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
 
-import { APP_NAME, APP_TAGLINE } from '@/lib/constants/app-brand'
+import { APP_NAME, APP_TAGLINE, AURA_APPLE_TOUCH_ICON, AURA_FAVICON_32 } from '@/lib/constants/app-brand'
 
 export const metadata: Metadata = {
   title: `${APP_NAME} - Monitoreo Agrícola`,
@@ -26,12 +26,11 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
+      { url: AURA_FAVICON_32, sizes: '32x32', type: 'image/png' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
     ],
-    apple: '/icon.svg',
+    apple: AURA_APPLE_TOUCH_ICON,
+    shortcut: AURA_FAVICON_32,
   },
 }
 

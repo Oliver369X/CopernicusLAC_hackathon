@@ -18,6 +18,11 @@ import type { AgentScope } from '@/lib/agents/scope';
 import { loadOrgFields } from '@/lib/agents/scope';
 import { dbQueryOne, dbQuery } from '@/lib/db/pool';
 import { isDatabaseConfigured } from '@/lib/db/config';
+import { listReportTemplateSummaries } from '@/lib/agents/reports/templates';
+import {
+  assembleReport,
+  prepareReportDraft,
+} from '@/lib/agents/reports/build-report-draft';
 
 const SKILLS_DIR = join(process.cwd(), 'lib/agents/skills');
 
@@ -117,6 +122,62 @@ export const AGENT_TOOLS: AgentToolDefinition[] = [
       type: 'object',
       properties: { zoneId: { type: 'string' } },
       required: ['zoneId'],
+    },
+  },
+  {
+    name: 'listReportTemplates',
+    description:
+      'Lista plantillas de informe Aura (fitosanitario, histórico 3y, seguridad alimentaria, resumen finca, estado de zona)',
+    parameters: { type: 'object', properties: {}, required: [] },
+  },
+  {
+    name: 'prepareReportDraft',
+    description:
+      'Prepara borrador con datos reales y secciones auto; devuelve aiSections para que redactes solo el contenido',
+    parameters: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: [
+            'disease-situation',
+            'historical-3y',
+            'food-safety',
+            'field-summary',
+            'zone-status',
+          ],
+        },
+        fieldId: { type: 'string' },
+        zoneId: { type: 'string' },
+      },
+      required: ['type'],
+    },
+  },
+  {
+    name: 'assembleReport',
+    description:
+      'Ensambla informe final en markdown desde plantilla + sectionContent (texto AI por sectionId)',
+    parameters: {
+      type: 'object',
+      properties: {
+        type: {
+          type: 'string',
+          enum: [
+            'disease-situation',
+            'historical-3y',
+            'food-safety',
+            'field-summary',
+            'zone-status',
+          ],
+        },
+        fieldId: { type: 'string' },
+        zoneId: { type: 'string' },
+        sectionContent: {
+          type: 'object',
+          description: 'Mapa sectionId → texto redactado por el agente',
+        },
+      },
+      required: ['type', 'sectionContent'],
     },
   },
 ];
@@ -325,6 +386,49 @@ export function listDemoCredentials() {
   };
 }
 
+export function listReportTemplates() {
+  return { templates: listReportTemplateSummaries() };
+}
+
+export async function prepareReportDraftTool(
+  type: string,
+  fieldId?: string,
+  zoneId?: string
+) {
+  const scope = requireScope();
+  const fields = await orgFields();
+  const resolvedFieldId = fieldId ?? fields[0]?.id;
+  if (fieldId && !fields.some((f) => f.id === fieldId)) {
+    return { error: 'Campo fuera de tu organización' };
+  }
+  const result = await prepareReportDraft(scope, type, resolvedFieldId, zoneId);
+  if (!result.ok) return { error: result.error };
+  return result.draft;
+}
+
+export async function assembleReportTool(
+  type: string,
+  sectionContent: Record<string, string>,
+  fieldId?: string,
+  zoneId?: string
+) {
+  const scope = requireScope();
+  const fields = await orgFields();
+  const resolvedFieldId = fieldId ?? fields[0]?.id;
+  if (fieldId && !fields.some((f) => f.id === fieldId)) {
+    return { error: 'Campo fuera de tu organización' };
+  }
+  const result = await assembleReport(
+    scope,
+    type,
+    sectionContent,
+    resolvedFieldId,
+    zoneId
+  );
+  if (!result.ok) return { error: result.error };
+  return result.report;
+}
+
 export async function executeAgentTool(
   name: string,
   args: Record<string, unknown>
@@ -351,6 +455,21 @@ export async function executeAgentTool(
     case 'getFieldObservations':
       return getFieldObservations(
         String(args.fieldId ?? ''),
+        args.zoneId ? String(args.zoneId) : undefined
+      );
+    case 'listReportTemplates':
+      return listReportTemplates();
+    case 'prepareReportDraft':
+      return prepareReportDraftTool(
+        String(args.type ?? ''),
+        args.fieldId ? String(args.fieldId) : undefined,
+        args.zoneId ? String(args.zoneId) : undefined
+      );
+    case 'assembleReport':
+      return assembleReportTool(
+        String(args.type ?? ''),
+        (args.sectionContent as Record<string, string>) ?? {},
+        args.fieldId ? String(args.fieldId) : undefined,
         args.zoneId ? String(args.zoneId) : undefined
       );
     default:

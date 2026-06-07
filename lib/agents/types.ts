@@ -5,7 +5,8 @@ export type AgentId =
   | 'guide'
   | 'interpreter'
   | 'historian'
-  | 'foodSafety';
+  | 'foodSafety'
+  | 'reporter';
 
 export interface AgentChatRequest {
   message: string;

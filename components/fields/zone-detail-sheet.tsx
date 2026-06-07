@@ -49,8 +49,9 @@ export function ZoneDetailSheet({
     return [
       `¿Qué significa NDVI ${formatDecimal(zone.ndviAverage, 2)} aquí?`,
       simpleMode ? '¿Mi parcela está bien?' : '¿Esta zona necesita riego?',
-      '¿Qué pasó en los últimos 3 años?',
-      '¿Hay riesgo para la calidad del grano?',
+      'Generar informe fitosanitario de esta zona',
+      'Informe histórico de 3 años',
+      'Informe de seguridad alimentaria',
     ];
   }, [field, zone, simpleMode]);
 

@@ -2,9 +2,10 @@
 
 import { APP_NAME } from '@/lib/constants/app-brand';
 import { useEffect, useState } from 'react';
-import { X, Download, Leaf } from 'lucide-react';
+import { X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { AuraLogo } from '@/components/brand/aura-logo';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -66,8 +67,8 @@ export function PWAInstallPrompt() {
         <div className="h-1 w-full bg-gradient-to-r from-primary via-secondary to-primary/50" />
         <div className="p-4 sm:p-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-secondary text-primary-foreground shadow-md shadow-primary/25">
-              <Leaf className="h-5 w-5" aria-hidden />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-background/80 p-1 shadow-md shadow-primary/15 ring-1 ring-primary/20">
+              <AuraLogo variant="mark" size={32} />
             </div>
             <div className="min-w-0 flex-1">
               <h3

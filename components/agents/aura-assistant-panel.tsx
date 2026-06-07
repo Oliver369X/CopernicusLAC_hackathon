@@ -48,7 +48,7 @@ export function AuraAssistantPanel({
     : field?.zones[0];
 
   const chips = quickPrompts.length
-    ? quickPrompts.slice(0, 4)
+    ? quickPrompts.slice(0, 5)
     : ['Explicá lo que veo en pantalla', '¿Está bien o mal?', '¿Qué hago hoy?'];
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
