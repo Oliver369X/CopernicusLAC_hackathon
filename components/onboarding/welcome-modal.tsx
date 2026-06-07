@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sprout, Upload, X } from 'lucide-react';
+import { Sprout, Upload, X, Satellite } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/dialog';
 
 const STORAGE_KEY = 'ds_welcome_dismissed';
+const DEMO_TOUR_KEY = 'ds_science_lab_tour_v1';
 
 export function WelcomeModal() {
   const [open, setOpen] = useState(false);
+  const [hasFields, setHasFields] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -24,7 +26,11 @@ export function WelcomeModal() {
     fetch('/api/org/status')
       .then((r) => r.json())
       .then((data: { fieldCount?: number }) => {
-        if ((data.fieldCount ?? 0) === 0) {
+        const count = data.fieldCount ?? 0;
+        setHasFields(count > 0);
+        if (count === 0) {
+          setOpen(true);
+        } else if (localStorage.getItem(DEMO_TOUR_KEY) !== '1') {
           setOpen(true);
         }
       })
@@ -45,10 +51,28 @@ export function WelcomeModal() {
             Bienvenida a Doctor Soya
           </DialogTitle>
           <DialogDescription>
-            Empezá registrando tu parcela en el mapa o importando un archivo con tus lotes.
+            {hasFields
+              ? 'Ya tenés parcelas cargadas. ¿Querés un tour rápido del historial satelital?'
+              : 'Empezá registrando tu parcela en el mapa o importando un archivo con tus lotes.'}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 pt-2">
+          {hasFields ? (
+            <>
+              <Button asChild className="min-h-[44px] w-full">
+                <Link href="/science" onClick={dismiss}>
+                  <Satellite className="h-4 w-4 mr-2" />
+                  Tour del satélite (2 min)
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="min-h-[44px] w-full">
+                <Link href="/dashboard" onClick={dismiss}>
+                  Ir al panel
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
           <Button asChild className="min-h-[44px] w-full">
             <Link href="/setup/parcel" onClick={dismiss}>
               <Sprout className="h-4 w-4 mr-2" />
@@ -61,6 +85,8 @@ export function WelcomeModal() {
               Importar archivo
             </Link>
           </Button>
+            </>
+          )}
           <Button variant="ghost" className="min-h-[44px]" onClick={dismiss}>
             <X className="h-4 w-4 mr-2" />
             Después

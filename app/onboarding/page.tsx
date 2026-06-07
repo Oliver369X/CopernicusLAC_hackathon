@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -141,6 +142,9 @@ export default function OnboardingPage() {
             onClick={() => router.push('/dashboard?onboarded=1')}
           >
             Ir al panel
+          </Button>
+          <Button variant="outline" className="min-h-[44px]" asChild>
+            <Link href="/science">Ver tutorial satelital</Link>
           </Button>
           <Button variant="ghost" onClick={() => setStep(2)}>
             Agregar más parcelas

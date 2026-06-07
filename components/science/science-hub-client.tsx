@@ -21,6 +21,7 @@ import {
   Satellite,
 } from 'lucide-react';
 import { getDemoTourLinks } from '@/lib/integrations/geodata/demo-scenarios';
+import { ScienceLabTour, ScienceLabTourTrigger } from '@/components/onboarding/science-lab-tour';
 import { useOrgBilling } from '@/hooks/use-org-billing';
 import { isSmallFarmerExperience } from '@/lib/navigation/experience';
 import type { ScienceCropId } from '@/lib/science/types';
@@ -54,6 +55,7 @@ export function ScienceHubClient() {
 
   return (
     <PageContainer size="wide">
+      <ScienceLabTour simpleMode={simpleMode} />
       <PageHeader
         title={simpleMode ? 'Historial satelital' : undefined}
         description={
@@ -67,6 +69,7 @@ export function ScienceHubClient() {
             {simpleMode ? 'Tu finca' : 'Copernicus'}
           </Badge>
         }
+        actions={<ScienceLabTourTrigger simpleMode={simpleMode} />}
       />
 
       {simpleMode && (

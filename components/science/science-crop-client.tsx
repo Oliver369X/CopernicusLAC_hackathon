@@ -32,7 +32,9 @@ import type { MultisensorAnalysis } from '@/lib/science/types';
 import { analysisToCsvRow, downloadBlob, experimentToJson } from '@/lib/science/export';
 import { FlaskConical, BookOpen, Loader2, Download, GitCompare, Satellite } from 'lucide-react';
 import { DataProvenanceBanner } from '@/components/science/data-provenance-banner';
+import { LabGuidancePanel } from '@/components/science/lab-guidance-panel';
 import { GeodataLabPanel } from '@/components/science/geodata-lab-panel';
+import { ScienceLabTour, ScienceLabTourTrigger } from '@/components/onboarding/science-lab-tour';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
@@ -51,6 +53,7 @@ import {
 } from '@/lib/science/experiments-local';
 import type { ScienceCropId } from '@/lib/science/types';
 import { mergeLabDemoFields } from '@/lib/integrations/geodata/demo-fields';
+import type { LabGoalOption } from '@/lib/onboarding/science-lab-copy';
 import { useOrgBilling } from '@/hooks/use-org-billing';
 import { isSmallFarmerExperience } from '@/lib/navigation/experience';
 
@@ -106,6 +109,8 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   const [refreshing, setRefreshing] = useState(false);
   const [experiments, setExperiments] = useState<ExperimentRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [preferCompare, setPreferCompare] = useState(false);
+  const [labGoalId, setLabGoalId] = useState<string | null>(null);
 
   const selectedField = cropFields.find((f) => f.id === fieldId) ?? cropFields[0];
   const studySite = selectedField
@@ -302,6 +307,18 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
         (prevExperiment.result.optical.ndre ?? 0)
       : null;
 
+  const handleLabGoal = useCallback(
+    (goal: LabGoalOption) => {
+      setHypothesis(goal.hypothesis);
+      setLabGoalId(goal.id);
+      setPreferCompare(Boolean(goal.opensCompare));
+      if (goal.loadsAnalysis && !loading) {
+        void loadData();
+      }
+    },
+    [loading, loadData]
+  );
+
   const setTabAndSync = (nextTab: 'client' | 'lab') => {
     setTab(nextTab);
     if (selectedField) {
@@ -347,16 +364,22 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   return (
     <PageContainer size="wide" className="space-y-6">
       <PageHeader
-        description={`${profile.scientificName} · Firma temporal multisensor (S2 óptico + S1 radar).`}
+        title={simpleMode ? 'Seguimiento de tu parcela' : undefined}
+        description={
+          simpleMode
+            ? 'Mirá cómo va tu cultivo con fotos del satélite — en palabras simples.'
+            : `${profile.scientificName} · Firma temporal multisensor (S2 óptico + S1 radar).`
+        }
         actions={
           <HorizontalScrollRow aria-label="Vistas del laboratorio">
+            <ScienceLabTourTrigger simpleMode={simpleMode} className="h-10 shrink-0" />
             <Button
               variant={tab === 'client' ? 'default' : 'outline'}
               size="sm"
               className="h-10 shrink-0 snap-start"
               onClick={() => setTabAndSync('client')}
             >
-              Vista cliente
+              {simpleMode ? 'Resumen' : 'Vista cliente'}
             </Button>
             <Button
               variant={tab === 'lab' ? 'default' : 'outline'}
@@ -364,7 +387,8 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
               className="h-10 shrink-0 snap-start"
               onClick={() => setTabAndSync('lab')}
             >
-              <FlaskConical className="h-4 w-4 mr-1" /> Experimentos
+              <FlaskConical className="h-4 w-4 mr-1" />
+              {simpleMode ? 'Seguimiento' : 'Experimentos'}
             </Button>
             <Button variant="outline" size="sm" className="h-10 shrink-0 snap-start" asChild>
               <Link href="/science/bibliography">
@@ -504,19 +528,36 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
         </CardContent>
       </Card>
 
+      {tab === 'lab' && (
+        <>
+          <ScienceLabTour simpleMode={simpleMode} />
+          <LabGuidancePanel
+            simpleMode={simpleMode}
+            onChooseGoal={handleLabGoal}
+            selectedGoalId={labGoalId as LabGoalOption['id'] | null}
+          />
+        </>
+      )}
+
       {tab === 'lab' && selectedField && (
         <GeodataLabPanel
           fieldId={selectedField.id}
           crop={profile.crop}
           localSeries={series}
           audience={simpleMode ? 'smallholder' : 'cooperative'}
+          plainLanguage={simpleMode}
+          preferCompare={preferCompare}
         />
       )}
 
       {tab === 'lab' && (
         <div className="space-y-4">
           <Card className="glass-card">
-            <CardHeader><CardTitle className="text-base">1. Hipótesis</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {simpleMode ? '2. Tu nota de seguimiento' : '1. Hipótesis'}
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
               {(HYPOTHESIS_TEMPLATES[profile.crop]?.length ?? 0) > 0 && (
                 <Select value={hypothesis} onValueChange={setHypothesis}>
@@ -528,34 +569,59 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
                   </SelectContent>
                 </Select>
               )}
-              <Textarea value={hypothesis} onChange={(e) => setHypothesis(e.target.value)} rows={3} />
-              <p className="text-xs text-muted-foreground">
-                {selectedField.zones.find((z) => z.id === zoneId)?.name ?? '—'}
-                {studySite ? ` · ${studySite.cohort} · ${studySite.phenologyNote}` : ''}
-              </p>
+              <Textarea
+                value={hypothesis}
+                onChange={(e) => setHypothesis(e.target.value)}
+                rows={3}
+                placeholder={
+                  simpleMode
+                    ? 'Ej.: La parcela se ve más seca que la semana pasada…'
+                    : 'Describí qué querés comprobar con satélite…'
+                }
+              />
+              {!simpleMode && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedField.zones.find((z) => z.id === zoneId)?.name ?? '—'}
+                  {studySite ? ` · ${studySite.cohort} · ${studySite.phenologyNote}` : ''}
+                </p>
+              )}
             </CardContent>
           </Card>
 
           <Card className="glass-card">
-            <CardHeader><CardTitle className="text-base">2. Ejecutar</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {simpleMode ? '3. Ver lectura de hoy' : '2. Ejecutar'}
+              </CardTitle>
+            </CardHeader>
             <CardContent className="space-y-3">
               {!analysis ? (
                 <>
                   <p className="text-sm text-muted-foreground">
-                    Revisá el contexto histórico arriba, luego cargá el análisis multisensor para registrar
-                    un experimento.
+                    {simpleMode
+                      ? 'Tocá el botón para traer la última foto del satélite de tu parcela.'
+                      : 'Revisá el contexto histórico arriba, luego cargá el análisis multisensor.'}
                   </p>
                   <Button onClick={loadData} disabled={loading}>
-                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cargar análisis'}
+                    {loading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : simpleMode ? (
+                      'Ver estado de mi parcela'
+                    ) : (
+                      'Cargar análisis'
+                    )}
                   </Button>
                 </>
               ) : (
                 <>
                   <p className="text-xs text-muted-foreground">
-                    Fase: {analysis.temporal.phenologyPhase ?? '—'} ({analysis.temporal.phenologyMatch}) ·
-                    muestras: {analysis.temporal.sampleCount}
+                    {simpleMode
+                      ? `Lectura lista · ${healthLabel(analysis.healthLabel)}`
+                      : `Fase: ${analysis.temporal.phenologyPhase ?? '—'} (${analysis.temporal.phenologyMatch}) · muestras: ${analysis.temporal.sampleCount}`}
                   </p>
-                  <Button onClick={runExperiment}>Ejecutar experimento</Button>
+                  <Button onClick={runExperiment}>
+                    {simpleMode ? 'Guardar seguimiento' : 'Ejecutar experimento'}
+                  </Button>
                 </>
               )}
             </CardContent>
@@ -563,20 +629,28 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
 
           {analysis && (
             <Card className="glass-card">
-              <CardHeader><CardTitle className="text-base">3. Resultado</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {simpleMode ? '4. Resultado' : '3. Resultado'}
+                </CardTitle>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid sm:grid-cols-2 gap-3 text-sm">
                   <div className="border rounded-lg p-3">
-                    <p className="text-muted-foreground text-xs">Fusión reglas</p>
+                    <p className="text-muted-foreground text-xs">
+                      {simpleMode ? 'Estado general' : 'Fusión reglas'}
+                    </p>
                     <MetricValue value={analysis.fusionScore * 100} decimals={1} />
                   </div>
-                  <div className="border rounded-lg p-3">
-                    <p className="text-muted-foreground text-xs">Fusión ML</p>
-                    <MetricValue
-                      value={analysis.fusionScoreMl != null ? analysis.fusionScoreMl * 100 : null}
-                      decimals={1}
-                    />
-                  </div>
+                  {!simpleMode && (
+                    <div className="border rounded-lg p-3">
+                      <p className="text-muted-foreground text-xs">Fusión ML</p>
+                      <MetricValue
+                        value={analysis.fusionScoreMl != null ? analysis.fusionScoreMl * 100 : null}
+                        decimals={1}
+                      />
+                    </div>
+                  )}
                 </div>
                 {analysis.anomalyFlags.length > 0 && (
                   <div className="flex flex-wrap gap-2">
@@ -662,10 +736,10 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
             <Card className="glass-card border-dashed">
               <CardContent className="py-4 text-sm text-muted-foreground">
                 <p>
-                  Usá <strong>Comparar escala</strong> arriba para cooperativa vs Finca María antes de
-                  formular la hipótesis.
+                  {simpleMode
+                    ? 'Tip: elegí una tarjeta arriba (ej. “No estoy segura”) y te guiamos sola.'
+                    : 'Usá Comparar escala arriba para cooperativa vs Finca María antes de formular la hipótesis.'}
                 </p>
-                <p className="text-xs mt-2">Referencias: {profile.references.join(' · ')}</p>
               </CardContent>
             </Card>
           )}

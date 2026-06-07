@@ -59,8 +59,8 @@ import {
 } from 'lucide-react';
 
 import type { ScienceCropId } from '@/lib/science/types';
-
 import type { ScienceSeriesPoint } from '@/components/charts/science-timeseries-chart';
+import { PLAIN_METRIC_LABELS } from '@/lib/onboarding/science-lab-copy';
 
 
 
@@ -69,6 +69,8 @@ interface GeodataLabPanelProps {
   crop: ScienceCropId;
   localSeries?: ScienceSeriesPoint[];
   audience?: 'cooperative' | 'smallholder';
+  plainLanguage?: boolean;
+  preferCompare?: boolean;
 }
 
 
@@ -105,11 +107,15 @@ function MetricStrip({
 
   compact = false,
 
+  plainLanguage = false,
+
 }: {
 
   payload: GeodataLabPayload;
 
   compact?: boolean;
+
+  plainLanguage?: boolean;
 
 }) {
 
@@ -145,7 +151,9 @@ function MetricStrip({
 
       <div className="rounded-lg border p-2.5">
 
-        <p className="text-[10px] text-muted-foreground mb-0.5">NDVI</p>
+        <p className="text-[10px] text-muted-foreground mb-0.5">
+          {plainLanguage ? PLAIN_METRIC_LABELS.ndvi : 'NDVI'}
+        </p>
 
         <MetricValue value={intel.optical?.ndviMean} decimals={2} />
 
@@ -153,7 +161,9 @@ function MetricStrip({
 
       <div className="rounded-lg border p-2.5">
 
-        <p className="text-[10px] text-muted-foreground mb-0.5">SAR humedad</p>
+        <p className="text-[10px] text-muted-foreground mb-0.5">
+          {plainLanguage ? PLAIN_METRIC_LABELS.sarMoisture : 'SAR humedad'}
+        </p>
 
         <MetricValue value={intel.sar?.soilMoisture} decimals={2} />
 
@@ -161,7 +171,9 @@ function MetricStrip({
 
       <div className="rounded-lg border p-2.5">
 
-        <p className="text-[10px] text-muted-foreground mb-0.5">Hotspots 7d</p>
+        <p className="text-[10px] text-muted-foreground mb-0.5">
+          {plainLanguage ? PLAIN_METRIC_LABELS.hotspots : 'Hotspots 7d'}
+        </p>
 
         <MetricValue value={intel.fire?.hotspotCount7d ?? region?.fire?.hotspotCount7d} decimals={0} />
 
@@ -169,7 +181,9 @@ function MetricStrip({
 
       <div className="rounded-lg border p-2.5">
 
-        <p className="text-[10px] text-muted-foreground mb-0.5">Tendencia</p>
+        <p className="text-[10px] text-muted-foreground mb-0.5">
+          {plainLanguage ? PLAIN_METRIC_LABELS.trend : 'Tendencia'}
+        </p>
 
         <span className="text-sm font-semibold">{trend ? trendLabel[trend] ?? trend : '—'}</span>
 
@@ -245,7 +259,7 @@ function PersonaSnapshot({
 
       )}
 
-      <MetricStrip payload={payload} compact />
+      <MetricStrip payload={payload} compact plainLanguage />
 
       {(intel?.summary || series?.historySummary) && (
 
@@ -287,7 +301,7 @@ function PersonaSnapshot({
 
 
 
-export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooperative' }: GeodataLabPanelProps) {
+export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooperative', plainLanguage = false, preferCompare = false }: GeodataLabPanelProps) {
 
   const router = useRouter();
 
@@ -295,7 +309,7 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
   const [compare, setCompare] = useState<GeodataLabComparePayload | null>(null);
 
-  const [compareMode, setCompareMode] = useState(false);
+  const [compareMode, setCompareMode] = useState(preferCompare);
 
   const [loading, setLoading] = useState(true);
 
@@ -306,6 +320,10 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
   const tour = getDemoTourLinks(crop);
 
 
+
+  useEffect(() => {
+    if (preferCompare) setCompareMode(true);
+  }, [preferCompare]);
 
   const load = useCallback(async () => {
 
@@ -425,7 +443,7 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
             <Badge variant="secondary" className="text-[10px] w-fit">
 
-              Paso 0 · Contexto histórico
+              {plainLanguage ? 'Paso 1 · Cómo va tu parcela' : 'Paso 0 · Contexto histórico'}
 
             </Badge>
 
@@ -625,7 +643,7 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
           <>
 
-            <MetricStrip payload={payload} />
+            <MetricStrip payload={payload} plainLanguage={plainLanguage} />
 
 
 
@@ -707,18 +725,13 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
               <p className="text-sm font-medium mb-2">
 
-                Serie NDVI histórica · {series?.count ?? 0} escenas
+                {plainLanguage ? 'Verdor mes a mes' : `Serie NDVI histórica · ${series?.count ?? 0} escenas`}
 
                 {localSeries && localSeries.length > 0 && (
-
                   <span className="text-muted-foreground font-normal">
-
                     {' '}
-
-                    · DB local {localSeries.length} pts (90d)
-
+                    · {plainLanguage ? 'últimas semanas' : `DB local ${localSeries.length} pts (90d)`}
                   </span>
-
                 )}
 
               </p>
