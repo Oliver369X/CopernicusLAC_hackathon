@@ -1,6 +1,7 @@
 import { getGeodataApiKey, getGeodataBaseUrl, isGeodataEnabled } from './registry';
 import type {
   FireFeatures,
+  GeodataDataQuality,
   GeodataHistorySummary,
   GeodataResolutionSource,
   GeodataSeriesPoint,
@@ -152,6 +153,23 @@ export async function getRegionIntelligence(
   return raw ? mapIntelligencePackage(raw, 'region') : null;
 }
 
+function inferDataQuality(
+  series: GeodataSeriesPoint[],
+  explicit?: string
+): GeodataDataQuality {
+  if (explicit === 'cdse' || explicit === 'demo' || explicit === 'mixed' || explicit === 'empty') {
+    return explicit;
+  }
+  if (!series.length) return 'empty';
+  const dates = series.map((p) => p.date);
+  const uniqueDates = new Set(dates);
+  const duplicateDates = uniqueDates.size !== dates.length;
+  const monthlyOn15 = dates.every((d) => d.endsWith('-15'));
+  if (monthlyOn15 && duplicateDates) return 'demo';
+  if (duplicateDates) return 'mixed';
+  return 'cdse';
+}
+
 export function mapParcelSeries(raw: Record<string, unknown>): ParcelSeriesResponse {
   const seriesRaw = Array.isArray(raw.series) ? raw.series : [];
   const series: GeodataSeriesPoint[] = seriesRaw.map((row) => {
@@ -166,6 +184,14 @@ export function mapParcelSeries(raw: Record<string, unknown>): ParcelSeriesRespo
     };
   });
   const hist = asRecord(raw.history_summary);
+  const providersRaw = raw.source_providers;
+  const sourceProviders = Array.isArray(providersRaw)
+    ? providersRaw.map((p) => String(p))
+    : undefined;
+  const dataQuality = inferDataQuality(
+    series,
+    raw.data_quality as string | undefined
+  );
   return {
     parcelKey: String(raw.parcel_key ?? raw.unit_key ?? ''),
     featureSet: (raw.feature_set as 'optical' | 'sar') ?? 'optical',
@@ -182,6 +208,9 @@ export function mapParcelSeries(raw: Record<string, unknown>): ParcelSeriesRespo
           trend: hist.trend as string | undefined,
         }
       : null,
+    dataQuality,
+    sourceProviders,
+    dedupApplied: raw.dedup_applied === true,
   };
 }
 

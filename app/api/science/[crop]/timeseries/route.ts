@@ -1,24 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getDbService } from '@/lib/db/get-service';
-import { getFieldByIdFromDb } from '@/lib/data/fields';
 import { getFieldById } from '@/lib/mock-data/fields';
-import {
-  getSatelliteHistoryForZone,
-  getSatelliteReadingsForZoneRange,
-} from '@/lib/data/zone-satellite-metrics';
+import { getFieldByIdFromDb } from '@/lib/data/fields';
 import { isScienceCrop } from '@/lib/science/crops/registry';
 import { computeDpRvi } from '@/lib/science/indices/radar';
 import { hasSatelliteCredentialsConfigured } from '@/lib/config/satellite';
-
-function defaultFromTo(days: number): { from: string; to: string } {
-  const to = new Date();
-  const from = new Date();
-  from.setUTCDate(from.getUTCDate() - days);
-  return {
-    from: from.toISOString().split('T')[0],
-    to: to.toISOString().split('T')[0],
-  };
-}
+import { resolveTimeseriesForField } from '@/lib/integrations/geodata/timeseries-adapter';
 
 export async function GET(
   request: Request,
@@ -51,39 +37,34 @@ export async function GET(
       return NextResponse.json({ error: 'Zone not found' }, { status: 404 });
     }
 
-    let series: Array<Record<string, unknown>> = [];
-    let from = fromParam;
-    let to = toParam;
+    const resolved = await resolveTimeseriesForField(fieldId, zone.id, {
+      from: fromParam ?? undefined,
+      to: toParam ?? undefined,
+      days,
+    });
 
-    const service = await getDbService();
+    const from =
+      fromParam ??
+      (resolved.points[0]?.date ??
+        (() => {
+          const d = new Date();
+          d.setUTCDate(d.getUTCDate() - days);
+          return d.toISOString().split('T')[0];
+        })());
+    const to =
+      toParam ??
+      resolved.points[resolved.points.length - 1]?.date ??
+      new Date().toISOString().split('T')[0];
 
-    if (service) {
-      if (fromParam && toParam) {
-        const history = await getSatelliteReadingsForZoneRange(
-          service,
-          zone.id,
-          fromParam,
-          toParam
-        );
-        series = history.map((h) => mapPoint(h));
-      } else {
-        const { from: f, to: t } = defaultFromTo(days);
-        from = f;
-        to = t;
-        const history = await getSatelliteReadingsForZoneRange(
-          service,
-          zone.id,
-          f,
-          t
-        );
-        if (history.length) {
-          series = history.map((h) => mapPoint(h));
-        } else {
-          const fallback = await getSatelliteHistoryForZone(service, zone.id, days);
-          series = fallback.map((h) => mapPoint(h));
-        }
-      }
-    }
+    const series = resolved.points.map((p) => ({
+      capturedAt: `${p.date}T12:00:00.000Z`,
+      readingDate: p.date,
+      ndvi: p.ndvi,
+      ndre: p.ndre ?? null,
+      ndmi: p.ndmi ?? null,
+      evi: p.evi ?? null,
+      dpRvi: p.dpRvi ?? null,
+    }));
 
     if (!series.length && hasSatelliteCredentialsConfigured()) {
       return NextResponse.json({
@@ -94,8 +75,9 @@ export async function GET(
         from,
         to,
         series: [],
-        message: 'Sin historial satelital — ejecuta pnpm cron:backfill',
         source: 'pending',
+        fallbackUsed: resolved.fallbackUsed,
+        message: 'Sin historial satelital — ejecuta pnpm cron:backfill',
       });
     }
 
@@ -107,35 +89,14 @@ export async function GET(
       from,
       to,
       series,
-      source: series.length ? 'satellite_readings' : 'mock',
+      source: resolved.source,
+      dataQuality: resolved.dataQuality,
+      parcelKey: resolved.parcelKey,
+      fallbackUsed: resolved.fallbackUsed,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Timeseries failed';
     console.error('[science/timeseries]', message);
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-function mapPoint(h: {
-  captured_at: string;
-  reading_date?: string;
-  ndvi: number;
-  ndmi: number;
-  ndre?: number | null;
-  s1_vv?: number | null;
-  s1_vh?: number | null;
-  science_metadata?: { dpRvi?: number; evi?: number } | null;
-}) {
-  const meta = h.science_metadata;
-  const vv = h.s1_vv;
-  const vh = h.s1_vh;
-  return {
-    capturedAt: h.reading_date ? `${h.reading_date}T12:00:00.000Z` : h.captured_at,
-    readingDate: h.reading_date ?? h.captured_at.split('T')[0],
-    ndvi: h.ndvi,
-    ndre: h.ndre ?? null,
-    ndmi: h.ndmi,
-    evi: meta?.evi ?? null,
-    dpRvi: meta?.dpRvi ?? (vv && vh ? computeDpRvi(vv, vh) : null),
-  };
 }

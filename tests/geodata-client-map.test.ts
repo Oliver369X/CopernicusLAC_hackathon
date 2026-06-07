@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapIntelligencePackage } from '@/lib/integrations/geodata/client';
+import { mapIntelligencePackage, mapParcelSeries } from '@/lib/integrations/geodata/client';
 
 const FIXTURE = {
   unit_type: 'parcel',
@@ -32,5 +32,33 @@ describe('mapIntelligencePackage', () => {
     expect(pkg.fire?.hotspotCount7d).toBe(2);
     expect(pkg.fire?.nearestKm).toBe(14.2);
     expect(pkg.resolutionSource).toBe('parcel');
+  });
+});
+
+describe('mapParcelSeries', () => {
+  it('expone provenance CDSE', () => {
+    const mapped = mapParcelSeries({
+      parcel_key: 'ROSA-SOJA-500',
+      count: 1,
+      series: [{ sensing_date: '2024-04-01', ndvi_mean: 0.6 }],
+      data_quality: 'cdse',
+      source_providers: ['CDSE'],
+    });
+    expect(mapped.dataQuality).toBe('cdse');
+    expect(mapped.sourceProviders).toEqual(['CDSE']);
+  });
+
+  it('infiere demo en serie mensual duplicada', () => {
+    const mapped = mapParcelSeries({
+      parcel_key: 'LUCIA-SOJA-10',
+      count: 4,
+      series: [
+        { sensing_date: '2024-01-15', ndvi_mean: 0.5 },
+        { sensing_date: '2024-01-15', ndvi_mean: 0.52 },
+        { sensing_date: '2024-02-15', ndvi_mean: 0.55 },
+        { sensing_date: '2024-02-15', ndvi_mean: 0.56 },
+      ],
+    });
+    expect(mapped.dataQuality).toBe('demo');
   });
 });

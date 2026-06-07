@@ -47,6 +47,8 @@ export interface GeodataHistorySummary {
   trend?: 'stable' | 'improving' | 'declining' | string;
 }
 
+export type GeodataDataQuality = 'cdse' | 'demo' | 'mixed' | 'empty';
+
 export interface GeodataSeriesPoint {
   date: string;
   ndvi: number;
@@ -62,6 +64,9 @@ export interface ParcelSeriesResponse {
   count: number;
   series: GeodataSeriesPoint[];
   historySummary?: GeodataHistorySummary | null;
+  dataQuality?: GeodataDataQuality;
+  sourceProviders?: string[];
+  dedupApplied?: boolean;
 }
 
 export interface GeodataLabPayload {
@@ -72,6 +77,8 @@ export interface GeodataLabPayload {
   personaLabel?: string;
   highlight?: string;
   historyWindow?: string;
+  dataQuality?: GeodataDataQuality;
+  sourceProviders?: string[];
   intelligence?: IntelligencePackage | null;
   series?: ParcelSeriesResponse | null;
   region?: IntelligencePackage | null;
@@ -92,5 +99,6 @@ export interface GeodataHealthStatus {
   dbConnected?: boolean;
   parcelSample?: string;
   parcelStatus?: number;
+  seriesQuality?: Record<string, GeodataDataQuality>;
   reason?: string;
 }

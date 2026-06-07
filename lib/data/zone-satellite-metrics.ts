@@ -36,6 +36,7 @@ export interface ZoneHistoryPoint {
   ndre?: number | null;
   s1_vv?: number | null;
   s1_vh?: number | null;
+  source?: string;
   science_metadata?: { dpRvi?: number; evi?: number; lst?: number; optical?: Record<string, number>; radar?: Record<string, number> } | null;
 }
 
@@ -87,6 +88,7 @@ function rowToHistoryPoint(row: Record<string, unknown>): ZoneHistoryPoint {
     s1_vv: row.s1_vv != null ? Number(row.s1_vv) : null,
     s1_vh: row.s1_vh != null ? Number(row.s1_vh) : null,
     science_metadata: row.science_metadata as ZoneHistoryPoint['science_metadata'],
+    source: row.source != null ? String(row.source) : undefined,
   };
 }
 
@@ -162,7 +164,7 @@ export async function getSatelliteReadingsForZoneRange(
 ): Promise<ZoneHistoryPoint[]> {
   const { data } = await service
     .from('satellite_readings')
-    .select('captured_at, reading_date, ndvi, ndmi, ndre, s1_vv, s1_vh, science_metadata')
+    .select('captured_at, reading_date, ndvi, ndmi, ndre, s1_vv, s1_vh, source, science_metadata')
     .eq('zone_id', zoneId)
     .gte('reading_date', from)
     .lte('reading_date', to)

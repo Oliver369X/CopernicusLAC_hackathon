@@ -24,6 +24,11 @@ $COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya < docker/postgres/ini
 $COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya < scripts/seed-small-farmer-prod.sql || true
 $COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya < scripts/seed-personas-3y-prod.sql || true
 
+if [[ "${SEED_DEMO_OVERLAY:-0}" == "1" ]]; then
+  echo "=== Seed overlay demo 3y (opt-in SEED_DEMO_OVERLAY=1) ==="
+  $COMPOSE exec -T postgres psql -U doctorsoya -d doctorsoya < scripts/seed-personas-3y-overlay.sql || true
+fi
+
 echo "=== Build ==="
 $COMPOSE build web worker worker-queue
 

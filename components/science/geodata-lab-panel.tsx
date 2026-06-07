@@ -289,6 +289,8 @@ function PersonaSnapshot({
 
         data={series?.series ?? []}
 
+        dataQuality={payload.dataQuality ?? series?.dataQuality}
+
         aria-label={`Serie histórica ${meta.label}`}
 
       />
@@ -689,6 +691,18 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
               )}
 
+              {payload.dataQuality === 'cdse' && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600">
+                  CDSE · tile trimestral
+                </Badge>
+              )}
+
+              {payload.dataQuality === 'demo' && (
+                <Badge className="bg-amber-600 hover:bg-amber-600">
+                  Demo sintético
+                </Badge>
+              )}
+
               {intel.optical?.cropHealthStatus && (
 
                 <Badge variant="outline">{intel.optical.cropHealthStatus}</Badge>
@@ -757,6 +771,8 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
               <GeodataHistoricalChart
 
                 data={series?.series ?? []}
+
+                dataQuality={payload.dataQuality ?? series?.dataQuality}
 
                 localOverlay={localSeries?.map((p) => ({ date: p.date, ndvi: p.ndvi }))}
 

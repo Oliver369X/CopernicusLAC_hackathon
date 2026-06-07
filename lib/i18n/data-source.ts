@@ -14,10 +14,16 @@ const SOURCE_LABELS: Record<string, string> = {
   mock: 'Datos demo',
   engine: 'Motor de alertas',
   copernicus: 'Copernicus CDSE',
+  'geodata-cdse': 'CDSE · tile trimestral',
+  'geodata-demo': 'Demo sintético geo-data',
+  'seed-personas-3y': 'Seed demo personas 3y',
+  'seed-sj-demo': 'Seed demo San Julián',
   live: 'En vivo',
   pending: 'Copernicus pendiente',
   open_meteo: 'Open-Meteo',
   seed: 'Seed SQL',
+  geodata: 'Data-Historica',
+  satellite_readings: 'Lecturas satelitales locales',
 };
 
 export function metricStateIcon(state: MetricDataState): string {

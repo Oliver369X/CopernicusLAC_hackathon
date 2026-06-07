@@ -51,6 +51,8 @@ export async function buildGeodataLabPayload(fieldId: string): Promise<GeodataLa
     personaLabel: persona ? DEMO_PERSONAS[persona].label : undefined,
     highlight: scenario?.highlight,
     historyWindow: historyWindowLabel(fieldId),
+    dataQuality: series?.dataQuality,
+    sourceProviders: series?.sourceProviders,
     intelligence,
     series,
     region,

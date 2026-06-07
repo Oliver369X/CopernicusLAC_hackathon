@@ -94,6 +94,11 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   const [zoneId, setZoneId] = useState('');
   const [analysis, setAnalysis] = useState<MultisensorAnalysis | null>(null);
   const [series, setSeries] = useState<Array<{ date: string; ndvi: number; ndre: number | null; dpRvi: number | null }>>([]);
+  const [timeseriesMeta, setTimeseriesMeta] = useState<{
+    source?: 'geodata' | 'satellite_readings' | 'none' | 'pending';
+    dataQuality?: 'cdse' | 'demo' | 'mixed' | 'empty';
+    parcelKey?: string;
+  }>({});
   const [loading, setLoading] = useState(false);
   const [hypothesis, setHypothesis] = useState(
     profile.crop === 'wheat'
@@ -188,6 +193,9 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
           ndre?: number;
           dpRvi?: number;
         }>;
+        source?: 'geodata' | 'satellite_readings' | 'none' | 'pending';
+        dataQuality?: 'cdse' | 'demo' | 'mixed' | 'empty';
+        parcelKey?: string;
       }>(tRes, { series: [] });
       const eResult = await parseJsonResponse<{ experiments?: ExperimentRow[] }>(eRes, {
         experiments: [],
@@ -207,6 +215,11 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
       });
       setExperiments(mergeExperiments(remote, local));
       setAnalysis(aResult.data);
+      setTimeseriesMeta({
+        source: tResult.data?.source,
+        dataQuality: tResult.data?.dataQuality,
+        parcelKey: tResult.data?.parcelKey,
+      });
       setSeries(
         (tResult.data?.series ?? []).map((p) => ({
           date: p.capturedAt.split('T')[0],
@@ -410,7 +423,12 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
         />
       )}
 
-      <DataProvenanceBanner provenance={analysis?.provenance} />
+      <DataProvenanceBanner
+        provenance={analysis?.provenance}
+        timeseriesSource={timeseriesMeta.source}
+        dataQuality={timeseriesMeta.dataQuality}
+        parcelKey={timeseriesMeta.parcelKey}
+      />
 
       <Card className="glass-card">
         <CardContent className="pt-6">
