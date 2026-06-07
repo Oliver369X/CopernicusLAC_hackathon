@@ -50,6 +50,7 @@ import {
   type ExperimentRow,
 } from '@/lib/science/experiments-local';
 import type { ScienceCropId } from '@/lib/science/types';
+import { mergeLabDemoFields } from '@/lib/integrations/geodata/demo-fields';
 
 const HYPOTHESIS_TEMPLATES: Partial<Record<ScienceCropId, string[]>> = {
   soybean: [
@@ -77,7 +78,10 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fields } = useFields();
-  const cropFields = fields.filter((f) => f.crop === profile.crop);
+  const cropFields = mergeLabDemoFields(
+    fields.filter((f) => f.crop === profile.crop),
+    profile.crop
+  );
   const [fieldId, setFieldId] = useState('');
   const [zoneId, setZoneId] = useState('');
   const [analysis, setAnalysis] = useState<MultisensorAnalysis | null>(null);
