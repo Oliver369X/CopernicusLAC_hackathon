@@ -76,6 +76,13 @@ export interface GeodataLabPayload {
   region?: IntelligencePackage | null;
 }
 
+export interface GeodataLabComparePayload {
+  enabled: boolean;
+  crop: string;
+  cooperative: GeodataLabPayload;
+  smallholder: GeodataLabPayload;
+}
+
 export interface GeodataHealthStatus {
   ok: boolean;
   geodataEnabled: boolean;

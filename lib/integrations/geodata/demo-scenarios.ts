@@ -36,6 +36,13 @@ export const DEMO_PERSONAS: Record<DemoPersonaId, DemoPersona> = {
   },
 };
 
+export const DEMO_PERSONA_NARRATIVES: Record<DemoPersonaId, string> = {
+  cooperative:
+    'Vista analítica para técnicos: zonas, tendencias regionales y alertas cruzadas entre subparcelas SJ.',
+  smallholder:
+    'Vista directa para la productora: una parcela, lectura simple y contexto histórico de su chacra PF.',
+};
+
 export const DEMO_FIELD_SCENARIOS: readonly DemoFieldScenario[] = [
   {
     fieldId: 'field-sj-norte',

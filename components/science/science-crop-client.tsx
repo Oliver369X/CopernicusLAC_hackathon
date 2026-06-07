@@ -382,10 +382,6 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
 
       <DataProvenanceBanner provenance={analysis?.provenance} />
 
-      {selectedField && (
-        <GeodataLabPanel fieldId={selectedField.id} crop={profile.crop} />
-      )}
-
       <Card className="glass-card">
         <CardContent className="pt-6">
           <ResponsiveToolbar>
@@ -503,6 +499,173 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
           </ResponsiveToolbar>
         </CardContent>
       </Card>
+
+      {tab === 'lab' && selectedField && (
+        <GeodataLabPanel
+          fieldId={selectedField.id}
+          crop={profile.crop}
+          localSeries={series}
+        />
+      )}
+
+      {tab === 'lab' && (
+        <div className="space-y-4">
+          <Card className="glass-card">
+            <CardHeader><CardTitle className="text-base">1. Hipótesis</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {(HYPOTHESIS_TEMPLATES[profile.crop]?.length ?? 0) > 0 && (
+                <Select value={hypothesis} onValueChange={setHypothesis}>
+                  <SelectTrigger><SelectValue placeholder="Plantilla de hipótesis" /></SelectTrigger>
+                  <SelectContent>
+                    {(HYPOTHESIS_TEMPLATES[profile.crop] ?? []).map((h) => (
+                      <SelectItem key={h} value={h}>{h.slice(0, 60)}…</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Textarea value={hypothesis} onChange={(e) => setHypothesis(e.target.value)} rows={3} />
+              <p className="text-xs text-muted-foreground">
+                {selectedField.zones.find((z) => z.id === zoneId)?.name ?? '—'}
+                {studySite ? ` · ${studySite.cohort} · ${studySite.phenologyNote}` : ''}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="glass-card">
+            <CardHeader><CardTitle className="text-base">2. Ejecutar</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {!analysis ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Revisá el contexto histórico arriba, luego cargá el análisis multisensor para registrar
+                    un experimento.
+                  </p>
+                  <Button onClick={loadData} disabled={loading}>
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cargar análisis'}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Fase: {analysis.temporal.phenologyPhase ?? '—'} ({analysis.temporal.phenologyMatch}) ·
+                    muestras: {analysis.temporal.sampleCount}
+                  </p>
+                  <Button onClick={runExperiment}>Ejecutar experimento</Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {analysis && (
+            <Card className="glass-card">
+              <CardHeader><CardTitle className="text-base">3. Resultado</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                  <div className="border rounded-lg p-3">
+                    <p className="text-muted-foreground text-xs">Fusión reglas</p>
+                    <MetricValue value={analysis.fusionScore * 100} decimals={1} />
+                  </div>
+                  <div className="border rounded-lg p-3">
+                    <p className="text-muted-foreground text-xs">Fusión ML</p>
+                    <MetricValue
+                      value={analysis.fusionScoreMl != null ? analysis.fusionScoreMl * 100 : null}
+                      decimals={1}
+                    />
+                  </div>
+                </div>
+                {analysis.anomalyFlags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {analysis.anomalyFlags.map((f) => (
+                      <Badge key={f} variant="destructive">{f}</Badge>
+                    ))}
+                  </div>
+                )}
+                {experiments.length >= 2 && fusionDelta != null && (
+                  <p className="text-xs text-muted-foreground">
+                    Δ fusionScore vs anterior: {fusionDelta >= 0 ? '+' : ''}
+                    {formatDecimal(fusionDelta, 1)} pp
+                    {ndreDelta != null && ` · Δ NDRE: ${formatDecimal(ndreDelta, 3)}`}
+                  </p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      downloadBlob(
+                        analysisToCsvRow(analysis),
+                        `${profile.crop}-analysis.csv`,
+                        'text/csv'
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4 mr-1" /> CSV
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      downloadBlob(
+                        experimentToJson({
+                          crop: profile.crop,
+                          fieldId: selectedField.id,
+                          zoneId,
+                          hypothesis,
+                          notes: null,
+                          result: analysis,
+                        }),
+                        `${profile.crop}-experiment.json`,
+                        'application/json'
+                      )
+                    }
+                  >
+                    <Download className="h-4 w-4 mr-1" /> JSON
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href={buildMonitorUrl({ fieldId: selectedField.id, zoneId })}>
+                      Ver en monitor
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link
+                      href={buildStudiesUrl({
+                        fieldId: selectedField.id,
+                        zoneId,
+                        crop: profile.crop,
+                      })}
+                    >
+                      Registrar etiqueta
+                    </Link>
+                  </Button>
+                </div>
+                {experiments.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <p className="text-xs font-medium">Historial reciente</p>
+                    {experiments.slice(0, 5).map((exp) => (
+                      <div key={exp.id} className="text-xs text-muted-foreground border-b py-1">
+                        {exp.hypothesis.slice(0, 80)}
+                        {exp.hypothesis.length > 80 ? '…' : ''} · {formatDateEs(exp.created_at)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {!analysis && !loadError && (
+            <Card className="glass-card border-dashed">
+              <CardContent className="py-4 text-sm text-muted-foreground">
+                <p>
+                  Usá <strong>Comparar escala</strong> arriba para cooperativa vs Finca María antes de
+                  formular la hipótesis.
+                </p>
+                <p className="text-xs mt-2">Referencias: {profile.references.join(' · ')}</p>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {loadError && !analysis && (
         <Card className="glass-card border-health-critical/40 bg-health-critical/5">
@@ -680,166 +843,7 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
               </CardContent>
             </Card>
           )}
-
-          {tab === 'lab' && (
-            <div className="space-y-4">
-              <Card className="glass-card">
-                <CardHeader><CardTitle className="text-base">1. Hipótesis</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  {(HYPOTHESIS_TEMPLATES[profile.crop]?.length ?? 0) > 0 && (
-                    <Select
-                      value={hypothesis}
-                      onValueChange={setHypothesis}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Plantilla de hipótesis" /></SelectTrigger>
-                      <SelectContent>
-                        {(HYPOTHESIS_TEMPLATES[profile.crop] ?? []).map((h) => (
-                          <SelectItem key={h} value={h}>{h.slice(0, 60)}…</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  <Textarea value={hypothesis} onChange={(e) => setHypothesis(e.target.value)} rows={3} />
-                  <p className="text-xs text-muted-foreground">
-                    {selectedField.zones.find((z) => z.id === zoneId)?.name ?? '—'}
-                    {studySite ? ` · ${studySite.cohort} · ${studySite.phenologyNote}` : ''}
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="glass-card">
-                <CardHeader><CardTitle className="text-base">2. Ejecutar</CardTitle></CardHeader>
-                <CardContent className="space-y-3">
-                  {!analysis ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">
-                        Cargá el análisis multisensor para registrar un experimento.
-                      </p>
-                      <Button onClick={loadData} disabled={loading}>
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cargar análisis'}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-muted-foreground">
-                        Fase: {analysis.temporal.phenologyPhase ?? '—'} ({analysis.temporal.phenologyMatch}) ·
-                        muestras: {analysis.temporal.sampleCount}
-                      </p>
-                      <Button onClick={runExperiment}>Ejecutar experimento</Button>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-
-              {analysis && (
-                <Card className="glass-card">
-                  <CardHeader><CardTitle className="text-base">3. Resultado</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                      <div className="border rounded-lg p-3">
-                        <p className="text-muted-foreground text-xs">Fusión reglas</p>
-                        <MetricValue value={analysis.fusionScore * 100} decimals={1} />
-                      </div>
-                      <div className="border rounded-lg p-3">
-                        <p className="text-muted-foreground text-xs">Fusión ML</p>
-                        <MetricValue
-                          value={analysis.fusionScoreMl != null ? analysis.fusionScoreMl * 100 : null}
-                          decimals={1}
-                        />
-                      </div>
-                    </div>
-                    {analysis.anomalyFlags.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {analysis.anomalyFlags.map((f) => (
-                          <Badge key={f} variant="destructive">{f}</Badge>
-                        ))}
-                      </div>
-                    )}
-                    {experiments.length >= 2 && fusionDelta != null && (
-                      <p className="text-xs text-muted-foreground">
-                        Δ fusionScore vs anterior: {fusionDelta >= 0 ? '+' : ''}
-                        {formatDecimal(fusionDelta, 1)} pp
-                        {ndreDelta != null && ` · Δ NDRE: ${formatDecimal(ndreDelta, 3)}`}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          downloadBlob(
-                            analysisToCsvRow(analysis),
-                            `${profile.crop}-analysis.csv`,
-                            'text/csv'
-                          )
-                        }
-                      >
-                        <Download className="h-4 w-4 mr-1" /> CSV
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          downloadBlob(
-                            experimentToJson({
-                              crop: profile.crop,
-                              fieldId: selectedField.id,
-                              zoneId,
-                              hypothesis,
-                              notes: null,
-                              result: analysis,
-                            }),
-                            `${profile.crop}-experiment.json`,
-                            'application/json'
-                          )
-                        }
-                      >
-                        <Download className="h-4 w-4 mr-1" /> JSON
-                      </Button>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={buildMonitorUrl({ fieldId: selectedField.id, zoneId })}>
-                          Ver en monitor
-                        </Link>
-                      </Button>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link
-                          href={buildStudiesUrl({
-                            fieldId: selectedField.id,
-                            zoneId,
-                            crop: profile.crop,
-                          })}
-                        >
-                          Registrar etiqueta
-                        </Link>
-                      </Button>
-                    </div>
-                    {experiments.length > 0 && (
-                      <div className="space-y-2 pt-2 border-t">
-                        <p className="text-xs font-medium">Historial reciente</p>
-                        {experiments.slice(0, 5).map((exp) => (
-                          <div key={exp.id} className="text-xs text-muted-foreground border-b py-1">
-                            {exp.hypothesis.slice(0, 80)}
-                            {exp.hypothesis.length > 80 ? '…' : ''} · {formatDateEs(exp.created_at)}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
         </>
-      )}
-
-      {tab === 'lab' && !analysis && !loadError && (
-        <Card className="glass-card">
-          <CardHeader><CardTitle className="text-base">Modo Lab</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm text-muted-foreground">
-            <p>Seleccioná campo y zona, cargá el análisis y registrá hipótesis multisensor.</p>
-            <p className="text-xs">Referencias: {profile.references.join(' · ')}</p>
-          </CardContent>
-        </Card>
       )}
     </PageContainer>
   );

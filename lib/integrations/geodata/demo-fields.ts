@@ -1,6 +1,7 @@
+import type { CropType } from '@/lib/mock-data/crops';
 import { DEMO_FIELD_CENTERS } from '@/lib/geo/demo-region';
 import { getDemoScenario } from '@/lib/integrations/geodata/demo-scenarios';
-import type { Field, FieldZone, GeoPoint } from '@/lib/types/field';
+import type { Field, FieldZone, GeoBounds, GeoPoint } from '@/lib/types/field';
 import type { ScienceCropId } from '@/lib/science/types';
 
 const CROP_BY_FIELD: Record<string, ScienceCropId> = {
@@ -15,7 +16,7 @@ const ZONE_BY_FIELD: Record<string, string> = {
   'field-pf-trigo': 'zone-pf-trigo',
 };
 
-function boxAround(center: GeoPoint, delta = 0.005): GeoPoint[] {
+function boxAround(center: GeoPoint, delta = 0.005): GeoBounds {
   return [
     { lat: center.lat - delta, lng: center.lng - delta },
     { lat: center.lat - delta, lng: center.lng + delta },
@@ -35,7 +36,9 @@ export function getDemoOverlayFields(crop: ScienceCropId): Field[] {
       const zone: FieldZone = {
         id: zoneId,
         name: 'Parcela completa',
+        fieldId: center.id,
         bounds: corners,
+        crop: crop as CropType,
         area: scenario.areaHa,
         ndviAverage: 0.55,
         ndmiAverage: 0.4,
@@ -45,6 +48,7 @@ export function getDemoOverlayFields(crop: ScienceCropId): Field[] {
         diseaseRisks: [],
         health: 'good',
         lastObservation: new Date(),
+        lastUpdate: new Date(),
       };
       const field: Field = {
         id: center.id,
@@ -53,7 +57,7 @@ export function getDemoOverlayFields(crop: ScienceCropId): Field[] {
         center,
         bounds: corners,
         area: scenario.areaHa,
-        crop,
+        crop: crop as CropType,
         plantedDate: new Date('2024-09-01'),
         daysFromPlanting: 45,
         zones: [zone],

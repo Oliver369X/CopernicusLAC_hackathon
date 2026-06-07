@@ -101,8 +101,9 @@ export default function ScienceHubPage() {
           </CardHeader>
           <CardContent className="text-sm space-y-4">
             <p className="text-muted-foreground leading-relaxed">
-              Compará el Lab con inteligencia histórica de Data-Historica: cooperativa Aura Agro
-              (~650 ha, gestión por zonas) vs Finca María (19 ha, parcela única). Activá{' '}
+              En el Lab (<strong>Experimentos</strong>), el paso 0 carga inteligencia histórica de
+              Data-Historica. Compará cooperativa Aura Agro (~650 ha, zonas SJ) vs Finca María
+              (19 ha, parcelas PF) con el botón <strong>Comparar escala</strong>. Activá{' '}
               <code className="text-xs bg-muted px-1.5 py-0.5 rounded">GEODATA_ENABLED=true</code>{' '}
               apuntando al servidor prod.
             </p>

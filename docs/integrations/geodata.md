@@ -4,12 +4,14 @@ Adaptador en `lib/integrations/geodata/` para enriquecer narrativas del Lab sin 
 
 ## Panel Lab (analítica histórica)
 
-En `/science/{crop}?tab=lab` aparece el panel **Inteligencia histórica · Data-Historica**:
+En `/science/{crop}?tab=lab` — pestaña **Experimentos**:
 
-- Métricas parcela: NDVI, SAR, hotspots, tendencia 90d
-- Gráfico serie NDVI histórica (`/v1/features/parcel/{key}/series`)
-- Tour demo: **Cooperativa** (SJ-*) vs **Finca María** (PF-*)
-- API interna: `GET /api/integrations/geodata/lab?fieldId=...`
+- **Paso 0**: contexto histórico Data-Historica (no en vista cliente)
+- **Comparar escala**: cooperativa SJ vs Finca María PF lado a lado
+- Métricas parcela, serie NDVI multi-año, overlay DB local 90d
+- Tour desde `/science` o botones Cooperativa / Finca María
+- API: `GET /api/integrations/geodata/lab?fieldId=...`
+- Compare: `GET /api/integrations/geodata/lab/compare?crop=soybean`
 
 ## Cuándo activar
 
@@ -78,4 +80,4 @@ python scripts/sync_parcels.py geojson/san_julian_parcels.geojson --region-code 
 python scripts/seed_sj_demo_features.py   # demo sin celdas ingestadas
 REFRESH MATERIALIZED VIEW feature_store.mv_latest_features;
 ```
-
+

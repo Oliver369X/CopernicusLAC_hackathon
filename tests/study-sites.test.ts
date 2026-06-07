@@ -2,8 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { getStudySite, STUDY_SITES } from '@/lib/science/study-sites';
 
 describe('study-sites', () => {
-  it('has 11 study sites', () => {
-    expect(STUDY_SITES).toHaveLength(11);
+  it('has 14 study sites (SJ + PF demo)', () => {
+    expect(STUDY_SITES).toHaveLength(14);
+  });
+
+  it('returns PF smallholder site', () => {
+    const site = getStudySite('field-pf-soja', 'zone-pf-soja');
+    expect(site?.cohort).toBe('PF-2025-A');
   });
 
   it('returns site for stress zone', () => {

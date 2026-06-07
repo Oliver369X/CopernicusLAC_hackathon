@@ -43,6 +43,15 @@ export function enrichAnalysisWithGeodata(
 
   refs.push(`Data-Historica ${pkg.regionCode}`);
 
+  if (!analysis.provenance) {
+    return {
+      ...analysis,
+      anomalyFlags: flags,
+      references: refs,
+      narrative,
+    };
+  }
+
   const provenance = {
     ...analysis.provenance,
     geodataUsed: true,
