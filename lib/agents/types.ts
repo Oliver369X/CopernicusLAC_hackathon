@@ -1,4 +1,11 @@
-export type AgentId = 'router' | 'satellite' | 'advisor' | 'guide' | 'interpreter';
+export type AgentId =
+  | 'router'
+  | 'satellite'
+  | 'advisor'
+  | 'guide'
+  | 'interpreter'
+  | 'historian'
+  | 'foodSafety';
 
 export interface AgentChatRequest {
   message: string;
@@ -7,6 +14,12 @@ export interface AgentChatRequest {
   zoneId?: string;
   /** Contexto de pantalla para explicar datos visibles al usuario. */
   screenContext?: string;
+}
+
+/** Rellenado en servidor — nunca confiar en el cliente para aislamiento. */
+export interface AgentChatSession {
+  scope: import('@/lib/agents/scope').AgentScope;
+  contextPackJson?: string;
 }
 
 export interface AgentChatResponse {

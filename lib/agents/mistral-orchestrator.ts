@@ -6,12 +6,18 @@ import {
   executeAgentTool,
   getFieldsSummary,
   getZoneSatelliteDetail,
+  runWithAgentScope,
 } from '@/lib/agents/tools';
-import type { AgentChatRequest, AgentChatResponse, AgentId } from '@/lib/agents/types';
+import type {
+  AgentChatRequest,
+  AgentChatResponse,
+  AgentChatSession,
+  AgentId,
+} from '@/lib/agents/types';
 import { buildSatelliteContext } from '@/lib/services/satellite-correlation';
 import { buildMultiSensorNarrative } from '@/lib/services/fusion/multi-sensor-narrative';
 import { getDbService } from '@/lib/db/get-service';
-import { getFields } from '@/lib/data/fields';
+import { loadOrgFields } from '@/lib/agents/scope';
 import {
   getLatestSatelliteForZones,
   getSatelliteHistoryForZone,
@@ -29,6 +35,8 @@ const AGENT_PROMPTS: Record<Exclude<AgentId, 'router'>, string> = {
   advisor: `Eres FieldAdvisor de ${APP_NAME}. Recomienda acciones agronómicas por zona (riego, fungicida, monitoreo). Usa alertas y métricas reales.`,
   guide: `Eres DemoGuide de ${APP_NAME}. Ayuda al jurado a usar la plataforma, demo 3 min y credenciales. Usa getPlatformGuide y listDemoCredentials.`,
   interpreter: `Eres FieldInterpreter de Aura. Explicá métricas en lenguaje claro para productores: qué significa cada número, si está bien o mal, y qué heurística aplicar. Usá explainZoneMetrics y getZoneSatelliteDetail.`,
+  historian: `Eres HistorianAgent de Aura. Analizás tendencias multi-año (hasta 3 años): NDVI, sequías, recuperación, bitácora de campo. Citá fechas y compará campañas. Usá getFieldObservations y getZoneSatelliteDetail.`,
+  foodSafety: `Eres FoodSafetyAgent de Aura. Enfocás sanidad vegetal, trazabilidad y calidad de grano. Relacioná alertas, riesgos y acciones para seguridad alimentaria. Usá getActiveAlerts y getFieldObservations.`,
 };
 
 function readSkill(name: string): string {
@@ -39,12 +47,18 @@ function readSkill(name: string): string {
   }
 }
 
-function classifyIntent(message: string): AgentId {
+function classifyIntent(message: string, req: AgentChatRequest): AgentId {
   const m = message.toLowerCase();
   if (
     /demo|credencial|login|gu[ií]a|ruta|monitor|c[oó]mo|plataforma|hackathon/.test(m)
   ) {
     return 'guide';
+  }
+  if (/seguridad alimentaria|trazabilidad|calidad del grano|sanidad|inocuidad|roya|plaga/.test(m)) {
+    return 'foodSafety';
+  }
+  if (/historial|3 a[nñ]os|tendencia|2023|2024|2025|campa[nñ]a|evoluci[oó]n|bit[aá]cora/.test(m)) {
+    return 'historian';
   }
   if (/qu[eé] hago|recomend|riego|fungicida|alerta|accion|campo/.test(m)) {
     return 'advisor';
@@ -52,12 +66,16 @@ function classifyIntent(message: string): AgentId {
   if (/explic|significa|entender|comprens|métrica|metrica|ndvi/.test(m)) {
     return 'interpreter';
   }
+  if (req.zoneId || req.fieldId) {
+    return 'interpreter';
+  }
   return 'satellite';
 }
 
 async function ruleBasedReply(
   req: AgentChatRequest,
-  agent: AgentId
+  agent: AgentId,
+  session: AgentChatSession
 ): Promise<AgentChatResponse> {
   const summary = await getFieldsSummary();
   const sources = uniqueSources([
@@ -72,6 +90,39 @@ async function ruleBasedReply(
       agentUsed: 'guide',
       sources: ['Aura Agro skills'],
       suggestedActions: ['Abrir /monitor', 'Preguntar resumen satelital', 'Ir a /science/soybean'],
+    };
+  }
+
+  if (agent === 'foodSafety') {
+    const alerts = await executeAgentTool('getActiveAlerts', {
+      fieldId: req.fieldId,
+    });
+    const obs = req.fieldId
+      ? await executeAgentTool('getFieldObservations', {
+          fieldId: req.fieldId,
+          zoneId: req.zoneId,
+        })
+      : { observations: [] };
+    return {
+      reply: `Seguridad alimentaria — contexto aislado de ${session.scope.orgName}:\n\nAlertas: ${JSON.stringify(alerts).slice(0, 600)}\n\nBitácora: ${JSON.stringify(obs).slice(0, 400)}`,
+      agentUsed: 'foodSafety',
+      sources,
+      suggestedActions: ['Revisar alertas activas', 'Registrar observación en campo'],
+    };
+  }
+
+  if (agent === 'historian') {
+    const obs = req.fieldId
+      ? await executeAgentTool('getFieldObservations', {
+          fieldId: req.fieldId,
+          zoneId: req.zoneId,
+        })
+      : { observations: [] };
+    return {
+      reply: `Historial y tendencias (solo tu finca):\n\n${session.contextPackJson?.slice(0, 1200) ?? ''}\n\nBitácora reciente: ${JSON.stringify(obs).slice(0, 500)}`,
+      agentUsed: 'historian',
+      sources,
+      suggestedActions: ['Ver Lab histórico 3 años', 'Comparar con campaña anterior'],
     };
   }
 
@@ -110,7 +161,7 @@ async function ruleBasedReply(
   if (zoneId) {
     const detail = await getZoneSatelliteDetail(zoneId);
     const service = await getDbService();
-    const fields = await getFields();
+    const fields = await loadOrgFields(session.scope);
     const zone = fields.flatMap((f) => f.zones).find((z) => z.id === zoneId);
     const field = fields.find((f) => f.id === zone?.fieldId);
     if (zone && field && service) {
@@ -151,14 +202,20 @@ async function ruleBasedReply(
     }
   }
 
-  const monitorLink = buildMonitorUrl({ fieldId: 'field-sj-norte' });
+  const fields = await loadOrgFields(session.scope);
+  const focusField = req.fieldId
+    ? fields.find((f) => f.id === req.fieldId)
+    : fields[0];
+  const monitorLink = buildMonitorUrl({
+    fieldId: focusField?.id ?? fields[0]?.id ?? 'field-sj-norte',
+  });
   const scienceLink = buildScienceUrl({
-    fieldId: 'field-sj-norte',
-    crop: 'soybean',
+    fieldId: focusField?.id ?? fields[0]?.id ?? 'field-sj-norte',
+    crop: (focusField?.crop ?? 'soybean') as ScienceCropId,
     tab: 'lab',
   });
   return {
-    reply: `Resumen portfolio: ${summary.fieldCount} campos, ${summary.satelliteZones} zonas con Copernicus. NDVI por campo: ${summary.fields.map((f) => `${f.field}: ${f.ndvi.toFixed(2)}`).join('; ')}\n\n[Ver en monitor](${monitorLink}) · [Lab soja](${scienceLink})`,
+    reply: `Resumen de ${session.scope.orgName}: ${summary.fieldCount} campo(s), ${summary.satelliteZones} zonas con Copernicus. NDVI: ${summary.fields.map((f) => `${f.field}: ${f.ndvi.toFixed(2)}`).join('; ')}\n\n[Ver en monitor](${monitorLink}) · [Lab](${scienceLink})`,
     agentUsed: 'satellite',
     sources,
     suggestedActions: ['Zona con más estrés', 'Guía demo 3 min'],
@@ -226,80 +283,111 @@ async function callMistral(
   return { content: message?.content ?? '', toolCalls };
 }
 
-export async function runAgentChat(req: AgentChatRequest): Promise<AgentChatResponse> {
-  const agent = classifyIntent(req.message);
-  if (agent === 'router') {
-    return ruleBasedReply(req, 'satellite');
-  }
-
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) {
-    return ruleBasedReply(req, agent);
-  }
-
-  const skillContext =
-    agent === 'guide'
-      ? readSkill('demo-narrative.md')
-      : agent === 'satellite'
-        ? readSkill('monitor-copernicus.md')
-        : '';
-
-  const systemPrompt = `${AGENT_PROMPTS[agent]}\n\nContexto:\nfieldId=${req.fieldId ?? 'any'}\nzoneId=${req.zoneId ?? 'any'}\n${req.screenContext ? `Pantalla: ${req.screenContext}\n` : ''}\n${skillContext}`;
-
-  const userContent = req.screenContext
-    ? `[Contexto pantalla: ${req.screenContext}]\n\n${req.message}`
-    : req.message;
-
-  const messages: MistralMessage[] = [
-    { role: 'system', content: systemPrompt },
-    { role: 'user', content: userContent },
-  ];
-
-  const sources: string[] = ['Mistral AI'];
-  let iterations = 0;
-
-  while (iterations < 4) {
-    iterations++;
-    const { content, toolCalls } = await callMistral(agent, messages);
-
-    if (!toolCalls.length) {
-      return {
-        reply: content || 'Sin respuesta del modelo.',
-        agentUsed: agent,
-        sources: uniqueSources([...sources, 'Copernicus CDSE']),
-        suggestedActions: ['Resumen satelital hoy', 'Guía demo 3 min'],
-      };
+export async function runAgentChat(
+  req: AgentChatRequest,
+  session: AgentChatSession
+): Promise<AgentChatResponse> {
+  return runWithAgentScope(session.scope, async () => {
+    const agent = classifyIntent(req.message, req);
+    if (agent === 'router') {
+      return ruleBasedReply(req, 'satellite', session);
     }
 
-    messages.push({
-      role: 'assistant',
-      content: content || '',
-      tool_calls: toolCalls.map((tc) => ({
-        id: tc.id,
-        function: { name: tc.name, arguments: JSON.stringify(tc.args) },
-      })),
-    });
+    const apiKey = process.env.MISTRAL_API_KEY;
+    if (!apiKey) {
+      return ruleBasedReply(req, agent, session);
+    }
 
-    for (const tc of toolCalls) {
-      const result = await executeAgentTool(tc.name, tc.args);
-      if (tc.name === 'getFieldsSummary' || tc.name === 'getZoneSatelliteDetail') {
-        sources.push('Copernicus CDSE');
+    const skillContext =
+      agent === 'guide'
+        ? readSkill('demo-narrative.md')
+        : agent === 'satellite'
+          ? readSkill('monitor-copernicus.md')
+          : agent === 'foodSafety'
+            ? readSkill('demo-narrative.md')
+            : '';
+
+    const systemPrompt = `${AGENT_PROMPTS[agent]}
+
+Organización: ${session.scope.orgName} (${session.scope.userEmail})
+Modelo: ${session.scope.billingModel}
+REGLA CRÍTICA: Usá ÚNICAMENTE los datos del JSON siguiente. No mezcles fincas de otras usuarias demo.
+
+${session.contextPackJson ?? ''}
+
+fieldId=${req.fieldId ?? 'any'}
+zoneId=${req.zoneId ?? 'any'}
+${req.screenContext ? `Pantalla: ${req.screenContext}\n` : ''}
+${skillContext}`;
+
+    const userContent = req.screenContext
+      ? `[Contexto pantalla: ${req.screenContext}]\n\n${req.message}`
+      : req.message;
+
+    const messages: MistralMessage[] = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContent },
+    ];
+
+    const sources: string[] = ['Mistral AI'];
+    let iterations = 0;
+
+    while (iterations < 4) {
+      iterations++;
+      const { content, toolCalls } = await callMistral(agent, messages);
+
+      if (!toolCalls.length) {
+        return {
+          reply: content || 'Sin respuesta del modelo.',
+          agentUsed: agent,
+          sources: uniqueSources([...sources, 'Copernicus CDSE']),
+          suggestedActions: ['¿Qué significa este NDVI?', 'Historial de 3 años', 'Seguridad alimentaria'],
+        };
       }
-      messages.push({
-        role: 'tool',
-        tool_call_id: tc.id,
-        name: tc.name,
-        content: JSON.stringify(result),
-      });
-    }
-  }
 
-  const fallback = await ruleBasedReply(req, agent);
-  return { ...fallback, sources: uniqueSources(fallback.sources) };
+      messages.push({
+        role: 'assistant',
+        content: content || '',
+        tool_calls: toolCalls.map((tc) => ({
+          id: tc.id,
+          function: { name: tc.name, arguments: JSON.stringify(tc.args) },
+        })),
+      });
+
+      for (const tc of toolCalls) {
+        const result = await executeAgentTool(tc.name, tc.args);
+        if (tc.name === 'getFieldsSummary' || tc.name === 'getZoneSatelliteDetail') {
+          sources.push('Copernicus CDSE');
+        }
+        messages.push({
+          role: 'tool',
+          tool_call_id: tc.id,
+          name: tc.name,
+          content: JSON.stringify(result),
+        });
+      }
+    }
+
+    const fallback = await ruleBasedReply(req, agent, session);
+    return { ...fallback, sources: uniqueSources(fallback.sources) };
+  });
 }
 
-export async function buildAutoBriefing(): Promise<string> {
-  const summary = await getFieldsSummary();
+export async function buildAutoBriefing(orgId?: string): Promise<string> {
+  if (!orgId) {
+    return 'Iniciá sesión para ver el briefing de tu finca.';
+  }
+  const summary = await runWithAgentScope(
+    {
+      orgId,
+      orgName: 'Org',
+      userId: '',
+      userEmail: '',
+      role: 'owner',
+      billingModel: 'hectare',
+    },
+    () => getFieldsSummary()
+  );
   if (summary.satelliteZones === 0) {
     return 'Aún no hay lecturas Copernicus en la base. Ejecutá cron:satellite antes de la demo.';
   }

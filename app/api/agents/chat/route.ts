@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { runAgentChat } from '@/lib/agents/mistral-orchestrator';
+import { buildAgentContextPack } from '@/lib/agents/context-pack';
+import { resolveScopedFieldContext, scopeFromSession } from '@/lib/agents/scope';
 import type { AgentChatRequest } from '@/lib/agents/types';
+import { getSessionOrg } from '@/lib/auth/org';
+import { dbQueryOne } from '@/lib/db/pool';
+import { isDatabaseConfigured } from '@/lib/db/config';
 
 const rateMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30;
@@ -34,7 +39,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'message required' }, { status: 400 });
     }
 
-    const result = await runAgentChat(body);
+    const org = await getSessionOrg();
+    if (!org) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 });
+    }
+
+    const orgRow = isDatabaseConfigured()
+      ? await dbQueryOne<{ name: string }>(
+          `SELECT name FROM organizations WHERE id = $1`,
+          [org.orgId]
+        )
+      : null;
+
+    const scope = scopeFromSession(org, orgRow?.name ?? 'Mi finca');
+    const resolved = await resolveScopedFieldContext(scope, body.fieldId, body.zoneId);
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: 403 });
+    }
+
+    const contextPack = await buildAgentContextPack(scope, resolved.ctx);
+    const fieldId = resolved.ctx.field.id;
+    const zoneId = resolved.ctx.zone?.id;
+
+    const result = await runAgentChat(
+      {
+        ...body,
+        fieldId,
+        zoneId,
+      },
+      {
+        scope,
+        contextPackJson: JSON.stringify(contextPack, null, 2),
+      }
+    );
+
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Agent chat failed';

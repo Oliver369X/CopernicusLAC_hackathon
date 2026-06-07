@@ -14,10 +14,33 @@ import type { ScienceCropId } from '@/lib/science/types';
 import { DEMO_PASSWORD, DEMO_USERS } from '@/lib/constants/demo-credentials';
 import { APP_NAME } from '@/lib/constants/app-brand';
 import type { AgentToolDefinition } from '@/lib/agents/types';
-import { dbQueryOne } from '@/lib/db/pool';
+import type { AgentScope } from '@/lib/agents/scope';
+import { loadOrgFields } from '@/lib/agents/scope';
+import { dbQueryOne, dbQuery } from '@/lib/db/pool';
 import { isDatabaseConfigured } from '@/lib/db/config';
 
 const SKILLS_DIR = join(process.cwd(), 'lib/agents/skills');
+
+let activeScope: AgentScope | null = null;
+
+export function runWithAgentScope<T>(scope: AgentScope, fn: () => Promise<T>): Promise<T> {
+  const prev = activeScope;
+  activeScope = scope;
+  return fn().finally(() => {
+    activeScope = prev;
+  });
+}
+
+function requireScope(): AgentScope {
+  if (!activeScope) {
+    throw new Error('Agent scope no inicializado');
+  }
+  return activeScope;
+}
+
+async function orgFields() {
+  return loadOrgFields(requireScope());
+}
 
 export const AGENT_TOOLS: AgentToolDefinition[] = [
   {
@@ -76,6 +99,18 @@ export const AGENT_TOOLS: AgentToolDefinition[] = [
     parameters: { type: 'object', properties: {}, required: [] },
   },
   {
+    name: 'getFieldObservations',
+    description: 'Bitácora de campo del productor (solo org actual)',
+    parameters: {
+      type: 'object',
+      properties: {
+        fieldId: { type: 'string' },
+        zoneId: { type: 'string' },
+      },
+      required: ['fieldId'],
+    },
+  },
+  {
     name: 'explainZoneMetrics',
     description: 'Narrativa agronómica y acciones para una zona',
     parameters: {
@@ -96,7 +131,7 @@ function readSkill(filename: string): string {
 
 export async function getFieldsSummary() {
   const service = await getDbService();
-  const fields = await getFields();
+  const fields = await orgFields();
   const ctx = await buildInsightsContext(service, fields);
   return {
     fieldCount: fields.length,
@@ -119,9 +154,9 @@ export async function getFieldsSummary() {
 
 export async function getZoneSatelliteDetail(zoneId: string) {
   const service = await getDbService();
-  const fields = await getFields();
+  const fields = await orgFields();
   const zone = fields.flatMap((f) => f.zones).find((z) => z.id === zoneId);
-  if (!zone) return { error: 'Zona no encontrada' };
+  if (!zone) return { error: 'Zona no encontrada en tu organización' };
 
   const field = fields.find((f) => f.id === zone.fieldId);
   if (!field) return { error: 'Campo no encontrado' };
@@ -152,6 +187,16 @@ export async function getActiveAlerts(fieldId?: string) {
   const service = await getDbService();
   if (!service) return { alerts: [], note: 'DB no configurada' };
 
+  const fields = await orgFields();
+  const allowedFieldIds = new Set(fields.map((f) => f.id));
+  if (fieldId && !allowedFieldIds.has(fieldId)) {
+    return { alerts: [], error: 'Campo fuera de tu organización' };
+  }
+
+  if (!fields.length) {
+    return { alerts: [], note: 'Sin campos en la organización' };
+  }
+
   let query = service
     .from('alerts')
     .select('id, field_id, zone_id, type, severity, title, description, recommendation')
@@ -160,9 +205,37 @@ export async function getActiveAlerts(fieldId?: string) {
     .limit(20);
 
   if (fieldId) query = query.eq('field_id', fieldId);
+  else query = query.in('field_id', [...allowedFieldIds]);
 
   const { data } = await query;
   return { alerts: data ?? [] };
+}
+
+export async function getFieldObservations(fieldId: string, zoneId?: string) {
+  const fields = await orgFields();
+  if (!fields.some((f) => f.id === fieldId)) {
+    return { error: 'Campo fuera de tu organización', observations: [] };
+  }
+  if (!isDatabaseConfigured()) return { observations: [] };
+
+  const rows = zoneId
+    ? await dbQuery<{ notes: string; created_at: string }>(
+        `SELECT notes, created_at FROM observations
+         WHERE field_id = $1 AND zone_id = $2 ORDER BY created_at DESC LIMIT 12`,
+        [fieldId, zoneId]
+      )
+    : await dbQuery<{ notes: string; created_at: string }>(
+        `SELECT notes, created_at FROM observations
+         WHERE field_id = $1 ORDER BY created_at DESC LIMIT 12`,
+        [fieldId]
+      );
+
+  return {
+    observations: rows.map((r) => ({
+      date: r.created_at.slice(0, 10),
+      notes: r.notes,
+    })),
+  };
 }
 
 export async function getScienceAnalysis(
@@ -174,12 +247,12 @@ export async function getScienceAnalysis(
     return { error: `Cultivo ${crop} no soportado en science lab` };
   }
 
-  const fields = await getFields();
+  const fields = await orgFields();
   const field = fieldId
     ? fields.find((f) => f.id === fieldId)
     : fields.find((f) => f.crop === crop);
 
-  if (!field) return { error: 'Campo no encontrado' };
+  if (!field) return { error: 'Campo no encontrado en tu organización' };
 
   const zone = field.zones.find((z) => z.id === zoneId) ?? field.zones[0];
   if (!zone) return { error: 'Zona no encontrada' };
@@ -215,6 +288,10 @@ export function getPlatformGuide(topic: string) {
 }
 
 export async function explainZoneMetrics(zoneId: string) {
+  const fields = await orgFields();
+  const inOrg = fields.some((f) => f.zones.some((z) => z.id === zoneId));
+  if (!inOrg) return { error: 'Zona fuera de tu organización' };
+
   if (!isDatabaseConfigured()) {
     return { error: 'Sin base de datos' };
   }
@@ -271,6 +348,11 @@ export async function executeAgentTool(
       return listDemoCredentials();
     case 'explainZoneMetrics':
       return explainZoneMetrics(String(args.zoneId ?? ''));
+    case 'getFieldObservations':
+      return getFieldObservations(
+        String(args.fieldId ?? ''),
+        args.zoneId ? String(args.zoneId) : undefined
+      );
     default:
       return { error: `Tool desconocida: ${name}` };
   }
