@@ -1,5 +1,17 @@
 import { getGeodataApiKey, getGeodataBaseUrl, isGeodataEnabled } from './registry';
-import type { IntelligencePackage } from './types';
+import type {
+  FireFeatures,
+  GeodataResolutionSource,
+  IntelligencePackage,
+  OpticalFeatures,
+  SarFeatures,
+} from './types';
+
+function logGeodataError(path: string, status: number): void {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(`[geodata] ${path} → HTTP ${status}`);
+  }
+}
 
 async function fetchJson<T>(
   path: string,
@@ -15,15 +27,81 @@ async function fetchJson<T>(
   const apiKey = getGeodataApiKey();
   if (apiKey) headers['X-API-Key'] = apiKey;
 
-  const res = await fetch(url.toString(), {
-    headers,
-    signal: AbortSignal.timeout(8_000),
-  });
-  if (!res.ok) return null;
-  return (await res.json()) as T;
+  try {
+    const res = await fetch(url.toString(), {
+      headers,
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!res.ok) {
+      logGeodataError(path, res.status);
+      return null;
+    }
+    return (await res.json()) as T;
+  } catch {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[geodata] ${path} → fetch failed`);
+    }
+    return null;
+  }
 }
 
-/** Inteligencia por parcel_key (Data-Historica /v1/features/parcel/{key}). */
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined;
+}
+
+function mapOptical(raw: Record<string, unknown> | undefined): OpticalFeatures | undefined {
+  if (!raw) return undefined;
+  const lineage = asRecord(raw.lineage);
+  const inputs = asRecord(raw.inputs);
+  return {
+    ndviMean: raw.ndvi_mean as number | null | undefined,
+    ndmiMean: raw.ndwi_mean as number | null | undefined,
+    cloudFraction:
+      (lineage?.cloud_fraction as number | null | undefined) ??
+      (inputs?.cloud_fraction as number | null | undefined),
+    cropHealthStatus: raw.crop_health_status as string | null | undefined,
+  };
+}
+
+function mapSar(raw: Record<string, unknown> | undefined): SarFeatures | undefined {
+  if (!raw) return undefined;
+  return {
+    soilMoisture: raw.sar_soil_moisture as number | null | undefined,
+    floodPct: raw.sar_flood_pct as number | null | undefined,
+  };
+}
+
+function mapFire(raw: Record<string, unknown> | undefined): FireFeatures | undefined {
+  if (!raw) return undefined;
+  const inputs = asRecord(raw.inputs);
+  return {
+    hotspotCount7d: raw.fire_count as number | null | undefined,
+    frpSum7d: raw.fire_risk_score as number | null | undefined,
+    nearestKm: inputs?.nearest_km as number | null | undefined,
+  };
+}
+
+export function mapIntelligencePackage(
+  raw: Record<string, unknown>,
+  resolutionSource: GeodataResolutionSource = 'parcel'
+): IntelligencePackage {
+  const optical = mapOptical(asRecord(raw.optical));
+  const sar = mapSar(asRecord(raw.sar));
+  const fire = mapFire(asRecord(raw.fire));
+  return {
+    parcelKey: String(raw.unit_key ?? raw.parcelKey ?? ''),
+    regionCode: String(raw.region_code ?? 'SC-BO'),
+    optical,
+    sar,
+    fire,
+    confidence: raw.confidence as number | null | undefined,
+    summary: raw.summary as string | null | undefined,
+    fetchedAt: String(raw.computed_at ?? new Date().toISOString()),
+    source: 'data-historica',
+    resolutionSource,
+  };
+}
+
 export async function getParcelIntelligence(
   parcelKey: string,
   enrich = true
@@ -33,10 +111,9 @@ export async function getParcelIntelligence(
     `/v1/features/parcel/${encodeURIComponent(parcelKey)}`,
     params
   );
-  return raw ? mapIntelligencePackage(raw) : null;
+  return raw ? mapIntelligencePackage(raw, 'parcel') : null;
 }
 
-/** Inteligencia por punto (Data-Historica /v1/features/point). */
 export async function getPointIntelligence(
   lat: number,
   lng: number,
@@ -49,30 +126,44 @@ export async function getPointIntelligence(
   };
   if (enrich) params.enrich = 'true';
   const raw = await fetchJson<Record<string, unknown>>('/v1/features/point', params);
-  return raw ? mapIntelligencePackage(raw) : null;
+  return raw ? mapIntelligencePackage(raw, 'point') : null;
 }
 
-function mapIntelligencePackage(raw: Record<string, unknown>): IntelligencePackage {
-  const optical = raw.optical as Record<string, unknown> | undefined;
-  const fire = raw.fire as Record<string, unknown> | undefined;
+export async function getRegionIntelligence(
+  regionCode: string
+): Promise<IntelligencePackage | null> {
+  const raw = await fetchJson<Record<string, unknown>>(
+    `/v1/features/region/${encodeURIComponent(regionCode)}`
+  );
+  return raw ? mapIntelligencePackage(raw, 'region') : null;
+}
+
+export async function checkGeodataHealth(): Promise<{
+  healthStatus: number;
+  dbConnected: boolean;
+}> {
+  const raw = await fetchJson<{ db_connected?: boolean }>('/v1/health');
   return {
-    parcelKey: String(raw.unit_key ?? raw.parcelKey ?? ''),
-    regionCode: String(raw.region_code ?? 'SC-BO'),
-    optical: optical
-      ? {
-          ndviMean: optical.ndvi_mean as number | null | undefined,
-          ndmiMean: optical.ndwi_mean as number | null | undefined,
-          cloudFraction: (optical.lineage as Record<string, unknown> | undefined)
-            ?.cloud_fraction as number | null | undefined,
-        }
-      : undefined,
-    fire: fire
-      ? {
-          hotspotCount7d: fire.fire_count as number | null | undefined,
-          frpSum7d: fire.fire_risk_score as number | null | undefined,
-        }
-      : undefined,
-    fetchedAt: String(raw.computed_at ?? new Date().toISOString()),
-    source: 'data-historica',
+    healthStatus: raw ? 200 : 0,
+    dbConnected: Boolean(raw?.db_connected),
   };
+}
+
+export async function probeParcelEndpoint(
+  parcelKey: string
+): Promise<number> {
+  if (!isGeodataEnabled()) return 0;
+  const base = getGeodataBaseUrl().replace(/\/$/, '');
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  const apiKey = getGeodataApiKey();
+  if (apiKey) headers['X-API-Key'] = apiKey;
+  try {
+    const res = await fetch(
+      `${base}/v1/features/parcel/${encodeURIComponent(parcelKey)}?enrich=true`,
+      { headers, signal: AbortSignal.timeout(8_000) }
+    );
+    return res.status;
+  } catch {
+    return 0;
+  }
 }

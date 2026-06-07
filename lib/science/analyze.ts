@@ -26,9 +26,14 @@ import { enrichWithMl } from './ml/predict';
 import { SCIENCE_ALGORITHM_VERSION } from './version';
 import { inferProductionClass } from './agroforestry/classifier';
 import { isGeodataEnabled } from '@/lib/integrations/geodata/registry';
-import { getParcelKeyForField } from '@/lib/integrations/geodata/registry';
-import { getParcelIntelligence } from '@/lib/integrations/geodata/client';
+import {
+  getParcelIntelligence,
+  getPointIntelligence,
+  getRegionIntelligence,
+} from '@/lib/integrations/geodata/client';
 import { enrichAnalysisWithGeodata } from '@/lib/integrations/geodata/mapper';
+import { resolveFieldGeodataLink } from '@/lib/integrations/geodata/resolve-parcel-key';
+import type { IntelligencePackage } from '@/lib/integrations/geodata/types';
 
 function snapshotToOpticalRadar(
   snapshot: ZoneSatelliteSnapshot,
@@ -280,14 +285,39 @@ export async function analyzeCropMultisensor(
 
   if (isGeodataEnabled()) {
     try {
-      const parcelKey = getParcelKeyForField(field.id);
-      if (parcelKey) {
-        const pkg = await getParcelIntelligence(parcelKey);
-        if (pkg) analysis = enrichAnalysisWithGeodata(analysis, pkg);
-      }
+      analysis = await enrichAnalysisFromGeodata(analysis, field);
     } catch {
       // DB-first intacto
     }
+  }
+
+  return analysis;
+}
+
+async function enrichAnalysisFromGeodata(
+  analysis: MultisensorAnalysis,
+  field: Field
+): Promise<MultisensorAnalysis> {
+  const link = await resolveFieldGeodataLink(field.id);
+  let pkg: IntelligencePackage | null = null;
+
+  if (link?.parcelKey) {
+    pkg = await getParcelIntelligence(link.parcelKey);
+  }
+  if (!pkg && field.center) {
+    pkg = await getPointIntelligence(field.center.lat, field.center.lng);
+  }
+  if (pkg) {
+    return enrichAnalysisWithGeodata(analysis, pkg);
+  }
+
+  const regionCode = link?.regionCode ?? 'SC-BO';
+  const regionPkg = await getRegionIntelligence(regionCode);
+  if (regionPkg) {
+    return enrichAnalysisWithGeodata(
+      analysis,
+      { ...regionPkg, resolutionSource: 'region' }
+    );
   }
 
   return analysis;

@@ -1,9 +1,5 @@
-const PARCEL_KEYS: Record<string, string> = {
-  'field-sj-norte': 'SJ-NORTE-001',
-  'field-sj-este': 'SJ-ESTE-001',
-  'field-sj-oeste': 'SJ-OESTE-001',
-  'field-sj-sur': 'SJ-SUR-001',
-};
+import type { FieldGeodataLink } from './resolve-parcel-key';
+import { getStaticGeodataLink } from './resolve-parcel-key';
 
 export function isGeodataEnabled(): boolean {
   return process.env.GEODATA_ENABLED === 'true';
@@ -18,6 +14,13 @@ export function getGeodataApiKey(): string | null {
   return key?.trim() ? key.trim() : null;
 }
 
+/** @deprecated Usar resolveFieldGeodataLink para lectura desde DB. */
 export function getParcelKeyForField(fieldId: string): string | null {
-  return PARCEL_KEYS[fieldId] ?? null;
+  return getStaticGeodataLink(fieldId)?.parcelKey ?? null;
 }
+
+export function getRegionCodeForField(fieldId: string): string {
+  return getStaticGeodataLink(fieldId)?.regionCode ?? 'SC-BO';
+}
+
+export type { FieldGeodataLink };

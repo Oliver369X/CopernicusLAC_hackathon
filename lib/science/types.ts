@@ -77,6 +77,10 @@ export interface AnalysisProvenance {
   dataSource: 'database' | 'live' | 'mock';
   availableDates: string[];
   liveFetchUsed: boolean;
+  geodataUsed?: boolean;
+  geodataParcelKey?: string;
+  geodataSource?: 'parcel' | 'point' | 'region';
+  geodataRegionCode?: string;
 }
 
 export interface AnalyzeOptions {

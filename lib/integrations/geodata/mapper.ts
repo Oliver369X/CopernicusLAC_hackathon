@@ -1,5 +1,12 @@
 import type { MultisensorAnalysis } from '@/lib/science/types';
-import type { IntelligencePackage } from './types';
+import type { GeodataResolutionSource, IntelligencePackage } from './types';
+
+export interface GeodataEnrichmentMeta {
+  geodataUsed: boolean;
+  geodataParcelKey?: string;
+  geodataSource?: GeodataResolutionSource;
+  geodataRegionCode?: string;
+}
 
 /** Enriquece narrativa con Geo-Data; no sobrescribe NDVI de DB. */
 export function enrichAnalysisWithGeodata(
@@ -15,6 +22,8 @@ export function enrichAnalysisWithGeodata(
     narrative += ` Geo-Data: ${pkg.fire.hotspotCount7d} hotspots FIRMS en 7d`;
     if (pkg.fire.nearestKm != null) {
       narrative += ` (más cercano ~${pkg.fire.nearestKm.toFixed(1)} km).`;
+    } else {
+      narrative += '.';
     }
   }
 
@@ -23,12 +32,44 @@ export function enrichAnalysisWithGeodata(
     narrative += ' Geo-Data: alta cobertura nubosa regional.';
   }
 
-  refs.push('Data-Historica SC-BO');
+  if (pkg.sar?.soilMoisture != null && pkg.sar.soilMoisture < 0.3) {
+    flags.push('geodata_sar_stress');
+    narrative += ` Geo-Data: humedad SAR baja (${pkg.sar.soilMoisture.toFixed(2)}).`;
+  }
+
+  if (pkg.summary) {
+    narrative += ` Geo-Data: ${pkg.summary}`;
+  }
+
+  refs.push(`Data-Historica ${pkg.regionCode}`);
+
+  const provenance = {
+    ...analysis.provenance,
+    geodataUsed: true,
+    geodataParcelKey: pkg.parcelKey || undefined,
+    geodataSource: pkg.resolutionSource,
+    geodataRegionCode: pkg.regionCode,
+  };
 
   return {
     ...analysis,
     anomalyFlags: flags,
     references: refs,
     narrative,
+    provenance,
   };
+}
+
+export function mergeRegionalGeodataFlags(
+  analysis: MultisensorAnalysis,
+  regionPkg: IntelligencePackage
+): MultisensorAnalysis {
+  if (!regionPkg.fire?.hotspotCount7d && regionPkg.optical?.cloudFraction == null) {
+    return analysis;
+  }
+  return enrichAnalysisWithGeodata(analysis, {
+    ...regionPkg,
+    parcelKey: analysis.provenance?.geodataParcelKey ?? regionPkg.parcelKey,
+    resolutionSource: analysis.provenance?.geodataSource ?? 'region',
+  });
 }

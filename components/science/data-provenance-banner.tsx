@@ -44,9 +44,21 @@ export function DataProvenanceBanner({ provenance }: DataProvenanceBannerProps) 
     );
   }
 
+  const geodataBadge =
+    provenance.geodataUsed ? (
+      <Badge
+        variant="outline"
+        className="mr-2 border-violet-500/50 text-violet-700 dark:text-violet-300"
+      >
+        Geo-Data {provenance.geodataRegionCode ?? 'SC-BO'}
+        {provenance.geodataParcelKey ? ` · ${provenance.geodataParcelKey}` : ''}
+      </Badge>
+    ) : null;
+
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3 py-2 text-xs">
       {badge}
+      {geodataBadge}
       <span className="text-muted-foreground shrink-0">tile {DEMO_SENTINEL_TILE}</span>
       {provenance.availableDates.length > 0 && (
         <span className="text-muted-foreground truncate">
