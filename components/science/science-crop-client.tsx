@@ -53,6 +53,7 @@ import {
 } from '@/lib/science/experiments-local';
 import type { ScienceCropId } from '@/lib/science/types';
 import { mergeLabDemoFields } from '@/lib/integrations/geodata/demo-fields';
+import { getHistoryDaysForField, hasThreeYearHistory } from '@/lib/integrations/geodata/history-window';
 import type { LabGoalOption } from '@/lib/onboarding/science-lab-copy';
 import { useOrgBilling } from '@/hooks/use-org-billing';
 import { isSmallFarmerExperience } from '@/lib/navigation/experience';
@@ -170,7 +171,8 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
         from.setUTCDate(from.getUTCDate() - 6);
         timeseriesUrl += `&from=${from.toISOString().split('T')[0]}&to=${to}`;
       } else {
-        timeseriesUrl += '&days=90';
+        const days = getHistoryDaysForField(selectedField.id);
+        timeseriesUrl += `&days=${days}`;
       }
       const [aRes, tRes, eRes] = await Promise.all([
         fetch(`/api/science/${profile.crop}/analysis?fieldId=${selectedField.id}&zoneId=${z}${asOfParam}`),

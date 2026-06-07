@@ -14,6 +14,8 @@ const STATIC_PARCEL_KEYS: Record<string, FieldGeodataLink> = {
   'field-pf-soja': { parcelKey: 'PF-SOJA-001', regionCode: 'SC-BO' },
   'field-pf-maiz': { parcelKey: 'PF-MAIZ-001', regionCode: 'SC-BO' },
   'field-pf-trigo': { parcelKey: 'PF-TRIGO-001', regionCode: 'SC-BO' },
+  'field-lucia-soja': { parcelKey: 'LUCIA-SOJA-10', regionCode: 'SC-BO' },
+  'field-rosa-soja': { parcelKey: 'ROSA-SOJA-500', regionCode: 'SC-BO' },
 };
 
 let cachedLinks: Map<string, FieldGeodataLink> | null = null;

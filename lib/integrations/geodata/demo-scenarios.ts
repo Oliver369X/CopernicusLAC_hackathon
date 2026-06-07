@@ -100,6 +100,22 @@ export const DEMO_FIELD_SCENARIOS: readonly DemoFieldScenario[] = [
     highlight: 'Trigo 5 ha · alerta roya',
     areaHa: 5,
   },
+  {
+    fieldId: 'field-lucia-soja',
+    parcelKey: 'LUCIA-SOJA-10',
+    regionCode: 'SC-BO',
+    persona: 'smallholder',
+    highlight: '10 ha · historial 3 años · sequía 2024',
+    areaHa: 10,
+  },
+  {
+    fieldId: 'field-rosa-soja',
+    parcelKey: 'ROSA-SOJA-500',
+    regionCode: 'SC-BO',
+    persona: 'cooperative',
+    highlight: '500 ha · 5 sectores · tendencias 2023-2025',
+    areaHa: 500,
+  },
 ] as const;
 
 export function getDemoScenario(fieldId: string): DemoFieldScenario | undefined {

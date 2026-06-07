@@ -565,6 +565,12 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
             <span className="text-muted-foreground">{personaMeta.subtitle}</span>
 
+            {payload?.historyWindow && (
+              <Badge variant="secondary" className="text-[10px]">
+                Histórico {payload.historyWindow}
+              </Badge>
+            )}
+
             {payload?.highlight && (
 
               <span className="w-full sm:w-auto sm:ml-auto text-foreground/80">
@@ -725,12 +731,24 @@ export function GeodataLabPanel({ fieldId, crop, localSeries, audience = 'cooper
 
               <p className="text-sm font-medium mb-2">
 
-                {plainLanguage ? 'Verdor mes a mes' : `Serie NDVI histórica · ${series?.count ?? 0} escenas`}
+                {plainLanguage
+                  ? payload?.historyWindow
+                    ? 'Verdor en 3 años'
+                    : 'Verdor mes a mes'
+                  : payload?.historyWindow
+                    ? `Serie NDVI · ${payload.historyWindow} · ${series?.count ?? 0} escenas`
+                    : `Serie NDVI histórica · ${series?.count ?? 0} escenas`}
 
                 {localSeries && localSeries.length > 0 && (
                   <span className="text-muted-foreground font-normal">
                     {' '}
-                    · {plainLanguage ? 'últimas semanas' : `DB local ${localSeries.length} pts (90d)`}
+                    · {plainLanguage
+                      ? payload?.historyWindow
+                        ? 'mediciones locales 3 años'
+                        : 'últimas semanas'
+                      : payload?.historyWindow
+                        ? `DB local ${localSeries.length} pts (3y)`
+                        : `DB local ${localSeries.length} pts (90d)`}
                   </span>
                 )}
 

@@ -71,6 +71,7 @@ export interface GeodataLabPayload {
   persona?: DemoPersonaId;
   personaLabel?: string;
   highlight?: string;
+  historyWindow?: string;
   intelligence?: IntelligencePackage | null;
   series?: ParcelSeriesResponse | null;
   region?: IntelligencePackage | null;

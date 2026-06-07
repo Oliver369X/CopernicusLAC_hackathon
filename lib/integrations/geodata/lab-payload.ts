@@ -1,4 +1,9 @@
 import {
+  getHistoryDaysForField,
+  getHistoryStartForField,
+  historyWindowLabel,
+} from '@/lib/integrations/geodata/history-window';
+import {
   getParcelIntelligence,
   getParcelSeries,
   getRegionIntelligence,
@@ -25,9 +30,14 @@ export async function buildGeodataLabPayload(fieldId: string): Promise<GeodataLa
   const parcelKey = link?.parcelKey;
   const regionCode = link?.regionCode ?? 'SC-BO';
 
+  const days = getHistoryDaysForField(fieldId);
+  const startDate = getHistoryStartForField(fieldId);
+
   const [intelligence, series, region] = await Promise.all([
     parcelKey ? getParcelIntelligence(parcelKey, true) : Promise.resolve(null),
-    parcelKey ? getParcelSeries(parcelKey, 365, 'optical') : Promise.resolve(null),
+    parcelKey
+      ? getParcelSeries(parcelKey, days, 'optical', startDate)
+      : Promise.resolve(null),
     getRegionIntelligence(regionCode),
   ]);
 
@@ -40,6 +50,7 @@ export async function buildGeodataLabPayload(fieldId: string): Promise<GeodataLa
     persona,
     personaLabel: persona ? DEMO_PERSONAS[persona].label : undefined,
     highlight: scenario?.highlight,
+    historyWindow: historyWindowLabel(fieldId),
     intelligence,
     series,
     region,

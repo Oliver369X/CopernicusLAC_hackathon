@@ -44,10 +44,32 @@ test.describe('prod personas — cooperativa vs pequeña agricultora', () => {
 
     expect(criticalJsErrors(errors)).toEqual([]);
   });
+
+  test('lucía 10 ha: lab con historial 3 años', async ({ page }) => {
+    const errors = attachPageErrorCollector(page);
+    await loginAsDemo(page, 'lucia@doctorsoya.app');
+
+    await page.goto('/science/soybean?field=field-lucia-soja&tab=lab');
+    await expect(page.getByText(/2023|3 años|Histórico/i).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/10 ha|sequía 2024/i).first()).toBeVisible({ timeout: 20_000 });
+
+    expect(criticalJsErrors(errors)).toEqual([]);
+  });
+
+  test('rosa 500 ha: lab cooperativa + tendencias', async ({ page }) => {
+    const errors = attachPageErrorCollector(page);
+    await loginAsDemo(page, 'rosa@doctorsoya.app');
+
+    await page.goto('/science/soybean?field=field-rosa-soja&tab=lab');
+    await expect(page.getByText(/500 ha|2023|tendencias/i).first()).toBeVisible({ timeout: 30_000 });
+
+    expect(criticalJsErrors(errors)).toEqual([]);
+  });
 });
 
 test.describe('prod onboarding smoke', () => {
   test('onboarding page loads', async ({ page }) => {
+    await loginAsDemo(page, 'maria@doctorsoya.app');
     await page.goto('/onboarding');
     await expect(page.getByRole('heading', { name: /Tu finca/i })).toBeVisible({ timeout: 20_000 });
   });

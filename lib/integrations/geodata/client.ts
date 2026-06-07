@@ -188,11 +188,19 @@ export function mapParcelSeries(raw: Record<string, unknown>): ParcelSeriesRespo
 export async function getParcelSeries(
   parcelKey: string,
   days = 365,
-  featureSet: 'optical' | 'sar' = 'optical'
+  featureSet: 'optical' | 'sar' = 'optical',
+  startDate?: string,
+  endDate?: string
 ): Promise<ParcelSeriesResponse | null> {
+  const params: Record<string, string> = {
+    feature_set: featureSet,
+    days: String(days),
+  };
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
   const raw = await fetchJson<Record<string, unknown>>(
     `/v1/features/parcel/${encodeURIComponent(parcelKey)}/series`,
-    { feature_set: featureSet, days: String(days) }
+    params
   );
   return raw ? mapParcelSeries(raw) : null;
 }
