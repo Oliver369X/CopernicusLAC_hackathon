@@ -55,12 +55,13 @@ export const navGroups: NavGroup[] = [
 ];
 
 const pageTitles: Record<string, string> = {
+  '/inicio': 'Tu finca hoy',
   '/dashboard': 'Panel de control',
-  '/monitor': 'Monitoreo',
+  '/monitor': 'Mapa de mi parcela',
   '/analytics': 'Analítica',
   '/insights': 'Perspectivas avanzadas',
-  '/science': 'Laboratorio científico',
-  '/alerts': 'Alertas y notificaciones',
+  '/science': 'Cómo va mi cultivo',
+  '/alerts': 'Avisos de tu parcela',
   '/alerts/settings': 'Configuración de alertas',
   '/gestion': 'Gestión de finca',
   '/onboarding': 'Configuración inicial',
@@ -72,10 +73,12 @@ export const MARKETING_ROUTES = ['/', '/privacidad'];
 export const FIELD_ROUTE_PREFIX = '/field';
 export const SIDEBAR_COLLAPSED_KEY = 'doctor-soya-sidebar-collapsed';
 
+const ROOT_NAV_HREFS = ['/dashboard', '/inicio'];
+
 export function isActivePath(pathname: string, href: string): boolean {
   return (
     pathname === href ||
-    (href !== '/dashboard' && pathname.startsWith(href))
+    (!ROOT_NAV_HREFS.includes(href) && pathname.startsWith(href))
   );
 }
 

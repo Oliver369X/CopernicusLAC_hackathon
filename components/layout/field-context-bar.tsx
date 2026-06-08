@@ -11,8 +11,7 @@ import {
 } from '@/lib/navigation/context-links';
 import { getCropLabelEs } from '@/lib/design/tokens';
 import { useFields } from '@/hooks/use-fields';
-import { useOrgBilling } from '@/hooks/use-org-billing';
-import { isSmallFarmerExperience } from '@/lib/navigation/experience';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 import type { ScienceCropId } from '@/lib/science/types';
 import { isScienceCrop } from '@/lib/science/crops/registry';
 
@@ -30,8 +29,7 @@ export function FieldContextBar({
   currentPage,
 }: FieldContextBarProps) {
   const { getFieldById } = useFields();
-  const { billing } = useOrgBilling();
-  const simpleMode = isSmallFarmerExperience(billing);
+  const { plain: simpleMode } = usePlainExperience();
   const field = getFieldById(fieldId);
   if (!field) return null;
 
@@ -56,6 +54,15 @@ export function FieldContextBar({
           label: 'Mapa',
           href: buildMonitorUrl(ctx),
         },
+        ...(resolvedCrop
+          ? [
+              {
+                key: 'science' as const,
+                label: 'Cultivo',
+                href: buildScienceUrl({ ...ctx, crop: resolvedCrop, tab: 'lab' }),
+              },
+            ]
+          : []),
       ]
     : [
         {

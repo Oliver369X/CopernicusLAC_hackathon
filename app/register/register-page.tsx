@@ -51,7 +51,7 @@ export default function RegisterPage() {
     }
 
     toast.success('Cuenta creada correctamente.');
-    router.push('/onboarding');
+    router.push('/onboarding?done=/inicio');
     router.refresh();
   };
 

@@ -16,8 +16,7 @@ import { ZoneInsightCard } from '@/components/monitor/zone-insight-card';
 import { AuraAssistantPanel } from '@/components/agents/aura-assistant-panel';
 import { healthLabelEs, type HealthLevel } from '@/lib/design/tokens';
 import { formatDecimal } from '@/lib/i18n/format-number';
-import { useOrgBilling } from '@/hooks/use-org-billing';
-import { isSmallFarmerExperience } from '@/lib/navigation/experience';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 import { ASSISTANT_NAME } from '@/lib/constants/app-brand';
 import { buildScreenContext } from '@/lib/agents/screen-context';
 import { Sparkles } from 'lucide-react';
@@ -35,8 +34,7 @@ export function ZoneDetailSheet({
   open,
   onOpenChange,
 }: ZoneDetailSheetProps) {
-  const { billing } = useOrgBilling();
-  const simpleMode = isSmallFarmerExperience(billing);
+  const { plain: simpleMode } = usePlainExperience();
   const [askAura, setAskAura] = useState(false);
 
   const screenContext = useMemo(() => {

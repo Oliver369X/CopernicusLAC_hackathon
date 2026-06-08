@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,6 +41,7 @@ export interface AlertListCardProps {
   fieldLabel: string;
   zoneLabel: string;
   onResolve?: (id: string) => void;
+  plain?: boolean;
 }
 
 export function AlertListCard({
@@ -47,6 +49,7 @@ export function AlertListCard({
   fieldLabel,
   zoneLabel,
   onResolve,
+  plain = false,
 }: AlertListCardProps) {
   return (
     <Card
@@ -81,11 +84,13 @@ export function AlertListCard({
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   <Badge variant={severityBadgeVariant(alert.severity)} className="shrink-0">
-                    {labelAlertSeverity(alert.severity)}
+                    {labelAlertSeverity(alert.severity, plain)}
                   </Badge>
-                  <Badge variant="outline" className="shrink-0">
-                    {labelAlertType(alert.type)}
-                  </Badge>
+                  {!plain && (
+                    <Badge variant="outline" className="shrink-0">
+                      {labelAlertType(alert.type, plain)}
+                    </Badge>
+                  )}
                   {alert.resolved && (
                     <Badge variant="secondary" className="shrink-0 gap-1">
                       <CheckCircle2 className="h-3 w-3" />
@@ -98,11 +103,13 @@ export function AlertListCard({
                 {alert.description}
               </p>
               <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                <span>Campo: {fieldLabel}</span>
-                <span>Zona: {zoneLabel}</span>
+                <span>{plain ? 'Parcela' : 'Campo'}: {fieldLabel}</span>
+                {!plain && <span>Zona: {zoneLabel}</span>}
               </div>
               <div className="rounded-lg border border-primary/25 bg-primary/5 p-3 text-sm leading-relaxed">
-                <span className="font-medium text-primary">Acción recomendada: </span>
+                <span className="font-medium text-primary">
+                  {plain ? 'Qué podés hacer: ' : 'Acción recomendada: '}
+                </span>
                 <span className="text-foreground">{alert.recommendation}</span>
               </div>
               <p className="text-sm tabular-nums text-muted-foreground">
@@ -110,16 +117,27 @@ export function AlertListCard({
               </p>
             </div>
           </div>
-          {!alert.resolved && onResolve && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-10 w-full shrink-0 sm:w-auto"
-              onClick={() => onResolve(alert.id)}
-            >
-              Marcar resuelta
-            </Button>
-          )}
+          <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
+            {plain && (
+              <Button size="sm" className="h-10 min-h-[44px] w-full sm:w-auto" asChild>
+                <Link
+                  href={`/field/capture?field=${alert.fieldId}&zoneId=${alert.zoneId}`}
+                >
+                  Ir a ver
+                </Link>
+              </Button>
+            )}
+            {!alert.resolved && onResolve && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-10 min-h-[44px] w-full sm:w-auto"
+                onClick={() => onResolve(alert.id)}
+              >
+                {plain ? 'Ya lo revisé' : 'Marcar resuelta'}
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

@@ -15,7 +15,7 @@ import { parseJsonResponse } from '@/lib/fetch/parse-json-response';
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') ?? '/dashboard';
+  const redirect = searchParams.get('redirect') ?? '/inicio';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

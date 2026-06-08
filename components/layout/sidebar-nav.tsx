@@ -10,8 +10,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { isActivePath } from '@/lib/navigation/config';
-import { getNavGroupsForBilling } from '@/lib/navigation/experience';
-import { useOrgBilling } from '@/hooks/use-org-billing';
+import { getNavGroupsForExperience } from '@/lib/navigation/experience';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 
 interface NavLinkProps {
   href: string;
@@ -86,8 +86,8 @@ export function SidebarNav({
   className,
 }: SidebarNavProps) {
   const pathname = usePathname();
-  const { billing } = useOrgBilling();
-  const navGroups = getNavGroupsForBilling(billing?.billingModel);
+  const { billing, technicalMode } = usePlainExperience();
+  const navGroups = getNavGroupsForExperience(billing, technicalMode);
 
   return (
     <nav

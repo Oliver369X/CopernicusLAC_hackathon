@@ -55,8 +55,9 @@ import type { ScienceCropId } from '@/lib/science/types';
 import { mergeLabDemoFields } from '@/lib/integrations/geodata/demo-fields';
 import { getHistoryDaysForField, hasThreeYearHistory } from '@/lib/integrations/geodata/history-window';
 import type { LabGoalOption } from '@/lib/onboarding/science-lab-copy';
-import { useOrgBilling } from '@/hooks/use-org-billing';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 import { isSmallFarmerExperience } from '@/lib/navigation/experience';
+import { useOrgBilling } from '@/hooks/use-org-billing';
 
 const HYPOTHESIS_TEMPLATES: Partial<Record<ScienceCropId, string[]>> = {
   soybean: [
@@ -85,11 +86,16 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   const searchParams = useSearchParams();
   const { fields } = useFields();
   const { billing } = useOrgBilling();
-  const simpleMode = isSmallFarmerExperience(billing);
+  const { plain } = usePlainExperience();
+  const simpleMode = plain;
+  const isSmallFarmer = isSmallFarmerExperience(billing);
   const baseCropFields = fields.filter((f) => f.crop === profile.crop);
-  const cropFields = simpleMode
-    ? baseCropFields
-    : mergeLabDemoFields(baseCropFields, profile.crop);
+  const cropFields =
+    simpleMode && isSmallFarmer
+      ? baseCropFields
+      : simpleMode
+        ? baseCropFields
+        : mergeLabDemoFields(baseCropFields, profile.crop);
   const [fieldId, setFieldId] = useState('');
   const [zoneId, setZoneId] = useState('');
   const [analysis, setAnalysis] = useState<MultisensorAnalysis | null>(null);
@@ -145,7 +151,7 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
     const urlZone = searchParams.get('zone');
     const urlTab = searchParams.get('tab');
     const urlAsOf = searchParams.get('asOf');
-    if (urlTab === 'lab' || urlTab === 'client') setTab(urlTab);
+    if (urlTab === 'lab' || urlTab === 'client') setTab(plain ? 'lab' : urlTab);
     if (urlAsOf) setAsOf(urlAsOf);
 
     if (urlField && cropFields.some((f) => f.id === urlField)) {
@@ -160,7 +166,13 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
       setFieldId(cropFields[0].id);
       setZoneId(cropFields[0].zones[0]?.id ?? '');
     }
-  }, [searchParams, cropFields, fieldId]);
+  }, [searchParams, cropFields, fieldId, plain]);
+
+  useEffect(() => {
+    if (plain && tab === 'client') {
+      setTab('lab');
+    }
+  }, [plain, tab]);
 
   const loadData = useCallback(async () => {
     if (!selectedField) return;
@@ -379,37 +391,41 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
   return (
     <PageContainer size="wide" className="space-y-6">
       <PageHeader
-        title={simpleMode ? 'Seguimiento de tu parcela' : undefined}
+        title={simpleMode ? 'Cómo va mi cultivo' : undefined}
         description={
           simpleMode
-            ? 'Mirá cómo va tu cultivo con fotos del satélite — en palabras simples.'
+            ? 'Mirá cómo evolucionó tu parcela — en palabras simples.'
             : `${profile.scientificName} · Firma temporal multisensor (S2 óptico + S1 radar).`
         }
         actions={
-          <HorizontalScrollRow aria-label="Vistas del laboratorio">
+          <HorizontalScrollRow aria-label="Vistas del cultivo">
             <ScienceLabTourTrigger simpleMode={simpleMode} className="h-10 shrink-0" />
-            <Button
-              variant={tab === 'client' ? 'default' : 'outline'}
-              size="sm"
-              className="h-10 shrink-0 snap-start"
-              onClick={() => setTabAndSync('client')}
-            >
-              {simpleMode ? 'Resumen' : 'Vista cliente'}
-            </Button>
-            <Button
-              variant={tab === 'lab' ? 'default' : 'outline'}
-              size="sm"
-              className="h-10 shrink-0 snap-start"
-              onClick={() => setTabAndSync('lab')}
-            >
-              <FlaskConical className="h-4 w-4 mr-1" />
-              {simpleMode ? 'Seguimiento' : 'Experimentos'}
-            </Button>
-            <Button variant="outline" size="sm" className="h-10 shrink-0 snap-start" asChild>
-              <Link href="/science/bibliography">
-                <BookOpen className="h-4 w-4 mr-1" /> Bibliografía
-              </Link>
-            </Button>
+            {!simpleMode && (
+              <>
+                <Button
+                  variant={tab === 'client' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-10 shrink-0 snap-start"
+                  onClick={() => setTabAndSync('client')}
+                >
+                  Vista cliente
+                </Button>
+                <Button
+                  variant={tab === 'lab' ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-10 shrink-0 snap-start"
+                  onClick={() => setTabAndSync('lab')}
+                >
+                  <FlaskConical className="h-4 w-4 mr-1" />
+                  Experimentos
+                </Button>
+                <Button variant="outline" size="sm" className="h-10 shrink-0 snap-start" asChild>
+                  <Link href="/science/bibliography">
+                    <BookOpen className="h-4 w-4 mr-1" /> Bibliografía
+                  </Link>
+                </Button>
+              </>
+            )}
           </HorizontalScrollRow>
         }
       />
@@ -423,12 +439,14 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
         />
       )}
 
-      <DataProvenanceBanner
-        provenance={analysis?.provenance}
-        timeseriesSource={timeseriesMeta.source}
-        dataQuality={timeseriesMeta.dataQuality}
-        parcelKey={timeseriesMeta.parcelKey}
-      />
+      {!simpleMode && (
+        <DataProvenanceBanner
+          provenance={analysis?.provenance}
+          timeseriesSource={timeseriesMeta.source}
+          dataQuality={timeseriesMeta.dataQuality}
+          parcelKey={timeseriesMeta.parcelKey}
+        />
+      )}
 
       <Card className="glass-card">
         <CardContent className="pt-6">
@@ -440,13 +458,14 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
             setZoneId(z);
             syncUrl(id, z, tab, asOf || undefined);
           }}>
-            <SelectTrigger className="h-10 w-full min-w-[140px] shrink-0 sm:w-[200px]"><SelectValue placeholder="Campo" /></SelectTrigger>
+            <SelectTrigger className="h-10 w-full min-w-[140px] shrink-0 sm:w-[200px]"><SelectValue placeholder={simpleMode ? 'Parcela' : 'Campo'} /></SelectTrigger>
             <SelectContent>
               {cropFields.map((f) => (
                 <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {!simpleMode && selectedField.zones.length > 1 && (
           <Select
             value={zoneId}
             onValueChange={(z) => {
@@ -461,7 +480,8 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
               ))}
             </SelectContent>
           </Select>
-          {(analysis?.provenance?.availableDates?.length ?? 0) > 0 && (
+          )}
+          {!simpleMode && (analysis?.provenance?.availableDates?.length ?? 0) > 0 && (
             <Select
               value={asOf || 'latest'}
               onValueChange={handleAsOfChange}
@@ -479,6 +499,7 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
               </SelectContent>
             </Select>
           )}
+          {!simpleMode && (
           <Select value={chartMode} onValueChange={(v) => setChartMode(v as '90d' | 'week')}>
             <SelectTrigger className="h-10 w-full min-w-[120px] shrink-0 sm:w-[140px]">
               <SelectValue />
@@ -488,9 +509,11 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
               <SelectItem value="week">Modo semana</SelectItem>
             </SelectContent>
           </Select>
+          )}
           <Button onClick={loadData} disabled={loading} variant="outline" className="h-10 shrink-0">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Actualizar'}
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : simpleMode ? 'Actualizar' : 'Actualizar'}
           </Button>
+          {!simpleMode && (
           <Button
             onClick={refreshSatellite}
             disabled={refreshing || loading}
@@ -505,7 +528,8 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
               </>
             )}
           </Button>
-          {analysis && (
+          )}
+          {!simpleMode && analysis && (
             <>
               <Button
                 variant="outline"
@@ -777,7 +801,7 @@ function ScienceCropClientInner({ profile }: ScienceCropClientProps) {
         </Card>
       )}
 
-      {analysis && (
+      {analysis && !simpleMode && (
         <>
           <Card className="glass-card">
             <CardHeader>

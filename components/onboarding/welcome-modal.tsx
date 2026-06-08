@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sprout, Upload, X, Satellite } from 'lucide-react';
+import { Sprout, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,13 +11,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 
 const STORAGE_KEY = 'ds_welcome_dismissed';
-const DEMO_TOUR_KEY = 'ds_science_lab_tour_v1';
 
 export function WelcomeModal() {
   const [open, setOpen] = useState(false);
   const [hasFields, setHasFields] = useState(false);
+  const { plain } = usePlainExperience();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -28,11 +29,7 @@ export function WelcomeModal() {
       .then((data: { fieldCount?: number }) => {
         const count = data.fieldCount ?? 0;
         setHasFields(count > 0);
-        if (count === 0) {
-          setOpen(true);
-        } else if (localStorage.getItem(DEMO_TOUR_KEY) !== '1') {
-          setOpen(true);
-        }
+        setOpen(true);
       })
       .catch(() => {});
   }, []);
@@ -48,48 +45,52 @@ export function WelcomeModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sprout className="h-5 w-5 text-primary" />
-            Bienvenida a Doctor Soya
+            Bienvenida
           </DialogTitle>
           <DialogDescription>
             {hasFields
-              ? 'Ya tenés parcelas cargadas. ¿Querés un tour rápido del historial satelital?'
-              : 'Empezá registrando tu parcela en el mapa o importando un archivo con tus lotes.'}
+              ? plain
+                ? 'Tu parcela ya está registrada. Empezá viendo cómo va hoy.'
+                : 'Ya tenés parcelas cargadas.'
+              : plain
+                ? 'Marcá tu parcela en el mapa para recibir lecturas del satélite.'
+                : 'Empezá registrando tu parcela en el mapa o importando un archivo con tus lotes.'}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3 pt-2">
           {hasFields ? (
             <>
               <Button asChild className="min-h-[44px] w-full">
-                <Link href="/science" onClick={dismiss}>
-                  <Satellite className="h-4 w-4 mr-2" />
-                  Tour del satélite (2 min)
+                <Link href="/inicio" onClick={dismiss}>
+                  Ver mi finca hoy
                 </Link>
               </Button>
               <Button asChild variant="outline" className="min-h-[44px] w-full">
-                <Link href="/dashboard" onClick={dismiss}>
-                  Ir al panel
+                <Link href="/science" onClick={dismiss}>
+                  Cómo va mi cultivo
                 </Link>
               </Button>
             </>
           ) : (
             <>
-          <Button asChild className="min-h-[44px] w-full">
-            <Link href="/setup/parcel" onClick={dismiss}>
-              <Sprout className="h-4 w-4 mr-2" />
-              Registrar mi parcela
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="min-h-[44px] w-full">
-            <Link href="/onboarding?step=2&mode=import" onClick={dismiss}>
-              <Upload className="h-4 w-4 mr-2" />
-              Importar archivo
-            </Link>
-          </Button>
+              <Button asChild className="min-h-[44px] w-full">
+                <Link href="/setup/parcel" onClick={dismiss}>
+                  <Sprout className="h-4 w-4 mr-2" />
+                  Registrar mi parcela
+                </Link>
+              </Button>
+              {!plain && (
+                <Button asChild variant="outline" className="min-h-[44px] w-full">
+                  <Link href="/setup/import" onClick={dismiss}>
+                    Importar archivo
+                  </Link>
+                </Button>
+              )}
             </>
           )}
-          <Button variant="ghost" className="min-h-[44px]" onClick={dismiss}>
-            <X className="h-4 w-4 mr-2" />
-            Después
+          <Button variant="ghost" size="sm" onClick={dismiss} className="gap-2">
+            <X className="h-4 w-4" />
+            Cerrar
           </Button>
         </div>
       </DialogContent>

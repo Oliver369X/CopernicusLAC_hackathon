@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { PageContainer } from '@/components/layout/page-header';
 import { ParcelStep } from '@/components/onboarding/parcel-step';
 import { TeamInviteStep } from '@/components/onboarding/team-invite-step';
-import { SatelliteSyncProgress } from '@/components/onboarding/satellite-sync-progress';
+import { SatelliteSyncProgressPlain } from '@/components/onboarding/satellite-sync-progress-plain';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 import { toast } from 'sonner';
 
 export default function OnboardingPage() {
@@ -26,7 +27,9 @@ export default function OnboardingPage() {
   const [orgName, setOrgName] = useState('');
   const [country, setCountry] = useState('BO');
   const [profileLoaded, setProfileLoaded] = useState(false);
+  const { plain } = usePlainExperience();
   const [onboardingPhase, setOnboardingPhase] = useState<'team' | 'sync'>('team');
+  const donePath = searchParams.get('done') ?? '/inicio';
 
   useEffect(() => {
     if (stepParam === '2') setStep(2);
@@ -80,9 +83,12 @@ export default function OnboardingPage() {
 
       {step === 1 && (
         <div className="space-y-6">
-          <h1 className="text-2xl font-bold">Tu finca</h1>
+          <h1 className="text-2xl font-bold">¿Cómo se llama tu finca?</h1>
+          <p className="text-sm text-muted-foreground">
+            Solo necesitamos un nombre para identificar tu parcela.
+          </p>
           <div className="space-y-2">
-            <Label htmlFor="org-name">Nombre de la organización</Label>
+            <Label htmlFor="org-name">Nombre de tu finca</Label>
             <Input
               id="org-name"
               value={orgName}
@@ -122,30 +128,33 @@ export default function OnboardingPage() {
         />
       )}
 
-      {step === 3 && onboardingPhase === 'team' && (
+      {step === 3 && !plain && onboardingPhase === 'team' && (
         <TeamInviteStep
           onContinue={() => setOnboardingPhase('sync')}
           onSkip={() => setOnboardingPhase('sync')}
         />
       )}
 
-      {step === 3 && onboardingPhase === 'sync' && (
+      {step === 3 && (plain || onboardingPhase === 'sync') && (
         <div className="space-y-6 text-center py-8">
           <h2 className="text-xl font-semibold">¡Listo!</h2>
-          <SatelliteSyncProgress />
+          <SatelliteSyncProgressPlain />
           <p className="text-muted-foreground text-sm">
-            La sincronización satelital puede tardar hasta 48 h según cantidad de zonas. Podés
-            monitorear el progreso en el panel.
+            {plain
+              ? 'Te avisamos cuando llegue la primera foto del satélite de tu parcela.'
+              : 'La sincronización satelital puede tardar hasta 48 h según cantidad de zonas. Podés monitorear el progreso en el panel.'}
           </p>
           <Button
             className="min-h-[44px]"
-            onClick={() => router.push('/dashboard?onboarded=1')}
+            onClick={() => router.push(donePath)}
           >
-            Ir al panel
+            {plain ? 'Ver mi finca' : 'Ir al panel'}
           </Button>
-          <Button variant="outline" className="min-h-[44px]" asChild>
-            <Link href="/science">Ver tutorial satelital</Link>
-          </Button>
+          {!plain && (
+            <Button variant="outline" className="min-h-[44px]" asChild>
+              <Link href="/science">Ver tutorial satelital</Link>
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => setStep(2)}>
             Agregar más parcelas
           </Button>

@@ -1,26 +1,23 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { shouldBlockTechnicalRoute } from '@/lib/navigation/experience';
 
-export function CooperativeExperienceGuard({
-  children,
-  redirectTo = '/inicio',
-}: {
-  children: React.ReactNode;
-  redirectTo?: string;
-}) {
+export function PlainExperienceGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { plain, loading } = usePlainExperience();
-  const blocked = !loading && plain;
+  const pathname = usePathname();
+  const { plain, technicalMode, billing, loading } = usePlainExperience();
+  const blocked =
+    !loading && plain && shouldBlockTechnicalRoute(pathname, billing, technicalMode);
 
   useEffect(() => {
     if (blocked) {
-      router.replace(redirectTo);
+      router.replace('/inicio');
     }
-  }, [loading, blocked, router, redirectTo]);
+  }, [blocked, router]);
 
   if (loading || blocked) {
     return (

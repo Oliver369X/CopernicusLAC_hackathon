@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { FieldPolygonPreview } from '@/components/fields/field-polygon-preview';
 import { getCropLabelEs, healthLabelEs, type HealthLevel } from '@/lib/design/tokens';
 import { formatDecimal } from '@/lib/i18n/format-number';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { labelHealthPlain } from '@/lib/i18n/plain-labels';
 
 interface FieldDetailSheetProps {
   field: Field | null;
@@ -29,6 +31,7 @@ export function FieldDetailSheet({
   onOpenChange,
   onZoneSelect,
 }: FieldDetailSheetProps) {
+  const { plain } = usePlainExperience();
   if (!field) return null;
 
   return (
@@ -39,7 +42,9 @@ export function FieldDetailSheet({
           <SheetDescription className="flex flex-wrap gap-2 pt-1">
             <Badge variant="secondary">{getCropLabelEs(field.crop)}</Badge>
             <Badge variant="outline">
-              Salud: {healthLabelEs[field.overallHealth as HealthLevel]}
+              {plain
+                ? labelHealthPlain(field.overallHealth as HealthLevel)
+                : `Salud: ${healthLabelEs[field.overallHealth as HealthLevel]}`}
             </Badge>
           </SheetDescription>
         </SheetHeader>
@@ -63,7 +68,7 @@ export function FieldDetailSheet({
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Zonas de manejo</p>
+            <p className="text-sm font-medium">{plain ? 'Partes de la parcela' : 'Zonas de manejo'}</p>
             {field.zones.length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin zonas registradas.</p>
             ) : (
@@ -77,7 +82,10 @@ export function FieldDetailSheet({
                     >
                       <span className="font-medium">{zone.name}</span>
                       <span className="text-muted-foreground">
-                        {formatDecimal(zone.area)} ha · NDVI {formatDecimal(zone.ndviAverage, 2)}
+                        {formatDecimal(zone.area)} ha
+                        {plain
+                          ? ` · ${labelHealthPlain(zone.health as HealthLevel)}`
+                          : ` · NDVI ${formatDecimal(zone.ndviAverage, 2)}`}
                       </span>
                     </button>
                   </li>

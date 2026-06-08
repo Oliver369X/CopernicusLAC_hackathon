@@ -32,11 +32,20 @@ import { APP_NAME } from '@/lib/constants/app-brand';
 import { OnboardingGuard } from '@/components/auth/onboarding-guard';
 import { AuraAssistantFab } from '@/components/agents/aura-assistant-fab';
 import { AuraLogo } from '@/components/brand/aura-logo';
+import { TechnicalModeToggle } from '@/components/layout/technical-mode-toggle';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { getDefaultHomeHref } from '@/lib/navigation/experience';
+
+function useHomeHref() {
+  const { billing, technicalMode } = usePlainExperience();
+  return getDefaultHomeHref(billing, technicalMode);
+}
 
 function BrandMark({ className }: { className?: string }) {
+  const homeHref = useHomeHref();
   return (
     <Link
-      href="/dashboard"
+      href={homeHref}
       className={cn('flex shrink-0 items-center justify-center', className)}
       aria-label={`${APP_NAME} — inicio`}
     >
@@ -46,9 +55,10 @@ function BrandMark({ className }: { className?: string }) {
 }
 
 function Brand({ collapsed = false }: { collapsed?: boolean }) {
+  const homeHref = useHomeHref();
   return (
     <Link
-      href="/dashboard"
+      href={homeHref}
       className={cn(
         'group flex items-center gap-3 rounded-lg transition-opacity hover:opacity-90',
         collapsed ? 'justify-center px-0' : 'px-1'
@@ -100,6 +110,7 @@ function DesktopSidebar({
       <SidebarNav collapsed={collapsed} className="flex-1" />
 
       <div className="shrink-0 space-y-2 border-t border-sidebar-border p-3">
+        <TechnicalModeToggle collapsed={collapsed} />
         <AuthHeaderActions layout={collapsed ? 'collapsed' : 'sidebar'} />
         <Button
           type="button"
@@ -160,7 +171,8 @@ function MobileNavSheet({
             onNavigate={() => onOpenChange(false)}
             className="flex-1 px-2"
           />
-          <div className="shrink-0 border-t border-sidebar-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="shrink-0 space-y-3 border-t border-sidebar-border p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <TechnicalModeToggle />
             <AuthHeaderActions layout="sidebar" />
           </div>
         </div>

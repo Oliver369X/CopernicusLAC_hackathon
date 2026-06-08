@@ -64,8 +64,11 @@ import { FieldContextBar } from '@/components/layout/field-context-bar';
 import { buildScienceUrl } from '@/lib/navigation/context-links';
 import { ZoneDetailSheet } from '@/components/fields/zone-detail-sheet';
 import type { FieldZone } from '@/lib/types/field';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { MonitorPlainView } from '@/components/monitor/monitor-plain-view';
 
 function MonitorContent() {
+  const { plain } = usePlainExperience();
   const router = useRouter();
   const searchParams = useSearchParams();
   const cropFilter = searchParams.get('crop');
@@ -329,6 +332,31 @@ function MonitorContent() {
     scienceHealth && scienceHealth in healthLabelEs
       ? healthLabelEs[scienceHealth as HealthLevel]
       : scienceHealth;
+
+  if (plain) {
+    return (
+      <>
+        <MonitorPlainView
+          visibleFields={visibleFields}
+          selectedField={selectedField}
+          selectedZone={selectedZone}
+          satelliteData={satelliteData}
+          satelliteSource={satelliteSource}
+          ndviScalar={ndviScalar}
+          ndmiScalar={ndmiScalar}
+          activeAlerts={activeAlerts}
+          onFieldChange={handleFieldChange}
+          onZoneClick={openZoneDetail}
+        />
+        <ZoneDetailSheet
+          zone={selectedZone}
+          field={selectedField}
+          open={zoneDetailOpen}
+          onOpenChange={setZoneDetailOpen}
+        />
+      </>
+    );
+  }
 
   return (
     <PageContainer size="wide">

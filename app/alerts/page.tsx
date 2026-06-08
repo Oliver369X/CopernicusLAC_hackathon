@@ -19,7 +19,8 @@ import {
   Filter,
   Settings,
 } from 'lucide-react';
-import { formatDataSourceLabel } from '@/lib/i18n/data-source';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { PLAIN_ALERT_FILTER_LABELS } from '@/lib/i18n/plain-labels';
 
 const FIELD_NAMES = getFieldNameMap();
 
@@ -31,7 +32,8 @@ function zoneLabel(fieldId: string, zoneId: string): string {
 }
 
 export default function AlertsPage() {
-  const { alerts, stats, resolveAlert, source } = useAlerts();
+  const { plain } = usePlainExperience();
+  const { alerts, stats, resolveAlert } = useAlerts();
   const { fields } = useFields();
   const [filterType, setFilterType] = useState<'all' | 'unresolved' | 'critical'>(
     'unresolved'
@@ -58,27 +60,39 @@ export default function AlertsPage() {
   return (
     <PageContainer size="wide">
       <PageHeader
-        description={`Motor de alertas multisensor · Fuente: ${formatDataSourceLabel(source)}`}
+        title={plain ? 'Avisos de tu parcela' : undefined}
+        description={
+          plain
+            ? 'Avisos simples sobre tu cultivo y parcela.'
+            : `Motor de alertas multisensor`
+        }
         actions={
-          <Button variant="outline" size="sm" className="h-10 gap-2" asChild>
-            <Link href="/alerts/settings">
-              <Settings className="h-4 w-4" />
-              <span className="hidden sm:inline">Configurar</span>
-            </Link>
-          </Button>
+          !plain ? (
+            <Button variant="outline" size="sm" className="h-10 gap-2" asChild>
+              <Link href="/alerts/settings">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Configurar</span>
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        <KpiStat label="Total" value={stats.total} icon={Bell} className="min-w-0" />
         <KpiStat
-          label="Sin resolver"
+          label={plain ? 'Avisos' : 'Total'}
+          value={stats.total}
+          icon={Bell}
+          className="min-w-0"
+        />
+        <KpiStat
+          label={plain ? PLAIN_ALERT_FILTER_LABELS.unresolved : 'Sin resolver'}
           value={stats.unresolved}
           icon={AlertCircle}
           variant="warning"
         />
         <KpiStat
-          label="Críticas"
+          label={plain ? PLAIN_ALERT_FILTER_LABELS.critical : 'Críticas'}
           value={stats.critical}
           icon={Zap}
           variant="danger"
@@ -97,10 +111,12 @@ export default function AlertsPage() {
           >
             {type === 'all' && <Filter className="h-4 w-4" />}
             {type === 'all'
-              ? 'Todas'
+              ? plain
+                ? PLAIN_ALERT_FILTER_LABELS.all
+                : 'Todas'
               : type === 'unresolved'
-                ? `Sin resolver (${stats.unresolved})`
-                : `Críticas (${stats.critical})`}
+                ? `${plain ? PLAIN_ALERT_FILTER_LABELS.unresolved : 'Sin resolver'} (${stats.unresolved})`
+                : `${plain ? PLAIN_ALERT_FILTER_LABELS.critical : 'Críticas'} (${stats.critical})`}
           </Button>
         ))}
       </div>
@@ -114,6 +130,7 @@ export default function AlertsPage() {
                 fieldLabel={fieldNameMap[alert.fieldId] ?? alert.fieldId}
                 zoneLabel={zoneLabel(alert.fieldId, alert.zoneId)}
                 onResolve={resolveAlert}
+                plain={plain}
               />
             </HoverLift>
           </li>
@@ -125,14 +142,18 @@ export default function AlertsPage() {
           <CardContent className="space-y-3">
             <CheckCircle2 className="mx-auto h-14 w-14 text-health-excellent opacity-70" />
             <p className="text-base font-medium text-foreground">
-              No hay alertas en este filtro
+              {plain ? 'No tenés avisos pendientes' : 'No hay alertas en este filtro'}
             </p>
             <p className="text-sm text-muted-foreground">
-              Probá «Todas» o revisá la configuración de umbrales.
+              {plain
+                ? 'Cuando algo cambie en tu parcela, te avisamos acá.'
+                : 'Probá «Todas» o revisá la configuración de umbrales.'}
             </p>
-            <Button variant="outline" size="sm" className="h-10" asChild>
-              <Link href="/alerts/settings">Ir a configuración</Link>
-            </Button>
+            {!plain && (
+              <Button variant="outline" size="sm" className="h-10" asChild>
+                <Link href="/alerts/settings">Ir a configuración</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

@@ -34,8 +34,11 @@ import { formatDateTimeEs } from '@/lib/i18n/format-date';
 import { formatDecimal } from '@/lib/i18n/format-number';
 import { labelDiseaseName } from '@/lib/i18n/observation-labels';
 import { cn } from '@/lib/utils';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { labelHealthPlain, labelMetricPlain } from '@/lib/i18n/plain-labels';
 
 export default function FieldMonitoring() {
+  const { plain } = usePlainExperience();
   const { fields, loading, fetchError } = useFields();
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
@@ -105,22 +108,40 @@ export default function FieldMonitoring() {
       )}
 
       <FieldPageIntro
-        title={selectedField.name}
-        description={`${getCropLabelEs(selectedField.crop)} · ${selectedZone.name} · índices y acciones rápidas. Sin señal: capturá fotos, revisá historial y usá mapas precargados abajo.`}
+        title={plain ? 'Fotos de mi parcela' : selectedField.name}
+        description={
+          plain
+            ? `${getCropLabelEs(selectedField.crop)} · Sacá una foto cuando veas algo raro en tu parcela.`
+            : `${getCropLabelEs(selectedField.crop)} · ${selectedZone.name} · índices y acciones rápidas. Sin señal: capturá fotos, revisá historial y usá mapas precargados abajo.`
+        }
       />
+
+      {plain && (
+        <FieldActionLink
+          href={captureHref}
+          icon={Camera}
+          title="Sacar foto ahora"
+          description="Registrá lo que ves en tu parcela"
+          variant="primary"
+        />
+      )}
 
       <div className="space-y-3">
         <Card className="glass-card">
           <CardContent className="space-y-3 p-4 pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-muted-foreground">Campo y zona</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                {plain ? 'Tu parcela' : 'Campo y zona'}
+              </p>
               <span
                 className={cn(
                   'rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide sm:text-sm',
                   healthBadgeClass[selectedZone.health as HealthLevel]
                 )}
               >
-                {healthLabelEs[selectedZone.health as HealthLevel]}
+                {plain
+                  ? labelHealthPlain(selectedZone.health as HealthLevel)
+                  : healthLabelEs[selectedZone.health as HealthLevel]}
               </span>
             </div>
             <Select value={selectedField.id} onValueChange={handleFieldChange}>
@@ -135,26 +156,28 @@ export default function FieldMonitoring() {
                 ))}
               </SelectContent>
             </Select>
-            <Select
-              value={selectedZone.id}
-              onValueChange={(zoneId) => setSelectedZoneId(zoneId)}
-            >
-              <SelectTrigger className="h-11 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {selectedField.zones.map((zone) => (
-                  <SelectItem key={zone.id} value={zone.id}>
-                    {zone.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!plain && selectedField.zones.length > 1 && (
+              <Select
+                value={selectedZone.id}
+                onValueChange={(zoneId) => setSelectedZoneId(zoneId)}
+              >
+                <SelectTrigger className="h-11 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedField.zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      {zone.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
 
             <div className="grid grid-cols-2 gap-2 pt-1 sm:gap-3">
               <FieldMetricTile
                 icon={Droplets}
-                label="Humedad del suelo"
+                label={plain ? labelMetricPlain('sarMoisture') : 'Humedad del suelo'}
                 value={`${formatDecimal(selectedZone.soilMoistureAverage, 0)}%`}
                 iconClassName="text-health-good"
               />
@@ -166,16 +189,22 @@ export default function FieldMonitoring() {
               />
               <FieldMetricTile
                 icon={Leaf}
-                label="NDVI"
-                value={formatDecimal(selectedZone.ndviAverage, 2)}
+                label={plain ? labelMetricPlain('ndvi') : 'NDVI'}
+                value={
+                  plain
+                    ? labelHealthPlain(selectedZone.health as HealthLevel)
+                    : formatDecimal(selectedZone.ndviAverage, 2)
+                }
                 iconClassName="text-health-excellent"
               />
-              <FieldMetricTile
-                icon={Waves}
-                label="NDMI"
-                value={formatDecimal(selectedZone.ndmiAverage, 2)}
-                iconClassName="text-primary"
-              />
+              {!plain && (
+                <FieldMetricTile
+                  icon={Waves}
+                  label="NDMI"
+                  value={formatDecimal(selectedZone.ndmiAverage, 2)}
+                  iconClassName="text-primary"
+                />
+              )}
             </div>
           </CardContent>
         </Card>
@@ -204,39 +233,54 @@ export default function FieldMonitoring() {
         )}
 
         <div className="space-y-2">
-          <FieldActionLink
-            href={captureHref}
-            icon={Camera}
-            title="Tomar foto para análisis"
-            description="Captura en esta zona y diagnóstico con IA"
-            variant="primary"
-          />
+          {!plain && (
+            <FieldActionLink
+              href={captureHref}
+              icon={Camera}
+              title="Tomar foto para análisis"
+              description="Captura en esta zona y diagnóstico con IA"
+              variant="primary"
+            />
+          )}
           <FieldActionLink
             href="/field/history"
             icon={History}
-            title="Historial de observaciones"
+            title={plain ? 'Mis fotos anteriores' : 'Historial de observaciones'}
             description={`${selectedZone.observationCount} registro(s) en este lote`}
           />
-          <FieldActionLink
-            icon={Download}
-            title={
-              prefetching
-                ? 'Descargando mapa...'
-                : offlineReady
-                  ? 'Mapa offline listo'
-                  : 'Descargar mapa del campo'
-            }
-            description="Capas NDVI/NDRE para uso sin conexión"
-            onClick={handlePrefetchMap}
-            disabled={prefetching}
-          />
-          <FieldActionLink
-            href="/monitor"
-            icon={Satellite}
-            title="Monitoreo satelital completo"
-            description="Vista ampliada Copernicus en el panel principal"
-            variant="ghost"
-          />
+          {!plain && (
+            <>
+              <FieldActionLink
+                icon={Download}
+                title={
+                  prefetching
+                    ? 'Descargando mapa...'
+                    : offlineReady
+                      ? 'Mapa offline listo'
+                      : 'Descargar mapa del campo'
+                }
+                description="Capas NDVI/NDRE para uso sin conexión"
+                onClick={handlePrefetchMap}
+                disabled={prefetching}
+              />
+              <FieldActionLink
+                href="/monitor"
+                icon={Satellite}
+                title="Monitoreo satelital completo"
+                description="Vista ampliada Copernicus en el panel principal"
+                variant="ghost"
+              />
+            </>
+          )}
+          {plain && (
+            <FieldActionLink
+              href="/monitor"
+              icon={Satellite}
+              title="Ver mapa de mi parcela"
+              description="Cómo se ve desde el satélite"
+              variant="ghost"
+            />
+          )}
         </div>
 
         {offlineReady && (

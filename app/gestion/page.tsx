@@ -14,8 +14,19 @@ import type { CropType } from '@/lib/mock-data/crops';
 import { FieldDetailSheet } from '@/components/fields/field-detail-sheet';
 import { ZoneDetailSheet } from '@/components/fields/zone-detail-sheet';
 import type { Field, FieldZone } from '@/lib/types/field';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
+import { labelHealthPlain } from '@/lib/i18n/plain-labels';
+import type { HealthLevel } from '@/lib/design/tokens';
+
+function fieldHealthLevel(field: Field): HealthLevel {
+  const avg = field.zones.reduce((s, z) => s + z.ndviAverage, 0) / (field.zones.length || 1);
+  if (avg >= 0.65) return 'good';
+  if (avg >= 0.45) return 'warning';
+  return 'critical';
+}
 
 export default function GestionPage() {
+  const { plain } = usePlainExperience();
   const { fields, refresh } = useFields();
   const [selectedField, setSelectedField] = useState<Field | null>(null);
   const [fieldSheetOpen, setFieldSheetOpen] = useState(false);
@@ -29,16 +40,18 @@ export default function GestionPage() {
   return (
     <PageContainer size="wide">
       <PageHeader
-        title="Gestión de finca"
-        description="Parcelas, cultivos, equipo y comunicaciones."
+        title={plain ? 'Mis parcelas' : 'Gestión de finca'}
+        description={plain ? 'Tus parcelas y cultivos.' : 'Parcelas, cultivos, equipo y comunicaciones.'}
         actions={
           <div className="flex flex-wrap gap-2">
             <Button asChild className="min-h-[44px]">
               <Link href="/setup/parcel?from=gestion">Agregar parcela</Link>
             </Button>
-            <Button asChild variant="outline" className="min-h-[44px]">
-              <Link href="/setup/import?from=gestion">Migrar desde QGIS/GIS</Link>
-            </Button>
+            {!plain && (
+              <Button asChild variant="outline" className="min-h-[44px]">
+                <Link href="/setup/import?from=gestion">Migrar desde QGIS/GIS</Link>
+              </Button>
+            )}
           </div>
         }
       />
@@ -46,9 +59,9 @@ export default function GestionPage() {
       <Tabs defaultValue="parcelas">
         <TabsList className="flex flex-wrap h-auto">
           <TabsTrigger value="parcelas">Parcelas</TabsTrigger>
-          <TabsTrigger value="cultivos">Cultivos</TabsTrigger>
-          <TabsTrigger value="equipo">Equipo</TabsTrigger>
-          <TabsTrigger value="comms">Comunicaciones</TabsTrigger>
+          {!plain && <TabsTrigger value="cultivos">Cultivos</TabsTrigger>}
+          {!plain && <TabsTrigger value="equipo">Equipo</TabsTrigger>}
+          {!plain && <TabsTrigger value="comms">Comunicaciones</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="parcelas" className="space-y-4 mt-4">
@@ -66,7 +79,10 @@ export default function GestionPage() {
               </CardHeader>
               <CardContent className="text-sm space-y-2">
                 <p>
-                  {getCropLabelEs(field.crop)} · {field.area} ha · {field.zones.length} zonas
+                  {getCropLabelEs(field.crop)} · {field.area} ha
+                  {plain
+                    ? ` · ${labelHealthPlain(fieldHealthLevel(field))}`
+                    : ` · ${field.zones.length} zonas`}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button

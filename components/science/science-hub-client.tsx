@@ -22,8 +22,7 @@ import {
 } from 'lucide-react';
 import { getDemoTourLinks } from '@/lib/integrations/geodata/demo-scenarios';
 import { ScienceLabTour, ScienceLabTourTrigger } from '@/components/onboarding/science-lab-tour';
-import { useOrgBilling } from '@/hooks/use-org-billing';
-import { isSmallFarmerExperience } from '@/lib/navigation/experience';
+import { usePlainExperience } from '@/hooks/use-plain-experience';
 import type { ScienceCropId } from '@/lib/science/types';
 import type { LucideIcon } from 'lucide-react';
 
@@ -46,8 +45,8 @@ const cropColors: Record<ScienceCropId, string> = {
 const SMALLHOLDER_CROPS: ScienceCropId[] = ['soybean', 'corn', 'wheat'];
 
 export function ScienceHubClient() {
-  const { billing } = useOrgBilling();
-  const simpleMode = isSmallFarmerExperience(billing);
+  const { plain } = usePlainExperience();
+  const simpleMode = plain;
   const allCrops = listScienceCrops();
   const crops = simpleMode
     ? allCrops.filter((c) => SMALLHOLDER_CROPS.includes(c.crop))
@@ -57,17 +56,19 @@ export function ScienceHubClient() {
     <PageContainer size="wide">
       <ScienceLabTour simpleMode={simpleMode} />
       <PageHeader
-        title={simpleMode ? 'Historial satelital' : undefined}
+        title={simpleMode ? 'Cómo va mi cultivo' : undefined}
         description={
           simpleMode
-            ? 'Mirá cómo evolucionó tu parcela con datos Sentinel. Cada lectura ayuda a cuidar la soberanía alimentaria de tu familia y comunidad.'
+            ? 'Elegí tu cultivo y seguí cómo evoluciona tu parcela — sin tecnicismos.'
             : 'Firma temporal multisensor (Sentinel-2 + Sentinel-1 + LST). Soja, trigo, maíz, café y cacao con fusión por reglas y ML baseline en paralelo.'
         }
         badge={
+          simpleMode ? undefined : (
           <Badge variant="secondary" className="gap-1">
             <FlaskConical className="h-3 w-3" />
-            {simpleMode ? 'Tu finca' : 'Copernicus'}
+            Copernicus
           </Badge>
+          )
         }
         actions={<ScienceLabTourTrigger simpleMode={simpleMode} />}
       />
